@@ -17,6 +17,7 @@ import CommissionTable from "./pages/CommissionTable";
 import GroupOverview from "./pages/GroupOverview";
 import GroupsSettings from "./pages/GroupsSettings";
 import HubDashboard from "./pages/HubDashboard";
+import AIAdvisor from "./pages/AIAdvisor";
 import Leaderboard from "./pages/Leaderboard";
 import PerformanceComparison from "./pages/PerformanceComparison";
 import Onboarding from "./pages/Onboarding";
@@ -80,6 +81,11 @@ function Router() {
       <Route path="/comparison">
         <ProtectedShell>
           <PerformanceComparison />
+        </ProtectedShell>
+      </Route>
+      <Route path="/ai-advisor">
+        <ProtectedShell>
+          <AIAdvisor />
         </ProtectedShell>
       </Route>
       <Route path="/ad-intelligence">

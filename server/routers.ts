@@ -2,6 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { customAlphabet } from "nanoid";
+import { aiRouter } from "./aiAdvisor";
 import {
   CommissionSnapshot,
   ScalingScoreData,
@@ -610,6 +611,9 @@ export const appRouter = router({
         return getAccountsSparkline(tid, input.accountIds);
       }),
   }),
+
+  /* ----- AI Advisor (Round 3) ----- */
+  ai: aiRouter,
 
   /* ----- Commission ----- */
   commission: router({

@@ -66,11 +66,12 @@
 - [x] vitest comparison delta logic (9 tests)
 
 ## Round 3 — AI แนะนำ (One-click)
-- [ ] เพิ่ม route `/ai-advisor` + เมนู sidebar
-- [ ] tRPC procedure `ai.analyze` (รับ expertRole, scope, dateRange)
-- [ ] System prompts 5 ผู้เชี่ยวชาญ (Performance / Budget / Creative / Risk / Sales) — ไม่รวม Audience
-- [ ] หน้า AIAdvisor.tsx — เลือกผู้เชี่ยวชาญ + scope + กดปุ่ม "ขอคำแนะนำ"
-- [ ] แสดงรายงานด้วย Streamdown (markdown)
+- [x] เพิ่ม route `/ai-advisor` + เมนู sidebar
+- [x] tRPC procedure `ai.analyze` + `ai.experts` (รับ expertRole, scope, dateRange)
+- [x] System prompts 5 ผู้เชี่ยวชาญ (Performance / Budget / Creative / Risk / Sales) — ไม่รวม Audience
+- [x] หน้า AIAdvisor.tsx — เลือกผู้เชี่ยวชาญ + scope + กดปุ่ม "ขอคำแนะนำ"
+- [x] แสดงรายงานด้วย Streamdown (markdown)
+- [x] vitest aiAdvisor expert registry (5 tests)
 
 ## Round 4 — Alert System
 - [ ] เพิ่ม table `alertRules`, `alertEvents`, `alertChannels` + migration

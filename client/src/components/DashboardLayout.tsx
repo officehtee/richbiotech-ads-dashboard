@@ -28,6 +28,7 @@ import { useIsMobile } from "@/hooks/useMobile";
 import {
   ArrowLeftRight,
   BarChart3,
+  Brain,
   Building2,
   ChevronRight,
   DollarSign,
@@ -84,6 +85,7 @@ const menuSections: MenuSection[] = [
     items: [
       { icon: Trophy, label: "Leaderboard", path: "/leaderboard", roles: ALL_ROLES },
       { icon: ArrowLeftRight, label: "Performance Comparison", path: "/comparison", roles: ALL_ROLES },
+      { icon: Brain, label: "AI Advisor", path: "/ai-advisor", roles: ALL_ROLES },
       { icon: Sparkles, label: "Ad Intelligence", path: "/ad-intelligence", roles: ALL_ROLES },
       { icon: Target, label: "Ad Metric Benchmark", path: "/ad-metric-benchmark", roles: ALL_ROLES },
     ],
