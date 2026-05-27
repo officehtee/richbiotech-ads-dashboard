@@ -1,4 +1,4 @@
-import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
+import { NOT_ADMIN_ERR_MSG, NOT_OWNER_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
@@ -41,5 +41,35 @@ export const adminProcedure = t.procedure.use(
         user: ctx.user,
       },
     });
+  }),
+);
+
+/** Owner-or-higher procedure (admin / owner / ceo) */
+export const ownerProcedure = t.procedure.use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+    if (!ctx.user) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
+    }
+    const allowed = ['admin', 'owner', 'ceo'];
+    if (!allowed.includes(ctx.user.role)) {
+      throw new TRPCError({ code: "FORBIDDEN", message: NOT_OWNER_ERR_MSG });
+    }
+    return next({ ctx: { ...ctx, user: ctx.user } });
+  }),
+);
+
+/** Commission view procedure (admin / owner / ceo / content) */
+export const commissionViewProcedure = t.procedure.use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+    if (!ctx.user) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
+    }
+    const allowed = ['admin', 'owner', 'ceo', 'content'];
+    if (!allowed.includes(ctx.user.role)) {
+      throw new TRPCError({ code: "FORBIDDEN", message: NOT_OWNER_ERR_MSG });
+    }
+    return next({ ctx: { ...ctx, user: ctx.user } });
   }),
 );
