@@ -78,7 +78,7 @@ const menuSections: MenuSection[] = [
   {
     label: "ภาพรวม",
     items: [
-      { icon: LayoutDashboard, label: "หน้าหลัก (Hub)", path: "/", roles: ALL_ROLES },
+      { icon: LayoutDashboard, label: "หน้าหลัก", path: "/", roles: ALL_ROLES },
       { icon: Layers, label: "ภาพรวมกลุ่มสินค้า", path: "/group-overview", roles: ALL_ROLES },
       { icon: BarChart3, label: "แดชบอร์ดบัญชีเดี่ยว", path: "/dashboard", roles: ALL_ROLES },
     ],
