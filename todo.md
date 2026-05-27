@@ -45,3 +45,47 @@
 ## Final
 - [x] Status check
 - [x] Save checkpoint
+
+
+## Round 1 — Leaderboard / Ranking Page
+- [ ] เพิ่ม route `/leaderboard` ใน App.tsx + เมนู sidebar
+- [ ] tRPC procedure `leaderboard.rank` (รับ entityType, metric, dateRange, filter, limit)
+- [ ] หน้า Leaderboard.tsx (entity switch: Account/Group/Page/Ad/Adset)
+- [ ] metric switch: ROAS / Spend / Revenue / CTR / Msg / Orders / Cost-per-Msg / Cost-per-Order
+- [ ] ตาราง Top N + Bottom N พร้อม Badge 🥇🥈🥉
+- [ ] Filter dropdown: เลือกกลุ่มสินค้า/บัญชีก่อน rank
+- [ ] DateRangePicker (preset 3/7/14/30 + Custom)
+
+## Round 2 — Performance Comparison
+- [ ] เพิ่ม route `/comparison` + เมนู sidebar
+- [ ] tRPC procedure `comparison.compare` (รับ rangeA, rangeB)
+- [ ] หน้า Comparison.tsx — toggle "งวดเดียวกันอัตโนมัติ" vs "Custom A vs B"
+- [ ] Sparkline component 7 วัน (recharts)
+- [ ] ตาราง side-by-side + % เปลี่ยนแปลง (สีเขียว/แดง)
+
+## Round 3 — AI แนะนำ (One-click)
+- [ ] เพิ่ม route `/ai-advisor` + เมนู sidebar
+- [ ] tRPC procedure `ai.analyze` (รับ expertRole, scope, dateRange)
+- [ ] System prompts 5 ผู้เชี่ยวชาญ (Performance / Budget / Creative / Risk / Sales) — ไม่รวม Audience
+- [ ] หน้า AIAdvisor.tsx — เลือกผู้เชี่ยวชาญ + scope + กดปุ่ม "ขอคำแนะนำ"
+- [ ] แสดงรายงานด้วย Streamdown (markdown)
+
+## Round 4 — Alert System
+- [ ] เพิ่ม table `alertRules`, `alertEvents`, `alertChannels` + migration
+- [ ] tRPC routers alerts (rules CRUD, events, mark-read, channels)
+- [ ] หน้า Alerts.tsx + AlertSettings.tsx
+- [ ] Bell icon ใน header + unread count
+- [ ] Heartbeat job ทุก 3 ชม. ตรวจ 5 เงื่อนไข
+- [ ] Sender: เว็บ + Manus owner + LINE Messaging + Webhook + Email
+
+## Round 5 — Cohort Analysis
+- [ ] เพิ่ม route `/cohort` + เมนู sidebar
+- [ ] tRPC procedure `cohort.byAdAge`, `cohort.byStartWeek`
+- [ ] หน้า Cohort.tsx — toggle 2 มุมมอง
+- [ ] Heatmap-style table (X = DayN, Y = แอด/สัปดาห์, สี = ROAS)
+
+## Tests + Checkpoint
+- [ ] vitest leaderboard ranking logic
+- [ ] vitest comparison delta logic
+- [ ] vitest alert rule evaluation
+- [ ] บันทึก checkpoint หลังจบทุกรอบ

@@ -17,6 +17,7 @@ import CommissionTable from "./pages/CommissionTable";
 import GroupOverview from "./pages/GroupOverview";
 import GroupsSettings from "./pages/GroupsSettings";
 import HubDashboard from "./pages/HubDashboard";
+import Leaderboard from "./pages/Leaderboard";
 import Onboarding from "./pages/Onboarding";
 import Profile from "./pages/Profile";
 import ShareLinks from "./pages/ShareLinks";
@@ -68,6 +69,11 @@ function Router() {
       <Route path="/dashboard">
         <ProtectedShell>
           <SingleDashboard />
+        </ProtectedShell>
+      </Route>
+      <Route path="/leaderboard">
+        <ProtectedShell>
+          <Leaderboard />
         </ProtectedShell>
       </Route>
       <Route path="/ad-intelligence">

@@ -43,6 +43,7 @@ import {
   Sun,
   Target,
   TrendingUp,
+  Trophy,
   User as UserIcon,
   Users,
   Wallet,
@@ -80,6 +81,7 @@ const menuSections: MenuSection[] = [
   {
     label: "วิเคราะห์",
     items: [
+      { icon: Trophy, label: "Leaderboard", path: "/leaderboard", roles: ALL_ROLES },
       { icon: Sparkles, label: "Ad Intelligence", path: "/ad-intelligence", roles: ALL_ROLES },
       { icon: Target, label: "Ad Metric Benchmark", path: "/ad-metric-benchmark", roles: ALL_ROLES },
     ],
