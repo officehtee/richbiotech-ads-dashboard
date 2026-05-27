@@ -25,9 +25,11 @@ import {
   decideScaleBadge,
   getAccountsKpi,
   getAccountsSparkline,
+  getAdAgeCohort,
   getAdsetRows,
   getGroupsKpi,
   getSingleAccountTrend,
+  getWeekStartCohort,
   resolveDateRange,
 } from "./aggregator";
 import {
@@ -618,6 +620,43 @@ export const appRouter = router({
 
   /* ----- Alert System (Round 4) ----- */
   alerts: alertsRouter,
+
+  /* ----- Cohort Analysis (Round 5) ----- */
+  cohort: router({
+    byAdAge: protectedProcedure
+      .input(
+        z.object({
+          dateRange: z.object({
+            preset: z.enum(["3d", "7d", "14d", "30d", "custom"]),
+            since: z.string().optional(),
+            until: z.string().optional(),
+          }),
+          accountIds: z.array(z.number()).optional(),
+          maxAds: z.number().min(5).max(50).default(20),
+          maxDays: z.number().min(7).max(28).default(14),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        return getAdAgeCohort(tid, input.dateRange, input.accountIds, input.maxAds, input.maxDays);
+      }),
+    byStartWeek: protectedProcedure
+      .input(
+        z.object({
+          dateRange: z.object({
+            preset: z.enum(["3d", "7d", "14d", "30d", "custom"]),
+            since: z.string().optional(),
+            until: z.string().optional(),
+          }),
+          accountIds: z.array(z.number()).optional(),
+          maxDays: z.number().min(7).max(28).default(14),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        return getWeekStartCohort(tid, input.dateRange, input.accountIds, input.maxDays);
+      }),
+  }),
 
   /* ----- Commission ----- */
   commission: router({

@@ -31,6 +31,7 @@ import {
   Bell,
   Brain,
   Building2,
+  Grid3x3,
   ChevronRight,
   DollarSign,
   Folder,
@@ -91,6 +92,7 @@ const menuSections: MenuSection[] = [
       { icon: Sparkles, label: "Ad Intelligence", path: "/ad-intelligence", roles: ALL_ROLES },
       { icon: Target, label: "Ad Metric Benchmark", path: "/ad-metric-benchmark", roles: ALL_ROLES },
       { icon: Bell, label: "Alerts & ตั้งค่า", path: "/alerts", roles: ALL_ROLES },
+      { icon: Grid3x3, label: "Cohort Analysis", path: "/cohort", roles: ALL_ROLES },
     ],
   },
   {

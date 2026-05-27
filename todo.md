@@ -74,21 +74,24 @@
 - [x] vitest aiAdvisor expert registry (5 tests)
 
 ## Round 4 — Alert System
-- [ ] เพิ่ม table `alertRules`, `alertEvents`, `alertChannels` + migration
-- [ ] tRPC routers alerts (rules CRUD, events, mark-read, channels)
-- [ ] หน้า Alerts.tsx + AlertSettings.tsx
-- [ ] Bell icon ใน header + unread count
-- [ ] Heartbeat job ทุก 3 ชม. ตรวจ 5 เงื่อนไข
-- [ ] Sender: เว็บ + Manus owner + LINE Messaging + Webhook + Email
+- [x] เพิ่ม table `alertRules`, `alertEvents`, `alertChannels` + migration
+- [x] tRPC routers alerts (rules CRUD, events, mark-read, channels)
+- [x] หน้า Alerts.tsx (Tabs: events / rules / channels)
+- [x] Bell icon ใน header + unread count + popover
+- [x] Endpoint `/api/scheduled/checkAlerts` — จะ register heartbeat หลัง deploy (ทุก 3 ชม.)
+- [x] Sender: เว็บ (ผ่าน event row) + Manus owner + LINE Messaging + Webhook (ยกเลิก Email — ไม่มีใน template)
+- [x] vitest alertEngine ตรวจกฎ 5 ข้อ (12 tests)
 
 ## Round 5 — Cohort Analysis
-- [ ] เพิ่ม route `/cohort` + เมนู sidebar
-- [ ] tRPC procedure `cohort.byAdAge`, `cohort.byStartWeek`
-- [ ] หน้า Cohort.tsx — toggle 2 มุมมอง
-- [ ] Heatmap-style table (X = DayN, Y = แอด/สัปดาห์, สี = ROAS)
+- [x] เพิ่ม route `/cohort` + เมนู sidebar
+- [x] tRPC procedure `cohort.byAdAge`, `cohort.byStartWeek`
+- [x] หน้า Cohort.tsx — toggle 2 มุมมอง
+- [x] Heatmap-style table (X = DayN, Y = แอด/สัปดาห์, สี = ROAS)
+- [x] vitest cohort helpers (6 tests)
 
 ## Tests + Checkpoint
-- [ ] vitest leaderboard ranking logic
-- [ ] vitest comparison delta logic
-- [ ] vitest alert rule evaluation
-- [ ] บันทึก checkpoint หลังจบทุกรอบ
+- [x] vitest leaderboard ranking logic (6 tests)
+- [x] vitest comparison delta logic (9 tests)
+- [x] vitest alert rule evaluation (12 tests)
+- [x] บันทึก checkpoint Round 4 (76d46411)
+- [x] บันทึก checkpoint final หลังจบ Round 5

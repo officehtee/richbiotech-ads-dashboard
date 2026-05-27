@@ -19,6 +19,7 @@ import GroupsSettings from "./pages/GroupsSettings";
 import HubDashboard from "./pages/HubDashboard";
 import AIAdvisor from "./pages/AIAdvisor";
 import Alerts from "./pages/Alerts";
+import Cohort from "./pages/Cohort";
 import Leaderboard from "./pages/Leaderboard";
 import PerformanceComparison from "./pages/PerformanceComparison";
 import Onboarding from "./pages/Onboarding";
@@ -92,6 +93,11 @@ function Router() {
       <Route path="/alerts">
         <ProtectedShell>
           <Alerts />
+        </ProtectedShell>
+      </Route>
+      <Route path="/cohort">
+        <ProtectedShell>
+          <Cohort />
         </ProtectedShell>
       </Route>
       <Route path="/ad-intelligence">
