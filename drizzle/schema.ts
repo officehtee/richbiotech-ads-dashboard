@@ -222,3 +222,75 @@ export const commissionLocks = mysqlTable("commissionLocks", {
 
 export type CommissionLock = typeof commissionLocks.$inferSelect;
 export type InsertCommissionLock = typeof commissionLocks.$inferInsert;
+
+
+/* ---------- Alert System (Round 4) ---------- */
+
+/**
+ * Alert Rules — เงื่อนไขที่ระบบจะตรวจทุก 3 ชั่วโมง
+ * ruleType:
+ *  - roas_below              (param: thresholdRoas, scopeJson)
+ *  - spend_no_purchase       (param: minSpend)
+ *  - cost_per_msg_above      (param: thresholdCost)
+ *  - ctr_drop_pct            (param: dropPercent)  // CTR ลดลงเทียบงวดก่อน
+ *  - spend_spike_pct         (param: spikePercent) // Spend พุ่งเทียบเฉลี่ย
+ */
+export const alertRules = mysqlTable("alertRules", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  ruleType: mysqlEnum("ruleType", [
+    "roas_below",
+    "spend_no_purchase",
+    "cost_per_msg_above",
+    "ctr_drop_pct",
+    "spend_spike_pct",
+  ]).notNull(),
+  label: varchar("label", { length: 255 }).notNull(),
+  isEnabled: boolean("isEnabled").default(true),
+  paramJson: text("paramJson").notNull(), // {threshold, scope, ...}
+  severity: mysqlEnum("severity", ["info", "warning", "critical"]).default("warning"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type AlertRule = typeof alertRules.$inferSelect;
+export type InsertAlertRule = typeof alertRules.$inferInsert;
+
+/**
+ * Alert Channels — ปลายทางการส่งแจ้งเตือน
+ * channelType: web (ในแอป), line (Messaging API), webhook, email, manus_owner
+ */
+export const alertChannels = mysqlTable("alertChannels", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  channelType: mysqlEnum("channelType", [
+    "web",
+    "line",
+    "webhook",
+    "email",
+    "manus_owner",
+  ]).notNull(),
+  label: varchar("label", { length: 255 }),
+  configJson: text("configJson").notNull(), // {token, channelId, url, email}
+  isEnabled: boolean("isEnabled").default(true),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type AlertChannel = typeof alertChannels.$inferSelect;
+export type InsertAlertChannel = typeof alertChannels.$inferInsert;
+
+/**
+ * Alert Events — instance ที่ trigger จริง
+ */
+export const alertEvents = mysqlTable("alertEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  ruleId: int("ruleId"),
+  ruleType: varchar("ruleType", { length: 64 }).notNull(),
+  severity: mysqlEnum("severity", ["info", "warning", "critical"]).default("warning"),
+  title: varchar("title", { length: 500 }).notNull(),
+  message: text("message").notNull(),
+  contextJson: text("contextJson"), // {accountId, adsetId, metric snapshot}
+  isRead: boolean("isRead").default(false),
+  dedupeKey: varchar("dedupeKey", { length: 255 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type AlertEvent = typeof alertEvents.$inferSelect;
+export type InsertAlertEvent = typeof alertEvents.$inferInsert;

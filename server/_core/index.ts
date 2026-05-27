@@ -6,6 +6,9 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
+import { runAlertCheckForTenant } from "../alertEngine";
+import { listAllWorkspaceTenantIds } from "../db";
+import { sdk } from "./sdk";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 
@@ -44,6 +47,34 @@ async function startServer() {
       createContext,
     })
   );
+
+  // Scheduled: ตรวจ alert ทุก 3 ชม. (cron-only)
+  app.post("/api/scheduled/checkAlerts", async (req, res) => {
+    try {
+      const user = await sdk.authenticateRequest(req as any);
+      if (!user?.isCron) {
+        return res.status(403).json({ error: "cron-only" });
+      }
+      const tenants = await listAllWorkspaceTenantIds();
+      let totalTriggered = 0;
+      for (const tid of tenants) {
+        const r = await runAlertCheckForTenant(tid).catch((e) => {
+          console.error(`[checkAlerts] tenant=${tid}`, e);
+          return { triggered: 0, skipped: 0 };
+        });
+        totalTriggered += r.triggered;
+      }
+      return res.json({ ok: true, tenants: tenants.length, triggered: totalTriggered });
+    } catch (e: any) {
+      console.error("[checkAlerts] failed", e);
+      return res.status(500).json({
+        error: e?.message ?? String(e),
+        stack: e?.stack,
+        context: { url: req.url },
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);

@@ -615,3 +615,134 @@ export async function deleteCommissionLock(
       and(eq(commissionLocks.userId, tenantId), eq(commissionLocks.periodKey, periodKey)),
     );
 }
+
+
+/* ---------- Alert System ---------- */
+
+import {
+  alertChannels,
+  alertEvents,
+  alertRules,
+  type AlertChannel,
+  type AlertEvent,
+  type AlertRule,
+  type InsertAlertChannel,
+  type InsertAlertEvent,
+  type InsertAlertRule,
+} from "../drizzle/schema";
+
+// --- Rules ---
+export async function listAlertRules(tenantId: number): Promise<AlertRule[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(alertRules).where(eq(alertRules.userId, tenantId)).orderBy(desc(alertRules.createdAt));
+}
+export async function createAlertRule(input: InsertAlertRule): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const r = await db.insert(alertRules).values(input);
+  return Number(r[0].insertId);
+}
+export async function updateAlertRule(id: number, tenantId: number, patch: Partial<InsertAlertRule>): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(alertRules).set(patch).where(and(eq(alertRules.id, id), eq(alertRules.userId, tenantId)));
+}
+export async function deleteAlertRule(id: number, tenantId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(alertRules).where(and(eq(alertRules.id, id), eq(alertRules.userId, tenantId)));
+}
+
+// --- Channels ---
+export async function listAlertChannels(tenantId: number): Promise<AlertChannel[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(alertChannels).where(eq(alertChannels.userId, tenantId)).orderBy(desc(alertChannels.createdAt));
+}
+export async function createAlertChannel(input: InsertAlertChannel): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const r = await db.insert(alertChannels).values(input);
+  return Number(r[0].insertId);
+}
+export async function updateAlertChannel(
+  id: number,
+  tenantId: number,
+  patch: Partial<InsertAlertChannel>,
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(alertChannels).set(patch).where(and(eq(alertChannels.id, id), eq(alertChannels.userId, tenantId)));
+}
+export async function deleteAlertChannel(id: number, tenantId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(alertChannels).where(and(eq(alertChannels.id, id), eq(alertChannels.userId, tenantId)));
+}
+
+// --- Events ---
+export async function listAlertEvents(
+  tenantId: number,
+  opts: { limit?: number; onlyUnread?: boolean } = {},
+): Promise<AlertEvent[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const limit = opts.limit ?? 100;
+  let q = db.select().from(alertEvents).where(eq(alertEvents.userId, tenantId)).$dynamic();
+  if (opts.onlyUnread) {
+    q = q.where(and(eq(alertEvents.userId, tenantId), eq(alertEvents.isRead, false)));
+  }
+  return q.orderBy(desc(alertEvents.createdAt)).limit(limit);
+}
+export async function createAlertEvent(input: InsertAlertEvent): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const r = await db.insert(alertEvents).values(input);
+  return Number(r[0].insertId);
+}
+export async function markAlertEventRead(id: number, tenantId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(alertEvents).set({ isRead: true }).where(and(eq(alertEvents.id, id), eq(alertEvents.userId, tenantId)));
+}
+export async function markAllAlertEventsRead(tenantId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(alertEvents).set({ isRead: true }).where(eq(alertEvents.userId, tenantId));
+}
+export async function countUnreadAlertEvents(tenantId: number): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const rows = await db
+    .select()
+    .from(alertEvents)
+    .where(and(eq(alertEvents.userId, tenantId), eq(alertEvents.isRead, false)));
+  return rows.length;
+}
+export async function findRecentEventByDedupe(
+  tenantId: number,
+  dedupeKey: string,
+  withinMs: number,
+): Promise<AlertEvent | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db
+    .select()
+    .from(alertEvents)
+    .where(and(eq(alertEvents.userId, tenantId), eq(alertEvents.dedupeKey, dedupeKey)))
+    .orderBy(desc(alertEvents.createdAt))
+    .limit(1);
+  if (!rows.length) return undefined;
+  const created = rows[0].createdAt instanceof Date ? rows[0].createdAt.getTime() : Date.now();
+  if (Date.now() - created > withinMs) return undefined;
+  return rows[0];
+}
+
+/** List all workspace tenant IDs (owners only) — used by the heartbeat job. */
+export async function listAllWorkspaceTenantIds(): Promise<number[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select().from(users).where(eq(users.role, "owner"));
+  return rows.map((u) => u.id);
+}

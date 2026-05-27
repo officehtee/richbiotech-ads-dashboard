@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { customAlphabet } from "nanoid";
 import { aiRouter } from "./aiAdvisor";
+import { alertsRouter } from "./alertsRouter";
 import {
   CommissionSnapshot,
   ScalingScoreData,
@@ -614,6 +615,9 @@ export const appRouter = router({
 
   /* ----- AI Advisor (Round 3) ----- */
   ai: aiRouter,
+
+  /* ----- Alert System (Round 4) ----- */
+  alerts: alertsRouter,
 
   /* ----- Commission ----- */
   commission: router({

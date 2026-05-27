@@ -28,6 +28,7 @@ import { useIsMobile } from "@/hooks/useMobile";
 import {
   ArrowLeftRight,
   BarChart3,
+  Bell,
   Brain,
   Building2,
   ChevronRight,
@@ -52,6 +53,7 @@ import {
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
+import AlertBell from "./AlertBell";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
 
@@ -88,6 +90,7 @@ const menuSections: MenuSection[] = [
       { icon: Brain, label: "AI Advisor", path: "/ai-advisor", roles: ALL_ROLES },
       { icon: Sparkles, label: "Ad Intelligence", path: "/ad-intelligence", roles: ALL_ROLES },
       { icon: Target, label: "Ad Metric Benchmark", path: "/ad-metric-benchmark", roles: ALL_ROLES },
+      { icon: Bell, label: "Alerts & ตั้งค่า", path: "/alerts", roles: ALL_ROLES },
     ],
   },
   {
@@ -392,7 +395,7 @@ function DashboardLayoutContent({
       </div>
 
       <SidebarInset>
-        {isMobile && (
+        {isMobile ? (
           <div className="flex border-b h-14 items-center justify-between bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40">
             <div className="flex items-center gap-2">
               <SidebarTrigger className="h-9 w-9 rounded-lg" />
@@ -400,11 +403,31 @@ function DashboardLayoutContent({
                 {activeMenuItem?.label ?? BRAND_NAME}
               </span>
             </div>
+            <div className="flex items-center gap-1">
+              <AlertBell />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleTheme}
+                className="h-9 w-9"
+              >
+                {theme === "dark" ? (
+                  <Sun className="h-4 w-4" />
+                ) : (
+                  <Moon className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex border-b h-12 items-center justify-end gap-1 bg-background/95 px-4 sticky top-0 z-30">
+            <AlertBell />
             <Button
               variant="ghost"
               size="icon"
               onClick={toggleTheme}
               className="h-9 w-9"
+              title="สลับธีม"
             >
               {theme === "dark" ? (
                 <Sun className="h-4 w-4" />
