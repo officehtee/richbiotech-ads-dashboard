@@ -16,9 +16,13 @@ import {
   router,
 } from "./_core/trpc";
 import {
+  autoPreviousRange,
   calculateScalingScore,
+  compareAccounts,
+  compareGroups,
   decideScaleBadge,
   getAccountsKpi,
+  getAccountsSparkline,
   getAdsetRows,
   getGroupsKpi,
   getSingleAccountTrend,
@@ -567,6 +571,43 @@ export const appRouter = router({
           accounts: kpis,
           groups: filter.type === "group" ? groups.filter((g) => g.groupId === filter.groupId) : groups,
         };
+      }),
+  }),
+
+  /* ----- Performance Comparison (Round 2) ----- */
+  comparison: router({
+    /**
+     * Compare KPI metrics between two date ranges for accounts or groups.
+     * If `mode = "auto"` the previous period is the immediately-preceding same-length window.
+     */
+    compare: protectedProcedure
+      .input(
+        z.object({
+          entityType: z.enum(["accounts", "groups"]),
+          rangeA: dateRangeInput,
+          mode: z.enum(["auto", "custom"]),
+          rangeB: dateRangeInput.optional(),
+          accountIds: z.array(z.number()).optional(),
+          groupIds: z.array(z.number()).optional(),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        const rangeB =
+          input.mode === "auto" || !input.rangeB
+            ? autoPreviousRange(input.rangeA)
+            : input.rangeB;
+        const rows =
+          input.entityType === "accounts"
+            ? await compareAccounts(tid, input.rangeA, rangeB, input.accountIds)
+            : await compareGroups(tid, input.rangeA, rangeB, input.groupIds);
+        return { rows, rangeA: input.rangeA, rangeB };
+      }),
+    sparkline: protectedProcedure
+      .input(z.object({ accountIds: z.array(z.number()).optional() }))
+      .query(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        return getAccountsSparkline(tid, input.accountIds);
       }),
   }),
 

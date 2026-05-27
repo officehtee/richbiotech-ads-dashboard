@@ -48,20 +48,22 @@
 
 
 ## Round 1 — Leaderboard / Ranking Page
-- [ ] เพิ่ม route `/leaderboard` ใน App.tsx + เมนู sidebar
-- [ ] tRPC procedure `leaderboard.rank` (รับ entityType, metric, dateRange, filter, limit)
-- [ ] หน้า Leaderboard.tsx (entity switch: Account/Group/Page/Ad/Adset)
-- [ ] metric switch: ROAS / Spend / Revenue / CTR / Msg / Orders / Cost-per-Msg / Cost-per-Order
-- [ ] ตาราง Top N + Bottom N พร้อม Badge 🥇🥈🥉
-- [ ] Filter dropdown: เลือกกลุ่มสินค้า/บัญชีก่อน rank
-- [ ] DateRangePicker (preset 3/7/14/30 + Custom)
+- [x] เพิ่ม route `/leaderboard` ใน App.tsx + เมนู sidebar
+- [x] tRPC procedure `leaderboard.rank` (รับ entityType, metric, dateRange, filter, limit)
+- [x] หน้า Leaderboard.tsx (entity switch: Account/Group/Adset)
+- [x] metric switch: ROAS / Spend / Revenue / Msg / Orders / CTR
+- [x] ตาราง Top N + Bottom N พร้อม Badge 🥇🥈🥉
+- [x] Filter dropdown: เลือกกลุ่มสินค้า/บัญชีก่อน rank
+- [x] DateRangePicker (preset 3/7/14/30 + Custom)
+- [x] vitest leaderboard ranking logic (6 tests)
 
 ## Round 2 — Performance Comparison
-- [ ] เพิ่ม route `/comparison` + เมนู sidebar
-- [ ] tRPC procedure `comparison.compare` (รับ rangeA, rangeB)
-- [ ] หน้า Comparison.tsx — toggle "งวดเดียวกันอัตโนมัติ" vs "Custom A vs B"
-- [ ] Sparkline component 7 วัน (recharts)
-- [ ] ตาราง side-by-side + % เปลี่ยนแปลง (สีเขียว/แดง)
+- [x] เพิ่ม route `/comparison` + เมนู sidebar
+- [x] tRPC procedure `comparison.compare` (รับ rangeA, rangeB) + `comparison.sparkline`
+- [x] หน้า PerformanceComparison.tsx — toggle "งวดเดียวกันอัตโนมัติ" vs "Custom A vs B"
+- [x] Sparkline component 7 วัน (recharts) — เลือก metric ได้
+- [x] ตาราง side-by-side + % เปลี่ยนแปลง (สีเขียว/แดง)
+- [x] vitest comparison delta logic (9 tests)
 
 ## Round 3 — AI แนะนำ (One-click)
 - [ ] เพิ่ม route `/ai-advisor` + เมนู sidebar

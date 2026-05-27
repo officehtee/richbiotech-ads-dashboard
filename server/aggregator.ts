@@ -272,3 +272,206 @@ export function decideScaleBadge(
     recommendation: "ลดงบมาก หรือพิจารณาปิด (ผลลัพธ์ต่ำมาก)",
   };
 }
+
+
+/* =============================================================
+ * Performance Comparison + Sparkline helpers (Round 2)
+ * ============================================================= */
+
+export type ComparisonMetric =
+  | "spend"
+  | "messaging"
+  | "purchases"
+  | "purchaseValue"
+  | "impressions"
+  | "clicks"
+  | "ctr"
+  | "roas";
+
+export type ComparisonRow = {
+  entityId: string | number;
+  label: string;
+  sublabel?: string | null;
+  color?: string | null;
+  current: Record<ComparisonMetric, number>;
+  previous: Record<ComparisonMetric, number>;
+  deltaPct: Record<ComparisonMetric, number>; // percent change (e.g. 12.5 = +12.5%)
+};
+
+const COMPARISON_METRICS: ComparisonMetric[] = [
+  "spend",
+  "messaging",
+  "purchases",
+  "purchaseValue",
+  "impressions",
+  "clicks",
+  "ctr",
+  "roas",
+];
+
+/** Pure helper: compute % delta between two numbers. */
+export function computeDelta(current: number, previous: number): number {
+  if (!Number.isFinite(current) || !Number.isFinite(previous)) return 0;
+  if (previous === 0) {
+    if (current === 0) return 0;
+    return current > 0 ? 100 : -100;
+  }
+  return ((current - previous) / Math.abs(previous)) * 100;
+}
+
+/** Pure helper: derive the previous (same-length) period from a Meta date range. */
+export function shiftRangeBack(range: MetaDateRange): MetaDateRange {
+  const start = new Date(range.since + "T00:00:00Z");
+  const end = new Date(range.until + "T00:00:00Z");
+  const days = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
+  const prevEnd = new Date(start);
+  prevEnd.setUTCDate(prevEnd.getUTCDate() - 1);
+  const prevStart = new Date(prevEnd);
+  prevStart.setUTCDate(prevStart.getUTCDate() - (days - 1));
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  return { since: fmt(prevStart), until: fmt(prevEnd) };
+}
+
+/** Convert a same-length previous DateRangeInput from the current input. */
+export function autoPreviousRange(input: DateRangeInput): DateRangeInput {
+  const cur = resolveDateRange(input);
+  const prev = shiftRangeBack(cur);
+  return { preset: "custom", since: prev.since, until: prev.until };
+}
+
+function pickAccountMetrics(a: AccountKpi): Record<ComparisonMetric, number> {
+  return {
+    spend: a.spend,
+    messaging: a.messaging,
+    purchases: a.purchases,
+    purchaseValue: a.purchaseValue,
+    impressions: a.impressions,
+    clicks: a.clicks,
+    ctr: a.ctr,
+    roas: a.roas,
+  };
+}
+
+function pickGroupMetrics(g: GroupKpi): Record<ComparisonMetric, number> {
+  return {
+    spend: g.spend,
+    messaging: g.messaging,
+    purchases: g.purchases,
+    purchaseValue: g.purchaseValue,
+    impressions: g.impressions,
+    clicks: g.clicks,
+    ctr: g.ctr,
+    roas: g.roas,
+  };
+}
+
+const ZERO_METRICS: Record<ComparisonMetric, number> = {
+  spend: 0,
+  messaging: 0,
+  purchases: 0,
+  purchaseValue: 0,
+  impressions: 0,
+  clicks: 0,
+  ctr: 0,
+  roas: 0,
+};
+
+function makeDelta(
+  cur: Record<ComparisonMetric, number>,
+  prev: Record<ComparisonMetric, number>,
+): Record<ComparisonMetric, number> {
+  const out: Record<ComparisonMetric, number> = { ...ZERO_METRICS };
+  for (const k of COMPARISON_METRICS) {
+    out[k] = computeDelta(cur[k] ?? 0, prev[k] ?? 0);
+  }
+  return out;
+}
+
+/** Build the comparison rows for accounts. */
+export async function compareAccounts(
+  tenantId: number,
+  rangeA: DateRangeInput,
+  rangeB: DateRangeInput,
+  accountIds?: number[],
+): Promise<ComparisonRow[]> {
+  const [aList, bList] = await Promise.all([
+    getAccountsKpi(tenantId, rangeA, accountIds),
+    getAccountsKpi(tenantId, rangeB, accountIds),
+  ]);
+  const bMap = new Map(bList.map((x) => [x.accountId, x]));
+  return aList.map((a) => {
+    const b = bMap.get(a.accountId);
+    const current = pickAccountMetrics(a);
+    const previous = b ? pickAccountMetrics(b) : ZERO_METRICS;
+    return {
+      entityId: a.accountId,
+      label: a.nickname ?? a.adAccountId,
+      sublabel: a.pageName ?? null,
+      current,
+      previous,
+      deltaPct: makeDelta(current, previous),
+    } satisfies ComparisonRow;
+  });
+}
+
+/** Build the comparison rows for groups. */
+export async function compareGroups(
+  tenantId: number,
+  rangeA: DateRangeInput,
+  rangeB: DateRangeInput,
+  groupIds?: number[],
+): Promise<ComparisonRow[]> {
+  const [aList, bList] = await Promise.all([
+    getGroupsKpi(tenantId, rangeA),
+    getGroupsKpi(tenantId, rangeB),
+  ]);
+  const filtered = groupIds && groupIds.length > 0 ? aList.filter((g) => groupIds.includes(g.groupId)) : aList;
+  const bMap = new Map(bList.map((x) => [x.groupId, x]));
+  return filtered.map((a) => {
+    const b = bMap.get(a.groupId);
+    const current = pickGroupMetrics(a);
+    const previous = b ? pickGroupMetrics(b) : ZERO_METRICS;
+    return {
+      entityId: a.groupId,
+      label: a.groupName,
+      sublabel: `${a.accountCount} บัญชี`,
+      color: a.color,
+      current,
+      previous,
+      deltaPct: makeDelta(current, previous),
+    } satisfies ComparisonRow;
+  });
+}
+
+/** Last 7 daily KPI points per account, for sparkline rendering. */
+export async function getAccountsSparkline(
+  tenantId: number,
+  accountIds?: number[],
+): Promise<{ accountId: number; days: DailyKpi[] }[]> {
+  let accounts = await getAdAccountsByUser(tenantId);
+  accounts = accounts.filter((a) => a.isActive !== false);
+  if (accountIds && accountIds.length > 0) {
+    accounts = accounts.filter((a) => accountIds.includes(a.id));
+  }
+  const range = dateRangeFromPreset("7d");
+  const results = await Promise.all(
+    accounts.map(async (acc) => {
+      const daily = await fetchAccountDailyInsights(acc.adAccountId, acc.accessToken, range);
+      return {
+        accountId: acc.id,
+        days: daily.map((d) => ({
+          date: d.date,
+          spend: d.spend,
+          messaging: d.messaging,
+          purchases: d.purchases,
+          purchaseValue: d.purchase_value,
+          impressions: d.impressions,
+          clicks: d.clicks,
+          ctr: d.impressions === 0 ? 0 : (d.clicks / d.impressions) * 100,
+          roas: d.spend === 0 ? 0 : d.purchase_value / d.spend,
+        })),
+      };
+    }),
+  );
+  return results;
+}

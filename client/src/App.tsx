@@ -18,6 +18,7 @@ import GroupOverview from "./pages/GroupOverview";
 import GroupsSettings from "./pages/GroupsSettings";
 import HubDashboard from "./pages/HubDashboard";
 import Leaderboard from "./pages/Leaderboard";
+import PerformanceComparison from "./pages/PerformanceComparison";
 import Onboarding from "./pages/Onboarding";
 import Profile from "./pages/Profile";
 import ShareLinks from "./pages/ShareLinks";
@@ -74,6 +75,11 @@ function Router() {
       <Route path="/leaderboard">
         <ProtectedShell>
           <Leaderboard />
+        </ProtectedShell>
+      </Route>
+      <Route path="/comparison">
+        <ProtectedShell>
+          <PerformanceComparison />
         </ProtectedShell>
       </Route>
       <Route path="/ad-intelligence">
