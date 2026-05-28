@@ -307,19 +307,19 @@ function DashboardLayoutContent({
             </div>
           </SidebarHeader>
 
-          <SidebarContent className="gap-0 py-3 overflow-y-auto">
+          <SidebarContent className="gap-0 py-2 overflow-y-auto">
             {visibleSections.map((section, sectionIndex) => (
               <SidebarGroup
                 key={section.label}
                 className={cn(
-                  "py-0",
-                  sectionIndex === 0 ? "mt-2" : "mt-5",
+                  "flex flex-col py-0",
+                  sectionIndex === 0 ? "mt-1" : "mt-4",
                 )}
               >
                 {!isCollapsed && (
-                  <SidebarGroupLabel className="h-auto py-1.5 mb-1 text-[10px] font-semibold tracking-[0.08em] leading-snug uppercase text-muted-foreground/70 px-3">
+                  <div className="px-5 pt-2 pb-1.5 text-[10px] font-semibold tracking-[0.08em] uppercase leading-none text-muted-foreground/70">
                     {section.label}
-                  </SidebarGroupLabel>
+                  </div>
                 )}
                 <SidebarMenu className="px-2 gap-0.5">
                   {section.items.map((item) => {
@@ -332,14 +332,19 @@ function DashboardLayoutContent({
                           isActive={isActive}
                           onClick={() => setLocation(item.path)}
                           tooltip={item.label}
-                          className="h-9 transition-all"
+                          className="h-9 min-h-9 transition-all"
                         >
                           <item.icon
-                            className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
+                            className={cn(
+                              "h-4 w-4 shrink-0",
+                              isActive ? "text-primary" : "",
+                            )}
                           />
-                          <span className="text-sm">{item.label}</span>
+                          <span className="text-sm truncate whitespace-nowrap min-w-0 flex-1">
+                            {item.label}
+                          </span>
                           {isActive && !isCollapsed && (
-                            <ChevronRight className="ml-auto h-3.5 w-3.5 text-primary" />
+                            <ChevronRight className="ml-auto h-3.5 w-3.5 text-primary shrink-0" />
                           )}
                         </SidebarMenuButton>
                       </SidebarMenuItem>
