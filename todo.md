@@ -257,3 +257,15 @@
 ### Tests
 - [x] vitest round716 13 case + รวม 145/145 ผ่าน, TS clean
 
+
+
+## Round 7.20: Help Center (/help)
+- [x] สำรวจ 19 หน้าจริง + รวบข้อมูล KPI/element ต่อหน้า
+- [x] เขียน content TS file (`shared/help-content.ts`) — 4 ส่วน: เริ่มต้น / role guide / page reference / glossary+FAQ
+- [x] สร้าง `client/src/pages/HelpCenter.tsx` — sidebar nav + content + search bar + role section + page section + glossary + FAQ + print/PDF button
+- [x] เพิ่ม Route `/help` ใน App.tsx (standalone — ไม่อยู่ใน DashboardLayout)
+- [x] เพิ่มปุ่ม `?` (HelpCircle) ใน DashboardLayout topbar ทั้ง mobile + desktop → navigate /help
+- [x] เพิ่มปุ่ม "Download PDF" (window.print()) + print:hidden ในส่วน sidebar/topbar
+- [x] vitest 19 case (`server/helpContent.test.ts`) — structure / role coverage / 19 pages / glossary / search logic
+- [x] vitest 182/182 ผ่าน, TS clean
+- [x] checkpoint

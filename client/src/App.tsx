@@ -16,6 +16,7 @@ import CommissionSettings from "./pages/CommissionSettings";
 import CommissionTable from "./pages/CommissionTable";
 import GroupOverview from "./pages/GroupOverview";
 import GroupsSettings from "./pages/GroupsSettings";
+import HelpCenter from "./pages/HelpCenter";
 import HubDashboard from "./pages/HubDashboard";
 import InviteRedeem from "./pages/InviteRedeem";
 import AIAdvisor from "./pages/AIAdvisor";
@@ -63,6 +64,9 @@ function Router() {
 
       {/* Magic Invite Link (rendered without sidebar) */}
       <Route path="/invite/:token" component={InviteRedeem} />
+
+      {/* Help Center (rendered without sidebar) */}
+      <Route path="/help" component={HelpCenter} />
 
       <Route path="/">
         <ProtectedShell>

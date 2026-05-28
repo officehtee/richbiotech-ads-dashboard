@@ -38,11 +38,12 @@ import {
   Trophy,
   User as UserIcon,
   Users,
+  HelpCircle,
   Wallet,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import AlertBell from "./AlertBell";
 import { AppSidebar, type SidebarSection } from "./AppSidebar";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
@@ -316,6 +317,17 @@ export default function DashboardLayout({
           </div>
           <div className="flex items-center gap-1">
             <AlertBell />
+            <Link href="/help">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9"
+                title="คู่มือการใช้งาน"
+                aria-label="คู่มือการใช้งาน"
+              >
+                <HelpCircle className="h-4 w-4" />
+              </Button>
+            </Link>
             <Button
               variant="ghost"
               size="icon"
@@ -392,6 +404,17 @@ export default function DashboardLayout({
         {/* Top Bar */}
         <div className="flex h-12 items-center justify-end gap-1 border-b bg-background/95 px-4 sticky top-0 z-30">
           <AlertBell />
+          <Link href="/help">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              title="คู่มือการใช้งาน"
+              aria-label="คู่มือการใช้งาน"
+            >
+              <HelpCircle className="h-4 w-4" />
+            </Button>
+          </Link>
           <Button
             variant="ghost"
             size="icon"
