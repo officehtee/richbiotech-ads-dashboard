@@ -155,7 +155,7 @@ export default function Leaderboard() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <Trophy className="h-6 w-6 text-primary" />
-            Leaderboard
+            ชาร์ตอันดับ
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             จัดอันดับ {entityLabel} ตาม {metricLabel} ({direction === "top" ? "อันดับดีสุด" : "อันดับแย่สุด"})

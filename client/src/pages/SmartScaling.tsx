@@ -84,7 +84,7 @@ export default function SmartScaling() {
     <div className="space-y-6">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Smart Scaling</h1>
+          <h1 className="text-2xl font-bold tracking-tight">แนะนำปรับงบ</h1>
           <p className="text-sm text-muted-foreground mt-1">
             คำแนะนำการปรับงบ Adset ตามคะแนน ROAS×0.7 + CTR×0.3
           </p>

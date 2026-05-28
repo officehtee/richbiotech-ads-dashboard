@@ -106,7 +106,7 @@ export default function Alerts() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <Bell className="h-6 w-6 text-primary" />
-            Alerts &amp; ตั้งค่า
+            แจ้งเตือน
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             ระบบตรวจสอบทุก 3 ชั่วโมง — ส่งหา ทุกคนใน workspace ผ่าน Web / LINE / Webhook

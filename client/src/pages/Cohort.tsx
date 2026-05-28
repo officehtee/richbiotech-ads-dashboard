@@ -71,7 +71,7 @@ export default function Cohort() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <Grid3x3 className="h-6 w-6 text-primary" />
-            Cohort Analysis
+            วิเคราะห์ Cohort
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             วิเคราะห์ตามอายุแอด (D0, D1, D2…) หรือสัปดาห์ที่เริ่มยิง — สีบอก ROAS เทียบเป้า

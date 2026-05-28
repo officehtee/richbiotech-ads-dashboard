@@ -65,7 +65,7 @@ export default function AIAdvisor() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <Brain className="h-6 w-6 text-primary" />
-            AI Advisor
+            AI แนะนำ
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             ขอคำแนะนำจากผู้เชี่ยวชาญ 5 ด้าน — One-click, ไม่เก็บประวัติ

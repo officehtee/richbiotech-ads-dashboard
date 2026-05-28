@@ -56,7 +56,7 @@ export default function CommissionSettings() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">Commission Settings</h1>
+        <h1 className="text-2xl font-bold tracking-tight">ตั้งค่าคอมมิชชั่น</h1>
         <p className="text-sm text-muted-foreground mt-1">
           ตั้งค่า Grade, ทีมงาน และจับคู่ Clip Number กับกลุ่ม/พนักงาน
         </p>

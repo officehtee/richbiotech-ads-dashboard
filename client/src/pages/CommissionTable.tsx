@@ -185,7 +185,7 @@ export default function CommissionTable() {
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            Commission Calculator
+            ตารางคอมมิชชั่น
             {isLocked && <span className="text-xs px-2 py-1 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 flex items-center gap-1"><Lock className="h-3 w-3" />Locked</span>}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">{monthLabel(year, month)}</p>

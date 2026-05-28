@@ -59,7 +59,7 @@ export default function CommissionDashboard() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">Commission Overview</h1>
+        <h1 className="text-2xl font-bold tracking-tight">ภาพรวมคอมมิชชั่น</h1>
         <p className="text-sm text-muted-foreground mt-1">
           ภาพรวมค่าคอมจาก Locked Period — เลือกงวดด้านล่าง
         </p>

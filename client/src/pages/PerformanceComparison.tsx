@@ -134,7 +134,7 @@ export default function PerformanceComparison() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <ArrowLeftRight className="h-6 w-6 text-primary" />
-            Performance Comparison
+            เปรียบเทียบผลงาน
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             เปรียบเทียบประสิทธิภาพ 2 ช่วงเวลา พร้อม Sparkline 7 วันล่าสุด

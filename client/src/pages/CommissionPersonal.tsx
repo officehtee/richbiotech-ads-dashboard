@@ -40,7 +40,7 @@ export default function CommissionPersonal() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">My Commission</h1>
+        <h1 className="text-2xl font-bold tracking-tight">คอมมิชชั่นของฉัน</h1>
         <p className="text-sm text-muted-foreground mt-1">
           {myStaff ? `บัญชีนี้เชื่อมกับ: ${myStaff.name}` : "บัญชีนี้ยังไม่ได้ผูกกับทีมงาน — แจ้งเจ้าของให้ผูกใน Settings"}
         </p>
