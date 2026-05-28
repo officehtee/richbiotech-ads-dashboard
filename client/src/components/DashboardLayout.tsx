@@ -372,6 +372,7 @@ export default function DashboardLayout({
   // ===== Desktop =====
   return (
     <div className="flex min-h-screen bg-background">
+      <div className="sticky top-0 h-screen self-start shrink-0 z-40">
       <AppSidebar
         sections={visibleSections}
         collapsed={collapsed}
@@ -384,6 +385,7 @@ export default function DashboardLayout({
         width={sidebarWidth}
         onResizeMouseDown={() => setIsResizing(true)}
       />
+      </div>
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">

@@ -216,3 +216,7 @@
 - [x] Sidebar เข้มถาวร (ไม่ผูกกับ ThemeProvider) — bg-[#0f172a], text-white, border-slate-800, hover bg-white/5, active bg-white/10 ring-white/20
 - [x] อัปเดต footer (avatar/name/role) เป็นสีขาว/slate-400 ให้เข้ากับ sidebar เข้ม
 - [x] เพิ่ม vitest 7 case (97/97 ผ่าน)
+
+## Round 7.12: ตรึง Sidebar (Sticky) ตอน scroll dashboard
+- [x] ครอบ AppSidebar (desktop) ด้วย wrapper `sticky top-0 h-screen self-start shrink-0 z-40`
+- [x] เพิ่ม vitest 2 case ตรวจ wrapper ใน DashboardLayout (99/99 ผ่าน)

@@ -129,3 +129,34 @@ describe("AppSidebar — Permanent dark theme + Richbiotech logo", () => {
     expect(src).not.toMatch(/Sparkles/);
   });
 });
+
+import * as fsLayout from "fs";
+import * as pathLayout from "path";
+
+const LAYOUT_PATH = pathLayout.join(
+  __dirname,
+  "..",
+  "client",
+  "src",
+  "components",
+  "DashboardLayout.tsx",
+);
+
+function readLayoutSource(): string {
+  return fsLayout.readFileSync(LAYOUT_PATH, "utf8");
+}
+
+describe("DashboardLayout — Sticky sidebar (desktop)", () => {
+  it("Sidebar wrapper ใน desktop ใช้ sticky top-0 h-screen เพื่อตรึงเมนูตอน scroll", () => {
+    const src = readLayoutSource();
+    expect(src).toMatch(/sticky top-0 h-screen self-start shrink-0/);
+  });
+
+  it("AppSidebar desktop ครอบด้วย <div sticky> ก่อน main content", () => {
+    const src = readLayoutSource();
+    // มี sticky wrapper ตามด้วย AppSidebar tag
+    expect(src).toMatch(
+      /sticky top-0 h-screen self-start shrink-0 z-40[^]*?<AppSidebar/,
+    );
+  });
+});
