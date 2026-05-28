@@ -129,3 +129,28 @@
 - [x] Mobile-friendly grid (KPI 2 col / desktop 4-5 col)
 - [x] vitest: hourly heatmap + funnel + urgency badge (14 tests)
 - [x] บันทึก final checkpoint Round 6 (7f201720)
+
+## Round 7: Hub Dashboard Layout Redesign (อ้างอิง dashboard1/2/3.png)
+- [x] Backend: dashboard.revenueVsSpend (รายได้ vs ค่าโฆษณา 30 วัน)
+- [x] Backend: dashboard.groupBreakdown (Spend/ROAS แยกตามกลุ่มสินค้า + spendPct/roasPct)
+- [x] Backend: dashboard.topAds (Top 5 adset by ROAS + delta %)
+- [x] Backend: dashboard.accountsTable (full list + 14D sparkline + status)
+- [x] Backend: dashboard.smartScalingRecommend (5 adset + action + from→to)
+- [x] KpiCard: dark bg + colored dot + live dot + sparkline เต็มความกว้าง + footer
+- [x] HubDashboard Toolbar (Persona pills Buyer/Sales + AccountSelector + Date pills + Refresh)
+- [x] Row 1: KPI 5 cards (Spend/คนทัก/Orders/Revenue/ROAS)
+- [x] Row 2 (65/35): รายได้ vs ค่าโฆษณา (Area+Line) + แยกตามกลุ่มสินค้า (toggle Spend/ROAS)
+- [x] Row 3 (full-width): ตารางบัญชีโฆษณา sortable + 14D sparkline + status pill + avatar
+- [x] Row 4 (50/50): Smart Scaling แนะนำ + Top Performing Ads
+- [x] คงไว้ section เดิม (Live Activity / Hot Pages / Heatmap / Funnel / AI Insight)
+- [x] vitest 7 case (regression 81/81 ผ่าน)
+
+## Round 7.1: Layout Reorder + 1-day preset + ตัด section ที่ไม่ใช้
+- [x] เพิ่ม preset "1 วัน" ใน DateRangePicker + shared DatePreset type + DATE_PRESETS
+- [x] รองรับ "1d" ใน resolveDateRange + dateRangeFromPreset + zod enum (routers/aiAdvisor)
+- [x] ตั้งค่าเริ่มต้น HubDashboard เป็น `{ preset: "1d" }`
+- [x] Reorder layout: Toolbar → KPI → AI Insight + Hot Pages (50/50) → Heatmap (full) → Revenue vs Spend + Group (65/35) → SmartScaling (full) → TopAds (full) → AccountsTable (full)
+- [x] ลบ Live Activity Hero และ Conversion Funnel ออกจากหน้า Hub (เก็บ function ไว้รอ ติด _ prefix)
+- [x] Routes ตรวจแล้ว (`/dashboard`, `/ad-intelligence`, `/smart-scaling`, `/ai-advisor`)
+- [x] แก้ deltaPct ใน getTopAds ให้คำนวณจาก prior period จริง (ไม่ synthesize)
+- [x] vitest 82 cases ผ่านทั้งหมด

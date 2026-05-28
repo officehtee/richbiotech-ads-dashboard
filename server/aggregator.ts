@@ -31,10 +31,10 @@ export function resolveDateRange(input: DateRangeInput): MetaDateRange {
   if (input.preset === "custom" && input.since && input.until) {
     return { since: input.since, until: input.until };
   }
-  const preset = (["3d", "7d", "14d", "30d"] as const).includes(
+  const preset = (["1d", "3d", "7d", "14d", "30d"] as const).includes(
     input.preset as any,
   )
-    ? (input.preset as "3d" | "7d" | "14d" | "30d")
+    ? (input.preset as "1d" | "3d" | "7d" | "14d" | "30d")
     : "7d";
   return dateRangeFromPreset(preset);
 }
@@ -975,4 +975,266 @@ export async function getHubHotPages(tenantId: number): Promise<
     }),
   );
   return arrays.sort((a, b) => b.messagingToday - a.messagingToday).slice(0, 5);
+}
+
+
+/* ============================================================
+ * Round 7: Hub Dashboard 3.0 helpers
+ * ============================================================ */
+
+/**
+ * Revenue vs Spend daily series (default 30 days, 2 lines).
+ */
+export async function getRevenueVsSpendDaily(
+  tenantId: number,
+  dateRange: DateRangeInput,
+): Promise<{ date: string; revenue: number; spend: number }[]> {
+  const range = resolveDateRange(dateRange);
+  const accounts = (await getAdAccountsByUser(tenantId)).filter((a) => a.isActive !== false);
+  if (accounts.length === 0) return [];
+  const arrays = await Promise.all(
+    accounts.map((acc) => fetchAccountDailyInsights(acc.adAccountId, acc.accessToken, range)),
+  );
+  const byDate = new Map<string, { revenue: number; spend: number }>();
+  for (const arr of arrays) {
+    for (const r of arr) {
+      const cur = byDate.get(r.date) ?? { revenue: 0, spend: 0 };
+      cur.revenue += r.purchase_value;
+      cur.spend += r.spend;
+      byDate.set(r.date, cur);
+    }
+  }
+  return Array.from(byDate.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, v]) => ({ date, revenue: v.revenue, spend: v.spend }));
+}
+
+/**
+ * Group breakdown — Spend & ROAS per product group, sorted desc by spend.
+ * Used by "แยกตามกลุ่มสินค้า" panel with progress bars.
+ */
+export async function getGroupBreakdown(
+  tenantId: number,
+  dateRange: DateRangeInput,
+): Promise<
+  Array<{
+    groupId: number;
+    groupName: string;
+    color: string;
+    spend: number;
+    roas: number;
+    revenue: number;
+    spendPct: number; // % of total spend (0..100)
+    roasPct: number;  // % vs target (capped 0..100)
+    target: number;
+  }>
+> {
+  const groups = await getGroupsKpi(tenantId, dateRange);
+  const totalSpend = groups.reduce((s, g) => s + g.spend, 0);
+  return groups
+    .filter((g) => g.accountCount > 0)
+    .map((g) => {
+      const target = g.roasTarget || 2.0;
+      const spendPct = totalSpend > 0 ? (g.spend / totalSpend) * 100 : 0;
+      // ROAS bar: scale 0..150% of target → 0..100%
+      const roasPct = Math.min(100, (g.roas / (target * 1.5)) * 100);
+      return {
+        groupId: g.groupId,
+        groupName: g.groupName,
+        color: g.color,
+        spend: g.spend,
+        roas: g.roas,
+        revenue: g.purchaseValue,
+        spendPct,
+        roasPct,
+        target,
+      };
+    })
+    .sort((a, b) => b.spend - a.spend);
+}
+
+/**
+ * Top performing ads — top 5 adsets by ROAS (with delta vs previous 7d).
+ * For simplicity we treat "ad" as adset name (no per-ad fetch in main loop).
+ */
+export async function getTopAds(
+  tenantId: number,
+  dateRange: DateRangeInput,
+): Promise<
+  Array<{
+    rank: number;
+    adsetId: string;
+    adsetName: string;
+    accountId: number;
+    pageName: string | null;
+    roas: number;
+    deltaPct: number;
+    spend: number;
+  }>
+> {
+  const adsets = await getAdsetRows(tenantId, dateRange);
+  const filtered = adsets.filter((a) => a.spend >= 100 && a.roas > 0);
+  const sorted = filtered.sort((a, b) => b.roas - a.roas).slice(0, 5);
+
+  // Compute prior-period delta: shift the same window backwards by its own length.
+  const cur = resolveDateRange(dateRange);
+  const sinceMs = new Date(cur.since).getTime();
+  const untilMs = new Date(cur.until).getTime();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const lenDays = Math.max(1, Math.round((untilMs - sinceMs) / dayMs) + 1);
+  const priorUntil = new Date(sinceMs - dayMs).toISOString().slice(0, 10);
+  const priorSince = new Date(sinceMs - lenDays * dayMs).toISOString().slice(0, 10);
+  const priorRange: DateRangeInput = {
+    preset: "custom",
+    since: priorSince,
+    until: priorUntil,
+  };
+  const priorAdsets = await getAdsetRows(tenantId, priorRange);
+  const priorMap = new Map(priorAdsets.map((p) => [p.adsetId, p.roas] as const));
+
+  return sorted.map((a, i) => {
+    const priorRoas = priorMap.get(a.adsetId) ?? 0;
+    const deltaPct =
+      priorRoas > 0 ? Math.round(((a.roas - priorRoas) / priorRoas) * 100) : 0;
+    return {
+      rank: i + 1,
+      adsetId: a.adsetId,
+      adsetName: a.adsetName,
+      accountId: a.accountId,
+      pageName: a.pageName,
+      roas: a.roas,
+      deltaPct,
+      spend: a.spend,
+    };
+  });
+}
+
+/**
+ * Smart Scaling recommendations — top 5 adsets by score, with from→to budget calc.
+ */
+export async function getSmartScalingRecommend(
+  tenantId: number,
+  dateRange: DateRangeInput,
+  scaleSettings: {
+    increaseSmallPercent: number;
+    increaseLargePercent: number;
+    decreaseSmallPercent: number;
+    decreaseLargePercent: number;
+  },
+): Promise<
+  Array<{
+    adsetId: string;
+    adsetName: string;
+    accountId: number;
+    pageName: string | null;
+    spend: number;
+    score: number;
+    badge: string;
+    badgeIcon: string;
+    actionLabel: "เพิ่มงบ" | "คงงบ" | "ลดงบ" | "หยุด";
+    fromBudget: number;
+    toBudget: number;
+  }>
+> {
+  const adsets = await getAdsetRows(tenantId, dateRange);
+  const groups = await getAccountGroupsByUser(tenantId);
+  const groupMap = new Map(groups.map((g) => [g.id, g]));
+  const filtered = adsets.filter((a) => a.spend >= 100);
+  const scored = filtered.map((a) => {
+    const grp = a.groupId ? groupMap.get(a.groupId) : undefined;
+    const roasTarget = grp?.roasTarget ?? 2.0;
+    const ctrThreshold = grp?.ctrThreshold ?? 1.0;
+    const score = calculateScalingScore(a.roas, a.ctr, roasTarget, ctrThreshold);
+    const decision = decideScaleBadge(a.roas, a.ctr, roasTarget, ctrThreshold);
+    let actionLabel: "เพิ่มงบ" | "คงงบ" | "ลดงบ" | "หยุด" = "คงงบ";
+    let pct = 0;
+    if (decision.badge === "scale-up-large") {
+      actionLabel = "เพิ่มงบ";
+      pct = scaleSettings.increaseLargePercent;
+    } else if (decision.badge === "scale-up-small") {
+      actionLabel = "เพิ่มงบ";
+      pct = scaleSettings.increaseSmallPercent;
+    } else if (decision.badge === "scale-down-small") {
+      actionLabel = "ลดงบ";
+      pct = -scaleSettings.decreaseSmallPercent;
+    } else if (decision.badge === "scale-down-large") {
+      actionLabel = "หยุด";
+      pct = -100;
+    } else {
+      actionLabel = "คงงบ";
+      pct = 0;
+    }
+    const toBudget = Math.max(0, Math.round(a.spend * (1 + pct / 100)));
+    return {
+      adsetId: a.adsetId,
+      adsetName: a.adsetName,
+      accountId: a.accountId,
+      pageName: a.pageName,
+      spend: a.spend,
+      score,
+      badge: decision.badge,
+      badgeIcon: decision.badgeIcon,
+      actionLabel,
+      fromBudget: Math.round(a.spend),
+      toBudget,
+    };
+  });
+  return scored.sort((a, b) => b.score - a.score).slice(0, 5);
+}
+
+/**
+ * Accounts table with 14-day sparkline + status pill.
+ * Status: ดี (ROAS >= target), เฝ้าระวัง (target*0.7 <= ROAS < target), ต่ำกว่าเป้า (< target*0.7).
+ */
+export async function getAccountsTableWithTrend(
+  tenantId: number,
+  dateRange: DateRangeInput,
+): Promise<
+  Array<
+    AccountKpi & {
+      groupName: string | null;
+      groupColor: string | null;
+      trend14d: number[];
+      status: "ดี" | "เฝ้าระวัง" | "ต่ำกว่าเป้า";
+    }
+  >
+> {
+  const kpis = await getAccountsKpi(tenantId, dateRange);
+  const groups = await getAccountGroupsByUser(tenantId);
+  const members = await getAllGroupMembersForUser(tenantId);
+  const accountToGroup = new Map<number, { name: string; color: string }>();
+  for (const m of members) {
+    const g = groups.find((gr) => gr.id === m.groupId);
+    if (g) accountToGroup.set(m.accountId, { name: g.groupName, color: g.color ?? "#3b82f6" });
+  }
+
+  // 14-day spend sparkline per account
+  const accounts = (await getAdAccountsByUser(tenantId)).filter((a) => a.isActive !== false);
+  const range14d = dateRangeFromPreset("14d");
+  const trendArrays = await Promise.all(
+    accounts.map(async (acc) => {
+      const daily = await fetchAccountDailyInsights(acc.adAccountId, acc.accessToken, range14d);
+      const sorted = daily.sort((a, b) => a.date.localeCompare(b.date));
+      return {
+        accountId: acc.id,
+        // ROAS daily — used as line color/level signal
+        roas: sorted.map((d) => (d.spend > 0 ? d.purchase_value / d.spend : 0)),
+      };
+    }),
+  );
+  const trendMap = new Map(trendArrays.map((t) => [t.accountId, t.roas]));
+
+  return kpis.map((k) => {
+    const target = k.roasTarget || 2.0;
+    const status: "ดี" | "เฝ้าระวัง" | "ต่ำกว่าเป้า" =
+      k.roas >= target ? "ดี" : k.roas >= target * 0.7 ? "เฝ้าระวัง" : "ต่ำกว่าเป้า";
+    const grp = accountToGroup.get(k.accountId);
+    return {
+      ...k,
+      groupName: grp?.name ?? null,
+      groupColor: grp?.color ?? null,
+      trend14d: trendMap.get(k.accountId) ?? [],
+      status,
+    };
+  });
 }

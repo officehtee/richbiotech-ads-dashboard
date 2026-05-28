@@ -152,10 +152,10 @@ async function metaFetch<T = any>(
 }
 
 export function dateRangeFromPreset(
-  preset: "3d" | "7d" | "14d" | "30d",
+  preset: "1d" | "3d" | "7d" | "14d" | "30d",
 ): MetaDateRange {
   const today = new Date();
-  const map: Record<string, number> = { "3d": 3, "7d": 7, "14d": 14, "30d": 30 };
+  const map: Record<string, number> = { "1d": 1, "3d": 3, "7d": 7, "14d": 14, "30d": 30 };
   const days = map[preset] ?? 7;
   const since = new Date(today);
   since.setDate(today.getDate() - days + 1);

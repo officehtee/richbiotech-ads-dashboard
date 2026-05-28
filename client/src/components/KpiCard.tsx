@@ -7,102 +7,115 @@ export type KpiAccent = "spend" | "messaging" | "orders" | "revenue" | "roas" | 
 
 export type KpiCardProps = {
   label: string;
-  /** Either pass a pre-formatted string OR pass `numericValue` + `formatter` to enable count-up. */
   value?: string;
   numericValue?: number;
   formatter?: (n: number) => string;
   sublabel?: string;
-  icon: LucideIcon;
+  icon?: LucideIcon;
   accent?: KpiAccent;
-  /** Sparkline series (last 7 days) */
+  /** Sparkline series */
   sparkline?: number[];
-  /** Delta % vs previous period — positive = up, used with `goodWhen` to color */
+  /** Delta % vs previous period — positive = up */
   deltaPct?: number;
   /** "up" means up is good (revenue/roas), "down" means down is good (spend/cpm) */
   goodWhen?: "up" | "down" | "neutral";
-  /** Right-aligned footer note (e.g. "5 ทักชั่วโมงนี้") */
+  /** Right-aligned footer note */
   footer?: ReactNode;
   /** Subtle hint shown on the left of footer */
   hint?: string;
+  /** Live status dot (right of label): green=hot, gray=idle, red=danger */
+  liveStatus?: "live" | "idle" | "danger";
 };
 
 /**
- * Full-color gradient palette per KPI accent.
- * Each accent uses two stops for a smooth modern gradient.
+ * Per-KPI accent colors used for label dot, sparkline stroke, and delta.
  */
-const gradientMap: Record<KpiAccent, { from: string; to: string; ring: string }> = {
-  // orange — spend
-  spend:     { from: "#fb923c", to: "#ea580c", ring: "rgba(234, 88, 12, 0.45)" },
-  // royal blue — messaging
-  messaging: { from: "#3b82f6", to: "#1d4ed8", ring: "rgba(29, 78, 216, 0.45)" },
-  // emerald — orders
-  orders:    { from: "#10b981", to: "#047857", ring: "rgba(4, 120, 87, 0.45)" },
-  // amber — revenue
-  revenue:   { from: "#fbbf24", to: "#d97706", ring: "rgba(217, 119, 6, 0.45)" },
-  // violet — ROAS
-  roas:      { from: "#a78bfa", to: "#6d28d9", ring: "rgba(109, 40, 217, 0.45)" },
-  // primary fallback
-  primary:   { from: "#3b82f6", to: "#1e40af", ring: "rgba(30, 64, 175, 0.45)" },
+const accentMap: Record<KpiAccent, { dot: string; line: string; lineGradStart: string; lineGradEnd: string }> = {
+  spend:     { dot: "#fb923c", line: "#fb923c", lineGradStart: "rgba(251,146,60,0.35)",  lineGradEnd: "rgba(251,146,60,0)" },
+  messaging: { dot: "#3b82f6", line: "#3b82f6", lineGradStart: "rgba(59,130,246,0.35)",  lineGradEnd: "rgba(59,130,246,0)" },
+  orders:    { dot: "#10b981", line: "#10b981", lineGradStart: "rgba(16,185,129,0.35)",  lineGradEnd: "rgba(16,185,129,0)" },
+  revenue:   { dot: "#fbbf24", line: "#fbbf24", lineGradStart: "rgba(251,191,36,0.35)",  lineGradEnd: "rgba(251,191,36,0)" },
+  roas:      { dot: "#a78bfa", line: "#a78bfa", lineGradStart: "rgba(167,139,250,0.35)", lineGradEnd: "rgba(167,139,250,0)" },
+  primary:   { dot: "#3b82f6", line: "#3b82f6", lineGradStart: "rgba(59,130,246,0.35)",  lineGradEnd: "rgba(59,130,246,0)" },
 };
 
-function Sparkline({ data }: { data: number[] }) {
+function Sparkline({ data, accent }: { data: number[]; accent: KpiAccent }) {
+  const a = accentMap[accent];
   if (!data || data.length < 2) {
-    return <div className="h-8 w-full" />;
+    return <div className="h-12 w-full" />;
   }
   const max = Math.max(...data, 1);
   const min = Math.min(...data, 0);
   const range = max - min || 1;
   const w = 100;
-  const h = 28;
+  const h = 36;
   const pts = data.map((v, i) => {
     const x = (i / (data.length - 1)) * w;
     const y = h - ((v - min) / range) * h;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
+    return { x, y };
   });
-  const path = `M ${pts.join(" L ")}`;
+  const path = `M ${pts.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" L ")}`;
   const area = `${path} L ${w},${h} L 0,${h} Z`;
+  const last = pts[pts.length - 1];
+  const gradId = `kpi-area-${accent}`;
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-8 w-full">
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-12 w-full">
       <defs>
-        <linearGradient id="kpi-spark-white" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+        <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor={a.lineGradStart} />
+          <stop offset="100%" stopColor={a.lineGradEnd} />
         </linearGradient>
       </defs>
-      <path d={area} fill="url(#kpi-spark-white)" />
+      <path d={area} fill={`url(#${gradId})`} />
       <path
         d={path}
         fill="none"
-        stroke="#ffffff"
-        strokeOpacity={0.9}
-        strokeWidth="1.5"
+        stroke={a.line}
+        strokeWidth="1.6"
         strokeLinecap="round"
         strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
       />
+      {/* End-of-line dot */}
+      <circle cx={last.x} cy={last.y} r="1.6" fill={a.line} stroke="rgba(255,255,255,0.95)" strokeWidth="0.6" />
     </svg>
   );
 }
 
-function DeltaBadge({ deltaPct, goodWhen }: { deltaPct: number; goodWhen: "up" | "down" | "neutral" }) {
+function DeltaPill({ deltaPct, goodWhen }: { deltaPct: number; goodWhen: "up" | "down" | "neutral" }) {
   const isUp = deltaPct > 0.05;
   const isDown = deltaPct < -0.05;
   const Icon = isUp ? ArrowUp : isDown ? ArrowDown : Minus;
+  const isGood = (isUp && goodWhen === "up") || (isDown && goodWhen === "down");
+  const isBad = (isDown && goodWhen === "up") || (isUp && goodWhen === "down");
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold num",
-        "bg-white/20 text-white backdrop-blur-sm",
+        "inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[11px] font-semibold num leading-none",
+        isGood && "bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/25",
+        isBad && "bg-rose-500/15 text-rose-400 ring-1 ring-rose-500/25",
+        !isGood && !isBad && "bg-zinc-500/15 text-zinc-400 ring-1 ring-zinc-500/25",
       )}
-      title={
-        (isUp && goodWhen === "up") || (isDown && goodWhen === "down")
-          ? "ดีขึ้นเทียบงวดก่อน"
-          : (isDown && goodWhen === "up") || (isUp && goodWhen === "down")
-            ? "แย่ลงเทียบงวดก่อน"
-            : "ใกล้เคียงงวดก่อน"
-      }
     >
-      <Icon className="h-3 w-3" />
+      <Icon className="h-2.5 w-2.5" />
       {Math.abs(deltaPct).toFixed(1)}%
+    </span>
+  );
+}
+
+function StatusDot({ status }: { status: "live" | "idle" | "danger" }) {
+  const cls =
+    status === "live"
+      ? "bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.7)]"
+      : status === "danger"
+        ? "bg-rose-400 shadow-[0_0_6px_rgba(244,63,94,0.7)]"
+        : "bg-zinc-500";
+  return (
+    <span className="relative inline-flex h-2 w-2">
+      {status === "live" && (
+        <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400/40 opacity-75 animate-ping" />
+      )}
+      <span className={cn("relative inline-flex h-2 w-2 rounded-full", cls)} />
     </span>
   );
 }
@@ -112,7 +125,6 @@ export default function KpiCard({
   value,
   numericValue,
   formatter,
-  sublabel,
   icon: Icon,
   accent = "primary",
   sparkline,
@@ -120,10 +132,10 @@ export default function KpiCard({
   goodWhen = "up",
   footer,
   hint,
+  liveStatus,
 }: KpiCardProps) {
-  const g = gradientMap[accent];
+  const a = accentMap[accent];
 
-  // Stabilize CountUp end value to prevent restart on every render
   const [end, setEnd] = useState(numericValue ?? 0);
   useEffect(() => {
     if (typeof numericValue === "number") setEnd(numericValue);
@@ -132,78 +144,66 @@ export default function KpiCard({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-xl p-4 text-white",
-        "transition-all duration-200 hover:-translate-y-0.5",
+        "relative overflow-hidden rounded-xl p-4",
+        "bg-[#0d1117] dark:bg-[#0a0d12]",
+        "border border-white/[0.06] dark:border-white/[0.08]",
+        "shadow-[0_2px_8px_-2px_rgba(0,0,0,0.4)]",
+        "transition-all duration-200 hover:-translate-y-0.5 hover:border-white/[0.12]",
       )}
-      style={{
-        backgroundImage: `linear-gradient(135deg, ${g.from} 0%, ${g.to} 100%)`,
-        boxShadow: `0 10px 20px -10px ${g.ring}, 0 2px 6px -2px rgba(0,0,0,0.08)`,
-      }}
     >
-      {/* Decorative blurred circle (soft glow, lower-right) */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute -right-8 -bottom-10 h-32 w-32 rounded-full opacity-25"
-        style={{ background: "radial-gradient(closest-side, #ffffff 0%, transparent 70%)" }}
-      />
-      {/* Subtle diagonal sheen */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.08]"
-        style={{
-          backgroundImage:
-            "linear-gradient(120deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 40%)",
-        }}
-      />
-
-      <div className="relative flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-[11px] font-medium tracking-wide uppercase text-white/85">
+      {/* Top row: label + dot + live status + (optional icon) */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span
+            className="h-1.5 w-1.5 rounded-full shrink-0"
+            style={{ backgroundColor: a.dot, boxShadow: `0 0 6px ${a.dot}` }}
+          />
+          <span className="text-[11px] font-semibold tracking-wider uppercase text-zinc-400 truncate">
             {label}
-          </p>
-          <p className="text-2xl font-bold tracking-tight mt-1 truncate num text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.15)]">
-            {value !== undefined ? (
-              value
-            ) : (
-              <CountUp
-                end={end}
-                duration={1.2}
-                preserveValue
-                separator=","
-                formattingFn={formatter}
-                decimals={formatter ? 0 : 0}
-              />
-            )}
-          </p>
-          {(sublabel || typeof deltaPct === "number") && (
-            <div className="flex items-center gap-2 mt-1 text-xs text-white/90">
-              {typeof deltaPct === "number" && goodWhen !== "neutral" && (
-                <DeltaBadge deltaPct={deltaPct} goodWhen={goodWhen} />
-              )}
-              {sublabel && <span className="truncate">{sublabel}</span>}
-            </div>
-          )}
+          </span>
         </div>
-        <div
-          className={cn(
-            "h-10 w-10 rounded-lg flex items-center justify-center shrink-0",
-            "bg-white/20 backdrop-blur-sm ring-1 ring-white/25",
-          )}
-        >
-          <Icon className="h-5 w-5 text-white" />
+        <div className="flex items-center gap-1.5 shrink-0">
+          {liveStatus && <StatusDot status={liveStatus} />}
+          {Icon && <Icon className="h-3.5 w-3.5 text-zinc-500" />}
         </div>
       </div>
 
-      {sparkline && sparkline.length > 0 && (
-        <div className="relative mt-3">
-          <Sparkline data={sparkline} />
-        </div>
-      )}
+      {/* Big number + delta pill */}
+      <div className="mt-2 flex items-baseline gap-2">
+        <span className="num text-3xl font-bold tracking-tight text-white tabular-nums">
+          {value !== undefined ? (
+            value
+          ) : (
+            <CountUp end={end} duration={1.2} preserveValue separator="," formattingFn={formatter} />
+          )}
+        </span>
+        {typeof deltaPct === "number" && goodWhen !== "neutral" && (
+          <DeltaPill deltaPct={deltaPct} goodWhen={goodWhen} />
+        )}
+      </div>
 
+      {/* Sparkline full-width */}
+      <div className="mt-2 -mx-1">
+        {sparkline && sparkline.length > 0 ? (
+          <Sparkline data={sparkline} accent={accent} />
+        ) : (
+          <div className="h-12 w-full" />
+        )}
+      </div>
+
+      {/* Footer: hint · live now */}
       {(footer || hint) && (
-        <div className="relative mt-2 flex items-center justify-between text-[11px] text-white/85">
-          {hint ? <span className="truncate">{hint}</span> : <span />}
-          {footer ? <span className="truncate font-medium num text-white">{footer}</span> : <span />}
+        <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-zinc-400">
+          {hint ? (
+            <span className="truncate num">{hint}</span>
+          ) : (
+            <span />
+          )}
+          {footer ? (
+            <span className="truncate font-medium num text-zinc-300">{footer}</span>
+          ) : (
+            <span />
+          )}
         </div>
       )}
     </div>

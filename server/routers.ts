@@ -34,6 +34,11 @@ import {
   getHubHourlyRollup,
   getHubKpiSparklines,
   getHubHotPages,
+  getRevenueVsSpendDaily,
+  getGroupBreakdown,
+  getTopAds,
+  getSmartScalingRecommend,
+  getAccountsTableWithTrend,
   buildTodayHourlyBars,
   buildWeeklyHeatmap,
   computeCurrentHourBaseline,
@@ -100,7 +105,7 @@ const generateToken = customAlphabet(tokenAlphabet, 24);
 const generateCompanyCode = customAlphabet(tokenAlphabet, 8);
 
 const dateRangeInput = z.object({
-  preset: z.enum(["3d", "7d", "14d", "30d", "custom"]),
+  preset: z.enum(["1d", "3d", "7d", "14d", "30d", "custom"]),
   since: z.string().optional(),
   until: z.string().optional(),
 });
@@ -409,6 +414,53 @@ export const appRouter = router({
           { impressions: 0, clicks: 0, messaging: 0, purchases: 0, purchaseValue: 0 },
         );
         return buildFunnel(tot);
+      }),
+
+    /* Round 7: revenue vs spend daily series */
+    revenueVsSpend: protectedProcedure
+      .input(z.object({ dateRange: dateRangeInput }))
+      .query(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        return getRevenueVsSpendDaily(tid, input.dateRange);
+      }),
+
+    /* Round 7: group breakdown (Spend/ROAS by product group) */
+    groupBreakdown: protectedProcedure
+      .input(z.object({ dateRange: dateRangeInput }))
+      .query(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        return getGroupBreakdown(tid, input.dateRange);
+      }),
+
+    /* Round 7: top performing ads */
+    topAds: protectedProcedure
+      .input(z.object({ dateRange: dateRangeInput }))
+      .query(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        return getTopAds(tid, input.dateRange);
+      }),
+
+    /* Round 7: smart scaling recommendations (5 adsets + from→to) */
+    smartScalingRecommend: protectedProcedure
+      .input(z.object({ dateRange: dateRangeInput }))
+      .query(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        const raw = await getScaleSettings(tid);
+        const settings = {
+          increaseSmallPercent: raw?.increaseSmallPercent ?? 20,
+          increaseLargePercent: raw?.increaseLargePercent ?? 50,
+          decreaseSmallPercent: raw?.decreaseSmallPercent ?? 20,
+          decreaseLargePercent: raw?.decreaseLargePercent ?? 30,
+        };
+        return getSmartScalingRecommend(tid, input.dateRange, settings);
+      }),
+
+    /* Round 7: full accounts table with 14-day trend + status */
+    accountsTable: protectedProcedure
+      .input(z.object({ dateRange: dateRangeInput }))
+      .query(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        return getAccountsTableWithTrend(tid, input.dateRange);
       }),
 
     /* Hub 2.0: AI insight (2-3 sentences) — returns null if LLM unavailable */
@@ -728,7 +780,7 @@ export const appRouter = router({
       .input(
         z.object({
           dateRange: z.object({
-            preset: z.enum(["3d", "7d", "14d", "30d", "custom"]),
+            preset: z.enum(["1d", "3d", "7d", "14d", "30d", "custom"]),
             since: z.string().optional(),
             until: z.string().optional(),
           }),
@@ -745,7 +797,7 @@ export const appRouter = router({
       .input(
         z.object({
           dateRange: z.object({
-            preset: z.enum(["3d", "7d", "14d", "30d", "custom"]),
+            preset: z.enum(["1d", "3d", "7d", "14d", "30d", "custom"]),
             since: z.string().optional(),
             until: z.string().optional(),
           }),

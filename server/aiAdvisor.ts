@@ -176,7 +176,7 @@ type ScopeInput =
   | { type: "group"; groupId: number };
 
 const dateRangeInput = z.object({
-  preset: z.enum(["3d", "7d", "14d", "30d", "custom"]),
+  preset: z.enum(["1d", "3d", "7d", "14d", "30d", "custom"]),
   since: z.string().optional(),
   until: z.string().optional(),
 });

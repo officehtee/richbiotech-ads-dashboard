@@ -6,7 +6,8 @@ import { CalendarIcon } from "lucide-react";
 import { useState } from "react";
 
 const PRESETS: { key: DatePreset; label: string }[] = [
-  { key: "3d", label: "3 วันล่าสุด" },
+  { key: "1d", label: "1 วัน" },
+  { key: "3d", label: "3 วัน" },
   { key: "7d", label: "7 วัน" },
   { key: "14d", label: "14 วัน" },
   { key: "30d", label: "30 วัน" },
