@@ -21,14 +21,25 @@ export type DateRangePickerProps = {
 
 export default function DateRangePicker({ value, onChange }: DateRangePickerProps) {
   const [customOpen, setCustomOpen] = useState(false);
-  const [from, setFrom] = useState<Date | undefined>(
-    value.since ? new Date(value.since) : undefined,
-  );
-  const [to, setTo] = useState<Date | undefined>(
-    value.until ? new Date(value.until) : undefined,
-  );
+  // Parse YYYY-MM-DD as local-date (ไม่ตีความเป็น UTC midnight ซึ่งจะ shift ไป shift มาตาม timezone)
+  const parseLocalDate = (s?: string): Date | undefined => {
+    if (!s) return undefined;
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return new Date(s);
+    return new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+  };
 
-  const fmt = (d?: Date) => (d ? d.toISOString().slice(0, 10) : "");
+  const [from, setFrom] = useState<Date | undefined>(parseLocalDate(value.since));
+  const [to, setTo] = useState<Date | undefined>(parseLocalDate(value.until));
+
+  // Format Date → YYYY-MM-DD ตามเขตเวลาท้องถิ่น (ไม่ใช้ toISOString ที่ shift เป็น UTC)
+  const fmt = (d?: Date) => {
+    if (!d) return "";
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
 
   return (
     <div className="flex items-center gap-1.5 flex-wrap">

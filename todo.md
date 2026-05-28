@@ -200,3 +200,10 @@
 - [x] AdsetDetail: "Ad Name" → "Ads Name"
 - [x] คง adAccountId/AdSet/AdInsights/route paths/file names (เป็น identifier)
 - [x] vitest 82/82 ผ่าน, TypeScript clean
+
+
+## Round 7.10: Bug Fix DateRangePicker — เลือกวัน 27-28 พ.ค. กลายเป็น 23-24 พ.ค.
+- [x] ระบุสาเหตุ: `toISOString().slice(0,10)` แปลงเป็น UTC ทำให้ shift ตาม timezone ของผู้ใช้
+- [x] แทนด้วย `parseLocalDate` (ใช้ regex แยก Y/M/D) + `fmt` (ใช้ getFullYear/getMonth/getDate)
+- [x] vitest 8 case ครอบคลุม regression case 27-28 พ.ค. + round-trip + วันสิ้นปี/ต้นปี
+- [x] vitest 90/90 ผ่าน, TypeScript clean
