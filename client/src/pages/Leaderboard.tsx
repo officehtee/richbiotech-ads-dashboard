@@ -44,7 +44,7 @@ function rankBadge(idx: number, dir: Direction) {
 }
 
 export default function Leaderboard() {
-  const [dateRange, setDateRange] = useState<DateRangeInput>({ preset: "7d" });
+  const [dateRange, setDateRange] = useState<DateRangeInput>({ preset: "1d" });
   const [entityType, setEntityType] = useState<EntityType>("accounts");
   const [metric, setMetric] = useState<MetricKey>("roas");
   const [direction, setDirection] = useState<Direction>("top");

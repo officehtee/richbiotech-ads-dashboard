@@ -154,3 +154,15 @@
 - [x] Routes ตรวจแล้ว (`/dashboard`, `/ad-intelligence`, `/smart-scaling`, `/ai-advisor`)
 - [x] แก้ deltaPct ใน getTopAds ให้คำนวณจาก prior period จริง (ไม่ synthesize)
 - [x] vitest 82 cases ผ่านทั้งหมด
+
+## Round 7.2: ตั้งค่าเริ่มต้น preset "1 วัน" ในทุกหน้า (ยกเว้น Smart Scaling)
+- [x] GroupOverview — default 1d
+- [x] Single Dashboard — default 1d
+- [x] Leaderboard (ชาร์ตอันดับ) — default 1d
+- [x] PerformanceComparison — default 1d (ทั้ง rangeA + rangeB)
+- [x] AIAdvisor — default 1d
+- [x] AdIntelligence — default 1d
+- [x] AdMetricBenchmark — default 1d
+- [x] Cohort — default 1d
+- [x] SmartScaling — คงค่าเดิม (7d, ยกเว้น)
+- [x] vitest 82/82 ผ่าน, TypeScript clean

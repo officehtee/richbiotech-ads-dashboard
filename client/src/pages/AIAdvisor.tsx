@@ -18,7 +18,7 @@ export default function AIAdvisor() {
   const [scopeType, setScopeType] = useState<ScopeType>("workspace");
   const [accountId, setAccountId] = useState<string>("");
   const [groupId, setGroupId] = useState<string>("");
-  const [dateRange, setDateRange] = useState<DateRangeInput>({ preset: "7d" });
+  const [dateRange, setDateRange] = useState<DateRangeInput>({ preset: "1d" });
 
   const expertsQuery = trpc.ai.experts.useQuery();
   const accountsQuery = trpc.accounts.list.useQuery();

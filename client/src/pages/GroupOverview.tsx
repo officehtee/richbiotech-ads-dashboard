@@ -27,7 +27,7 @@ import {
 import { useMemo, useState } from "react";
 
 export default function GroupOverview() {
-  const [dateRange, setDateRange] = useState<DateRangeInput>({ preset: "7d" });
+  const [dateRange, setDateRange] = useState<DateRangeInput>({ preset: "1d" });
   const utils = trpc.useUtils();
   const groupsQuery = trpc.dashboard.groups.useQuery(
     { dateRange },
