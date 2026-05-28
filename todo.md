@@ -220,3 +220,9 @@
 ## Round 7.12: ตรึง Sidebar (Sticky) ตอน scroll dashboard
 - [x] ครอบ AppSidebar (desktop) ด้วย wrapper `sticky top-0 h-screen self-start shrink-0 z-40`
 - [x] เพิ่ม vitest 2 case ตรวจ wrapper ใน DashboardLayout (99/99 ผ่าน)
+
+## Round 7.13: Hot Pages dedup (เพจเดียวกัน หลายบัญชี → 1 แถว)
+- [x] แก้ getHubHotPages ให้รวมตาม pageName ก่อน sort/slice (ไม่ใช่ map ตรง ๆ จาก accounts)
+- [x] รวม messagingToday + baseline ของทุกบัญชีในเพจเดียวกัน + คำนวณ deltaPct หลังรวม
+- [x] เพิ่ม field accountCount + nickname format "N บัญชี • ชื่อเล่น" เมื่อ accountCount > 1
+- [x] vitest hotPagesGroup 7 case (106/106 ผ่าน)

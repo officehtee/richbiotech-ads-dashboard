@@ -949,32 +949,82 @@ export async function getHubHotPages(tenantId: number): Promise<
     messagingBaseline: number;
     deltaPct: number;
     adAccountId: string;
+    accountCount: number;
   }>
 > {
   const accounts = (await getAdAccountsByUser(tenantId)).filter((a) => a.isActive !== false);
   if (accounts.length === 0) return [];
   const todayIso = new Date().toISOString().slice(0, 10);
   const range7d = dateRangeFromPreset("7d");
-  const arrays = await Promise.all(
+  const perAccount = await Promise.all(
     accounts.map(async (acc) => {
       const daily = await fetchAccountDailyInsights(acc.adAccountId, acc.accessToken, range7d);
       const today = daily.find((d) => d.date === todayIso);
       const past = daily.filter((d) => d.date !== todayIso);
       const baseline = past.length > 0 ? past.reduce((s, d) => s + d.messaging, 0) / past.length : 0;
       const messagingToday = today?.messaging ?? 0;
-      const deltaPct = baseline > 0 ? ((messagingToday - baseline) / baseline) * 100 : 0;
       return {
         accountId: acc.id,
+        adAccountId: acc.adAccountId,
         pageName: acc.pageName ?? acc.accountName ?? acc.nickname ?? "(ไม่มีชื่อเพจ)",
         nickname: acc.nickname,
         messagingToday,
-        messagingBaseline: baseline,
-        deltaPct,
-        adAccountId: acc.adAccountId,
+        baseline,
       };
     }),
   );
-  return arrays.sort((a, b) => b.messagingToday - a.messagingToday).slice(0, 5);
+
+  // รวมตาม pageName (เพจเดียวกัน หลายบัญชี = 1 แถว)
+  type Bucket = {
+    pageName: string;
+    accountId: number;
+    adAccountId: string;
+    nicknames: string[];
+    messagingToday: number;
+    messagingBaseline: number;
+    accountCount: number;
+  };
+  const byPage = new Map<string, Bucket>();
+  for (const p of perAccount) {
+    const key = p.pageName;
+    const cur = byPage.get(key);
+    if (!cur) {
+      byPage.set(key, {
+        pageName: p.pageName,
+        accountId: p.accountId,
+        adAccountId: p.adAccountId,
+        nicknames: p.nickname ? [p.nickname] : [],
+        messagingToday: p.messagingToday,
+        messagingBaseline: p.baseline,
+        accountCount: 1,
+      });
+    } else {
+      cur.messagingToday += p.messagingToday;
+      cur.messagingBaseline += p.baseline;
+      cur.accountCount += 1;
+      if (p.nickname && !cur.nicknames.includes(p.nickname)) cur.nicknames.push(p.nickname);
+    }
+  }
+
+  return Array.from(byPage.values())
+    .map((b) => ({
+      accountId: b.accountId,
+      adAccountId: b.adAccountId,
+      pageName: b.pageName,
+      nickname:
+        b.accountCount > 1
+          ? `${b.accountCount} บัญชี${b.nicknames.length > 0 ? " • " + b.nicknames.join(", ") : ""}`
+          : (b.nicknames[0] ?? null),
+      messagingToday: b.messagingToday,
+      messagingBaseline: b.messagingBaseline,
+      deltaPct:
+        b.messagingBaseline > 0
+          ? ((b.messagingToday - b.messagingBaseline) / b.messagingBaseline) * 100
+          : 0,
+      accountCount: b.accountCount,
+    }))
+    .sort((a, b) => b.messagingToday - a.messagingToday)
+    .slice(0, 5);
 }
 
 
