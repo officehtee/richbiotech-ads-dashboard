@@ -31,7 +31,16 @@ import {
   getSingleAccountTrend,
   getWeekStartCohort,
   resolveDateRange,
+  getHubHourlyRollup,
+  getHubKpiSparklines,
+  getHubHotPages,
+  buildTodayHourlyBars,
+  buildWeeklyHeatmap,
+  computeCurrentHourBaseline,
+  computeUrgency,
+  buildFunnel,
 } from "./aggregator";
+import { invokeLLM } from "./_core/llm";
 import {
   createAccountGroup,
   createAdAccount,
@@ -337,6 +346,98 @@ export const appRouter = router({
         const trend = await getSingleAccountTrend(tid, input.accountId, input.dateRange);
         return { kpi: accounts[0] ?? null, trend };
       }),
+
+    /* Hub 2.0: realtime activity (1h messaging + 24h bars + urgency badge) */
+    realtime: protectedProcedure.query(async ({ ctx }) => {
+      const tid = await tenantId(ctx);
+      const rows = await getHubHourlyRollup(tid);
+      const now = new Date();
+      const todayIso = now.toISOString().slice(0, 10);
+      const currentHour = now.getUTCHours();
+      const todayBars = buildTodayHourlyBars(rows, todayIso);
+      const { current, baseline, deltaPct } = computeCurrentHourBaseline(rows, todayIso, currentHour);
+      const urgency = computeUrgency(current, baseline);
+      const messagingLast1h = current;
+      const messagingToday = todayBars.reduce((s, b) => s + b.messaging, 0);
+      const messagingPerHourNow = current;
+      return {
+        messagingLast1h,
+        messagingToday,
+        messagingPerHourNow,
+        baseline,
+        deltaPct,
+        urgency,
+        todayBars,
+        currentHour,
+      };
+    }),
+
+    /* Hub 2.0: 7d × 24h heatmap */
+    hourlyHeatmap: protectedProcedure.query(async ({ ctx }) => {
+      const tid = await tenantId(ctx);
+      const rows = await getHubHourlyRollup(tid);
+      return buildWeeklyHeatmap(rows);
+    }),
+
+    /* Hub 2.0: top 5 hot pages by messaging today */
+    hotPages: protectedProcedure.query(async ({ ctx }) => {
+      const tid = await tenantId(ctx);
+      return getHubHotPages(tid);
+    }),
+
+    /* Hub 2.0: 7-day sparklines per KPI */
+    kpiSparklines: protectedProcedure.query(async ({ ctx }) => {
+      const tid = await tenantId(ctx);
+      return getHubKpiSparklines(tid);
+    }),
+
+    /* Hub 2.0: 5-step conversion funnel */
+    funnel: protectedProcedure
+      .input(z.object({ dateRange: dateRangeInput }))
+      .query(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        const kpis = await getAccountsKpi(tid, input.dateRange);
+        const tot = kpis.reduce(
+          (acc, k) => {
+            acc.impressions += k.impressions;
+            acc.clicks += k.clicks;
+            acc.messaging += k.messaging;
+            acc.purchases += k.purchases;
+            acc.purchaseValue += k.purchaseValue;
+            return acc;
+          },
+          { impressions: 0, clicks: 0, messaging: 0, purchases: 0, purchaseValue: 0 },
+        );
+        return buildFunnel(tot);
+      }),
+
+    /* Hub 2.0: AI insight (2-3 sentences) — returns null if LLM unavailable */
+    aiInsight: protectedProcedure.query(async ({ ctx }) => {
+      const tid = await tenantId(ctx);
+      try {
+        const today = { preset: "7d" as const };
+        const kpis = await getAccountsKpi(tid, today);
+        const hot = await getHubHotPages(tid);
+        const totSpend = kpis.reduce((s, k) => s + k.spend, 0);
+        const totMsg = kpis.reduce((s, k) => s + k.messaging, 0);
+        const totRevenue = kpis.reduce((s, k) => s + k.purchaseValue, 0);
+        const roas = totSpend > 0 ? totRevenue / totSpend : 0;
+        const top = hot[0];
+        const prompt = `ข้อมูล 7 วันล่าสุด:\n- Spend: ฿${totSpend.toFixed(0)}\n- คนทักรวม: ${totMsg}\n- Revenue: ฿${totRevenue.toFixed(0)}\n- ROAS: ${roas.toFixed(2)}x\n- เพจมาแรงสุด: ${top?.pageName ?? "-"} (${top?.messagingToday ?? 0} ทักวันนี้ เทียบ baseline ${Math.round(top?.deltaPct ?? 0)}%)\nวิเคราะห์ + แนะนำ action`;
+        const resp = await invokeLLM({
+          messages: [
+            { role: "system", content: "คุณเป็น Meta Ads analyst สรุปข้อมูล performance เป็นภาษาไทย 2-3 ประโยค focus actionable insight ห้ามเกริ่นนำ ตอบกระชับตรงประเด็น" },
+            { role: "user", content: prompt },
+          ],
+        });
+        const text = (resp as any)?.choices?.[0]?.message?.content;
+        if (typeof text === "string" && text.length > 0) return { text, generatedAt: Date.now() };
+        return null;
+      } catch (e) {
+        console.warn("[hub.aiInsight] failed:", (e as Error).message);
+        return null;
+      }
+    }),
   }),
 
   /* ----- Ad Intelligence ----- */

@@ -716,3 +716,263 @@ export async function getWeekStartCohort(
   }
   return out.sort((a, b) => a.weekStart.localeCompare(b.weekStart));
 }
+
+
+/* ============================================================
+ * Round 6: Hub Dashboard 2.0
+ * ============================================================ */
+
+import { fetchAccountHourlyInsights, HourlyInsight } from "./metaApi";
+
+/**
+ * Pure helper: compute urgency badge from current vs baseline.
+ */
+export type UrgencyBadge = {
+  level: "peak" | "rising" | "normal" | "quiet";
+  label: string;
+  iconName: "Flame" | "TrendingUp" | "Clock" | "Moon";
+  color: "danger" | "warning" | "info" | "muted";
+  ratio: number;
+};
+
+export function computeUrgency(current: number, baseline: number): UrgencyBadge {
+  const safeBaseline = baseline <= 0 ? 0.5 : baseline;
+  const ratio = current / safeBaseline;
+  if (ratio >= 1.5) return { level: "peak", label: "พีคแล้ว", iconName: "Flame", color: "danger", ratio };
+  if (ratio >= 1.2) return { level: "rising", label: "กำลังขึ้น", iconName: "TrendingUp", color: "warning", ratio };
+  if (ratio >= 0.7) return { level: "normal", label: "ปกติ", iconName: "Clock", color: "info", ratio };
+  return { level: "quiet", label: "เงียบ", iconName: "Moon", color: "muted", ratio };
+}
+
+/**
+ * Pure helper: build 24 hourly bucket array (0..23) from hourly insight rows
+ * filtered to a single date.
+ */
+export function buildTodayHourlyBars(
+  rows: HourlyInsight[],
+  todayIso: string,
+): { hour: number; messaging: number; spend: number }[] {
+  const map = new Map<number, { messaging: number; spend: number }>();
+  for (const r of rows) {
+    if (r.date !== todayIso) continue;
+    const cur = map.get(r.hour) ?? { messaging: 0, spend: 0 };
+    cur.messaging += r.messaging;
+    cur.spend += r.spend;
+    map.set(r.hour, cur);
+  }
+  const out: { hour: number; messaging: number; spend: number }[] = [];
+  for (let h = 0; h < 24; h++) {
+    const v = map.get(h) ?? { messaging: 0, spend: 0 };
+    out.push({ hour: h, ...v });
+  }
+  return out;
+}
+
+/**
+ * Pure helper: build 7-day × 24-hour heatmap grid (Mon..Sun rows).
+ * Returns flat array with weekday (0=Mon..6=Sun), hour (0..23), messaging count.
+ */
+export function buildWeeklyHeatmap(
+  rows: HourlyInsight[],
+): { weekday: number; hour: number; messaging: number; dateLabel: string }[] {
+  const grid = new Map<string, { messaging: number; dateLabel: string }>();
+  for (const r of rows) {
+    const d = new Date(r.date + "T00:00:00Z");
+    const dow = d.getUTCDay(); // 0=Sun..6=Sat
+    const weekday = dow === 0 ? 6 : dow - 1; // 0=Mon..6=Sun
+    const key = `${weekday}-${r.hour}`;
+    const cur = grid.get(key) ?? { messaging: 0, dateLabel: r.date };
+    cur.messaging += r.messaging;
+    grid.set(key, cur);
+  }
+  const out: { weekday: number; hour: number; messaging: number; dateLabel: string }[] = [];
+  for (let w = 0; w < 7; w++) {
+    for (let h = 0; h < 24; h++) {
+      const v = grid.get(`${w}-${h}`) ?? { messaging: 0, dateLabel: "" };
+      out.push({ weekday: w, hour: h, ...v });
+    }
+  }
+  return out;
+}
+
+/**
+ * Pure helper: compute current hour vs baseline of same hour over last N days.
+ * Returns { current, baseline, deltaPct }.
+ */
+export function computeCurrentHourBaseline(
+  rows: HourlyInsight[],
+  todayIso: string,
+  currentHour: number,
+  baselineDays = 7,
+): { current: number; baseline: number; deltaPct: number } {
+  let current = 0;
+  let baselineSum = 0;
+  let baselineCount = 0;
+  for (const r of rows) {
+    if (r.hour !== currentHour) continue;
+    if (r.date === todayIso) {
+      current += r.messaging;
+    } else {
+      baselineSum += r.messaging;
+      baselineCount += 1;
+    }
+  }
+  const baseline = baselineCount > 0 ? baselineSum / Math.min(baselineCount, baselineDays) : 0;
+  const deltaPct = baseline > 0 ? ((current - baseline) / baseline) * 100 : 0;
+  return { current, baseline, deltaPct };
+}
+
+/**
+ * Pure helper: 5-step funnel breakdown.
+ */
+export function buildFunnel(input: {
+  impressions: number;
+  clicks: number;
+  messaging: number;
+  purchases: number;
+  purchaseValue: number;
+}): {
+  steps: Array<{ key: string; label: string; value: number; suffix?: string; widthPct: number }>;
+  drops: Array<{ from: string; to: string; rate: number; label: string }>;
+} {
+  const { impressions, clicks, messaging, purchases, purchaseValue } = input;
+  const max = Math.max(impressions, 1);
+  const aov = purchases > 0 ? purchaseValue / purchases : 0;
+  const steps = [
+    { key: "impressions", label: "Impressions", value: impressions, widthPct: 100 },
+    { key: "clicks", label: "Clicks", value: clicks, widthPct: (clicks / max) * 100 },
+    { key: "messaging", label: "คนทัก", value: messaging, widthPct: (messaging / max) * 100 },
+    { key: "orders", label: "Orders", value: purchases, widthPct: (purchases / max) * 100 },
+    { key: "revenue", label: "Revenue", value: Math.round(purchaseValue), suffix: "฿", widthPct: 100 },
+  ];
+  const drops = [
+    {
+      from: "impressions",
+      to: "clicks",
+      rate: impressions > 0 ? (clicks / impressions) * 100 : 0,
+      label: "CTR",
+    },
+    {
+      from: "clicks",
+      to: "messaging",
+      rate: clicks > 0 ? (messaging / clicks) * 100 : 0,
+      label: "click → msg",
+    },
+    {
+      from: "messaging",
+      to: "orders",
+      rate: messaging > 0 ? (purchases / messaging) * 100 : 0,
+      label: "msg → buy",
+    },
+    {
+      from: "orders",
+      to: "revenue",
+      rate: aov,
+      label: "AOV",
+    },
+  ];
+  return { steps, drops };
+}
+
+/**
+ * Fetch realtime + 24h hourly bars + 7-day heatmap for all accounts in tenant.
+ * Used by hub.realtime + hub.hourlyHeatmap.
+ */
+export async function getHubHourlyRollup(tenantId: number): Promise<HourlyInsight[]> {
+  let accounts = await getAdAccountsByUser(tenantId);
+  accounts = accounts.filter((a) => a.isActive !== false);
+  if (accounts.length === 0) return [];
+  const today = new Date();
+  const since = new Date(today);
+  since.setDate(today.getDate() - 7);
+  const range: MetaDateRange = {
+    since: since.toISOString().slice(0, 10),
+    until: today.toISOString().slice(0, 10),
+  };
+  const arrays = await Promise.all(
+    accounts.map((acc) => fetchAccountHourlyInsights(acc.adAccountId, acc.accessToken, range)),
+  );
+  return arrays.flat();
+}
+
+/**
+ * Build sparkline (7-day daily series) for each KPI summed across accounts.
+ */
+export async function getHubKpiSparklines(tenantId: number): Promise<{
+  spend: number[];
+  messaging: number[];
+  purchases: number[];
+  purchaseValue: number[];
+  roas: number[];
+  dates: string[];
+}> {
+  const accountSeries = await getAccountsSparkline(tenantId);
+  const dateMap = new Map<string, { spend: number; messaging: number; purchases: number; purchaseValue: number }>();
+  for (const a of accountSeries) {
+    for (const d of a.days) {
+      const cur = dateMap.get(d.date) ?? { spend: 0, messaging: 0, purchases: 0, purchaseValue: 0 };
+      cur.spend += d.spend;
+      cur.messaging += d.messaging;
+      cur.purchases += d.purchases;
+      cur.purchaseValue += d.purchaseValue;
+      dateMap.set(d.date, cur);
+    }
+  }
+  const dates = Array.from(dateMap.keys()).sort();
+  const spend: number[] = [];
+  const messaging: number[] = [];
+  const purchases: number[] = [];
+  const purchaseValue: number[] = [];
+  const roas: number[] = [];
+  for (const d of dates) {
+    const v = dateMap.get(d)!;
+    spend.push(v.spend);
+    messaging.push(v.messaging);
+    purchases.push(v.purchases);
+    purchaseValue.push(v.purchaseValue);
+    roas.push(v.spend > 0 ? v.purchaseValue / v.spend : 0);
+  }
+  return { spend, messaging, purchases, purchaseValue, roas, dates };
+}
+
+/**
+ * Compute "hot pages" — top 5 active accounts by messaging in last 24h.
+ * Since we don't have per-page breakdown from Meta, we use accountId/pageName
+ * (each ad account is typically tied to one page in practice).
+ */
+export async function getHubHotPages(tenantId: number): Promise<
+  Array<{
+    accountId: number;
+    pageName: string;
+    nickname: string | null;
+    messagingToday: number;
+    messagingBaseline: number;
+    deltaPct: number;
+    adAccountId: string;
+  }>
+> {
+  const accounts = (await getAdAccountsByUser(tenantId)).filter((a) => a.isActive !== false);
+  if (accounts.length === 0) return [];
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const range7d = dateRangeFromPreset("7d");
+  const arrays = await Promise.all(
+    accounts.map(async (acc) => {
+      const daily = await fetchAccountDailyInsights(acc.adAccountId, acc.accessToken, range7d);
+      const today = daily.find((d) => d.date === todayIso);
+      const past = daily.filter((d) => d.date !== todayIso);
+      const baseline = past.length > 0 ? past.reduce((s, d) => s + d.messaging, 0) / past.length : 0;
+      const messagingToday = today?.messaging ?? 0;
+      const deltaPct = baseline > 0 ? ((messagingToday - baseline) / baseline) * 100 : 0;
+      return {
+        accountId: acc.id,
+        pageName: acc.pageName ?? acc.accountName ?? acc.nickname ?? "(ไม่มีชื่อเพจ)",
+        nickname: acc.nickname,
+        messagingToday,
+        messagingBaseline: baseline,
+        deltaPct,
+        adAccountId: acc.adAccountId,
+      };
+    }),
+  );
+  return arrays.sort((a, b) => b.messagingToday - a.messagingToday).slice(0, 5);
+}

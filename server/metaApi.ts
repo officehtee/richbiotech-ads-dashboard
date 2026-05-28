@@ -344,3 +344,47 @@ export async function validateToken(adAccountId: string, accessToken: string): P
   const res = await metaFetch<{ id: string }>(url, accessToken);
   return res !== null && !!res.id;
 }
+
+/**
+ * Hourly insights breakdown (24 buckets per day, 0-23).
+ * Returns rows with `date` (YYYY-MM-DD) and `hour` (0-23).
+ * Used for Live Activity Hero + Hourly Heatmap.
+ */
+export type HourlyInsight = {
+  date: string;
+  hour: number; // 0..23
+  spend: number;
+  messaging: number;
+  impressions: number;
+  clicks: number;
+};
+
+export async function fetchAccountHourlyInsights(
+  adAccountId: string,
+  accessToken: string,
+  dateRange: MetaDateRange,
+): Promise<HourlyInsight[]> {
+  const fields = ["spend", "impressions", "clicks", "actions"].join(",");
+  const params = new URLSearchParams({
+    fields,
+    time_range: JSON.stringify(dateRange),
+    breakdowns: "hourly_stats_aggregated_by_advertiser_time_zone",
+    level: "account",
+  });
+  const url = `${META_BASE}/${adAccountId}/insights?${params.toString()}`;
+  const res = await metaFetch<{ data: any[] }>(url, accessToken);
+  if (!res || !res.data) return [];
+  return res.data.map((r: any) => {
+    // hourly_stats_aggregated_by_advertiser_time_zone returns e.g. "14:00:00 - 14:59:59"
+    const hourStr: string = r.hourly_stats_aggregated_by_advertiser_time_zone || "00:00:00 - 00:59:59";
+    const hour = parseInt(hourStr.slice(0, 2), 10) || 0;
+    return {
+      date: r.date_start,
+      hour,
+      spend: parseNum(r.spend),
+      messaging: extractMessaging(r.actions),
+      impressions: parseNum(r.impressions),
+      clicks: parseNum(r.clicks),
+    };
+  });
+}

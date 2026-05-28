@@ -95,3 +95,37 @@
 - [x] vitest alert rule evaluation (12 tests)
 - [x] บันทึก checkpoint Round 4 (76d46411)
 - [x] บันทึก checkpoint final หลังจบ Round 5
+
+
+## Round 6 — Hub Dashboard 2.0 (Realtime + Sales-friendly)
+### Backend
+- [x] tRPC `dashboard.realtime` — messages last 1h + 24h hourly bar + delta vs baseline (yesterday same hour)
+- [x] tRPC `dashboard.hotPages` — top 5 pages by msg inflow today + baseline + change %
+- [x] tRPC `dashboard.hourlyHeatmap` — 7d × 24h messages grid
+- [x] tRPC `dashboard.funnel` — Impressions → Clicks → Messages → Orders → Revenue
+- [x] tRPC `dashboard.kpiSparklines` — 7-day daily series for each KPI
+- [x] tRPC `dashboard.aiInsight` — invokeLLM, graceful fallback when LLM unavailable
+
+### Frontend — KPI row + persona
+- [x] KpiCard ใหม่: accent stripe + label + mono number + delta + sparkline + hint + footer
+- [x] react-countup + tabular-nums + skeleton
+- [x] Live pulse dot ใน Live Activity Hero
+- [x] Persona toggle: Buyer view vs Sales view (localStorage)
+- [x] Date Range pills (ผ่าน DateRangePicker เดิม) + Refresh button
+
+### Frontend — Sections ใหม่
+- [x] Live Activity Hero (3 zones: urgency + counts + 24h bars)
+- [x] Hot Pages list (top 5 + delta % + link → single account)
+- [x] Hourly Heatmap 7×24 + tooltip hour/messaging
+- [x] Conversion Funnel 5 ขั้น + CTR / msg→buy / AOV
+- [x] AI Insights card + link → AI Advisor
+- [x] Empty state ใหม่ "ยังไม่มีบัญชีโฆษณา"
+
+### Polish
+- [x] Theme toggle + FOUC pre-flight script ใน index.html (light/dark/system)
+- [x] Logo Royal Blue gradient #2563eb → #1e40af
+- [x] Sarabun font (body) + JetBrains Mono (ตัวเลข .num class)
+- [x] Card hover translateY(-2px) + shadow
+- [x] Mobile-friendly grid (KPI 2 col / desktop 4-5 col)
+- [x] vitest: hourly heatmap + funnel + urgency badge (14 tests)
+- [ ] บันทึก final checkpoint

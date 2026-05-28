@@ -4,6 +4,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -36,6 +39,7 @@ import {
   DollarSign,
   Folder,
   Gauge,
+  Laptop,
   Layers,
   LayoutDashboard,
   LogOut,
@@ -153,8 +157,8 @@ export default function DashboardLayout({
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background via-background to-accent/30">
         <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
           <div className="flex flex-col items-center gap-4">
-            <div className="h-14 w-14 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-lg shadow-primary/20">
-              <Sparkles className="h-7 w-7" />
+            <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-[#2563eb] to-[#1e40af] text-white flex items-center justify-center shadow-xl shadow-[#2563eb]/30">
+              <Sparkles className="h-8 w-8" />
             </div>
             <div className="text-center">
               <h1 className="text-2xl font-semibold tracking-tight">
@@ -210,7 +214,7 @@ function DashboardLayoutContent({
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, preference, setPreference, toggleTheme } = useTheme();
 
   const role = (user?.role ?? "user") as string;
 
@@ -286,11 +290,11 @@ function DashboardLayoutContent({
               </button>
               {!isCollapsed ? (
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="h-8 w-8 rounded-md bg-primary text-primary-foreground flex items-center justify-center shrink-0 shadow-sm">
+                  <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-[#2563eb] to-[#1e40af] text-white flex items-center justify-center shrink-0 shadow-sm shadow-[#2563eb]/30">
                     <Sparkles className="h-4 w-4" />
                   </div>
                   <div className="flex flex-col min-w-0 leading-tight">
-                    <span className="font-semibold tracking-tight truncate text-sm">
+                    <span className="font-bold tracking-tight truncate text-sm">
                       {BRAND_NAME}
                     </span>
                     <span className="text-[10px] text-muted-foreground tracking-wider uppercase">
@@ -366,14 +370,26 @@ function DashboardLayoutContent({
                   <UserIcon className="mr-2 h-4 w-4" />
                   <span>โปรไฟล์</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={toggleTheme} className="cursor-pointer">
-                  {theme === "dark" ? (
+                <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  ธีม
+                </DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={preference}
+                  onValueChange={(v) => setPreference(v as "light" | "dark" | "system")}
+                >
+                  <DropdownMenuRadioItem value="light" className="cursor-pointer">
                     <Sun className="mr-2 h-4 w-4" />
-                  ) : (
+                    <span>สว่าง</span>
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="dark" className="cursor-pointer">
                     <Moon className="mr-2 h-4 w-4" />
-                  )}
-                  <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
-                </DropdownMenuItem>
+                    <span>มืด</span>
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="system" className="cursor-pointer">
+                    <Laptop className="mr-2 h-4 w-4" />
+                    <span>ตามระบบ</span>
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={logout}
