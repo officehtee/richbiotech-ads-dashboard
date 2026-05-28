@@ -125,7 +125,7 @@ export default function AdsetDetail() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-xs text-muted-foreground border-b">
-                    <th className="py-2 text-left">Ad Name</th>
+                    <th className="py-2 text-left">Ads Name</th>
                     <th className="py-2 text-right">Spend</th>
                     <th className="py-2 text-right">Impressions</th>
                     <th className="py-2 text-right">CTR</th>

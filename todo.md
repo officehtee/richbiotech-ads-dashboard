@@ -192,3 +192,11 @@
 - [x] Recharts (RevenueVsSpendChart) ใช้ useTheme + chartColors object (grid/axis/tick/tooltip/activeDot)
 - [x] KpiCard คง gradient ไว้ (ไม่มี hardcoded dark)
 - [x] vitest 82/82 ผ่าน, TypeScript clean
+
+## Round 7.7: แก้ "Ad" → "Ads" ใน UI strings (advertising)
+- [x] AccountsSettings: "Ad Account" → "Ads Account" (3 จุด)
+- [x] AdIntelligence: "Ad Intelligence" → "Ads Intelligence"
+- [x] AdMetricBenchmark: "Ad Metric Benchmark" → "Ads Metric Benchmark"
+- [x] AdsetDetail: "Ad Name" → "Ads Name"
+- [x] คง adAccountId/AdSet/AdInsights/route paths/file names (เป็น identifier)
+- [x] vitest 82/82 ผ่าน, TypeScript clean

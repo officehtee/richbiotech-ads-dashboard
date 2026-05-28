@@ -84,7 +84,7 @@ export default function AccountsSettings() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">จัดการบัญชีโฆษณา</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            เพิ่ม/แก้ไข Ad Account, Token, Page Name, Phase Name, ROAS Target
+            เพิ่ม/แก้ไข Ads Account, Token, Page Name, Phase Name, ROAS Target
           </p>
         </div>
         <Button onClick={() => setOpen(true)}>
@@ -97,7 +97,7 @@ export default function AccountsSettings() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Ad Account ID</TableHead>
+              <TableHead>Ads Account ID</TableHead>
               <TableHead>Nickname</TableHead>
               <TableHead>Page</TableHead>
               <TableHead>Phase</TableHead>
@@ -162,7 +162,7 @@ export default function AccountsSettings() {
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label>Ad Account ID *</Label>
+              <Label>Ads Account ID *</Label>
               <Input
                 placeholder="act_123456789012345"
                 value={form.adAccountId}
