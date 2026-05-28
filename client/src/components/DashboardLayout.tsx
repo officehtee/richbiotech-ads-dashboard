@@ -189,9 +189,11 @@ export default function DashboardLayout({
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background via-background to-accent/30">
         <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
           <div className="flex flex-col items-center gap-4">
-            <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-[#2563eb] to-[#1e40af] text-white flex items-center justify-center shadow-xl shadow-[#2563eb]/30">
-              <Sparkles className="h-8 w-8" />
-            </div>
+            <img
+              src="/manus-storage/logo_329a1fce.png"
+              alt={BRAND_NAME}
+              className="h-16 w-16 rounded-2xl object-contain shadow-xl"
+            />
             <div className="text-center">
               <h1 className="text-2xl font-semibold tracking-tight">
                 {BRAND_NAME} {BRAND_TAGLINE}
@@ -233,21 +235,21 @@ export default function DashboardLayout({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className={`flex items-center gap-3 rounded-lg px-1.5 py-1.5 hover:bg-accent/50 transition-colors w-full text-left ${
+          className={`flex items-center gap-3 rounded-lg px-1.5 py-1.5 hover:bg-white/10 transition-colors w-full text-left ${
             collapsed ? "justify-center" : ""
           }`}
         >
-          <Avatar className="h-9 w-9 border shrink-0">
-            <AvatarFallback className="text-xs font-medium bg-primary/10 text-primary">
+          <Avatar className="h-9 w-9 border border-slate-700 shrink-0">
+            <AvatarFallback className="text-xs font-medium bg-white/10 text-white">
               {user.name?.charAt(0).toUpperCase() ?? "?"}
             </AvatarFallback>
           </Avatar>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate leading-none">
+              <p className="text-sm font-medium truncate leading-none text-white">
                 {user.name || "-"}
               </p>
-              <p className="text-xs text-muted-foreground truncate mt-1">
+              <p className="text-xs text-slate-400 truncate mt-1">
                 {roleLabel[role] ?? role}
               </p>
             </div>

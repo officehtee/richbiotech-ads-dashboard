@@ -88,3 +88,44 @@ describe("AppSidebar — Collapsed mode", () => {
     expect(src).toMatch(/!collapsed && onResizeMouseDown/);
   });
 });
+
+describe("AppSidebar — Permanent dark theme + Richbiotech logo", () => {
+  it("ใช้ bg-[#0f172a] (slate-900) เป็นพื้นหลัง sidebar ถาวร ไม่ขึ้นกับ theme", () => {
+    const src = readSidebarSource();
+    expect(src).toMatch(/bg-\[#0f172a\]/);
+    expect(src).not.toMatch(/bg-sidebar\b/);
+  });
+
+  it("ใช้ text-white เป็นสีตัวอักษรหลัก ไม่ใช้ text-sidebar-foreground", () => {
+    const src = readSidebarSource();
+    expect(src).toMatch(/text-white\b/);
+    expect(src).not.toMatch(/text-sidebar-foreground/);
+  });
+
+  it("border ใช้ border-slate-800 (ไม่ใช้ semantic token border)", () => {
+    const src = readSidebarSource();
+    expect(src).toMatch(/border-slate-800/);
+  });
+
+  it("Active item ใช้ bg-white/10 + text-white + ring-white/20", () => {
+    const src = readSidebarSource();
+    expect(src).toMatch(/bg-white\/10 text-white font-medium ring-1 ring-white\/20/);
+  });
+
+  it("Inactive item ใช้ text-slate-300 + hover:bg-white/5", () => {
+    const src = readSidebarSource();
+    expect(src).toMatch(/text-slate-300 hover:bg-white\/5 hover:text-white/);
+  });
+
+  it("ใช้โลโก้ Richbiotech (/manus-storage/logo_329a1fce.png) แทน Sparkles gradient div", () => {
+    const src = readSidebarSource();
+    expect(src).toMatch(/\/manus-storage\/logo_329a1fce\.png/);
+    expect(src).not.toMatch(/from-\[#2563eb\] to-\[#1e40af\]/);
+    expect(src).not.toMatch(/<Sparkles/);
+  });
+
+  it("ไม่ import Sparkles อีก (ใช้ <img> แทน)", () => {
+    const src = readSidebarSource();
+    expect(src).not.toMatch(/Sparkles/);
+  });
+});

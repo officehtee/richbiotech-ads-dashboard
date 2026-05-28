@@ -207,3 +207,12 @@
 - [x] แทนด้วย `parseLocalDate` (ใช้ regex แยก Y/M/D) + `fmt` (ใช้ getFullYear/getMonth/getDate)
 - [x] vitest 8 case ครอบคลุม regression case 27-28 พ.ค. + round-trip + วันสิ้นปี/ต้นปี
 - [x] vitest 90/90 ผ่าน, TypeScript clean
+
+
+## Round 7.11: เปลี่ยนโลโก้ + Sidebar เข้มถาวร
+- [x] อัปโหลดโลโก้ R ส้มเข้า webdev static assets (/manus-storage/logo_329a1fce.png)
+- [x] หาจุดอ้างโลโก้เดิม (AppSidebar Sparkles + DashboardLayout login screen)
+- [x] แทนโลโก้ใน AppSidebar header + DashboardLayout login screen
+- [x] Sidebar เข้มถาวร (ไม่ผูกกับ ThemeProvider) — bg-[#0f172a], text-white, border-slate-800, hover bg-white/5, active bg-white/10 ring-white/20
+- [x] อัปเดต footer (avatar/name/role) เป็นสีขาว/slate-400 ให้เข้ากับ sidebar เข้ม
+- [x] เพิ่ม vitest 7 case (97/97 ผ่าน)

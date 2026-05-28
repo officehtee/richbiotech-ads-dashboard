@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { ChevronLeft, PanelLeft, Sparkles } from "lucide-react";
+import { ChevronLeft, PanelLeft } from "lucide-react";
 import type React from "react";
 
 export type SidebarMenuItem = {
@@ -13,6 +13,8 @@ export type SidebarSection = {
   label: string;
   items: SidebarMenuItem[];
 };
+
+const LOGO_URL = "/manus-storage/logo_329a1fce.png";
 
 interface AppSidebarProps {
   sections: SidebarSection[];
@@ -56,17 +58,17 @@ export function AppSidebar({
         width: collapsed ? 48 : expandedWidth,
       }}
       className={cn(
-        "relative flex h-screen flex-col border-r bg-sidebar text-sidebar-foreground shrink-0",
+        "relative flex h-screen flex-col border-r border-slate-800 bg-[#0f172a] text-white shrink-0",
         "transition-[width] duration-200 ease-out",
       )}
     >
       {/* Header */}
-      <div className="h-16 flex items-center gap-2 px-2 border-b shrink-0">
+      <div className="h-16 flex items-center gap-2 px-2 border-b border-slate-800 shrink-0">
         <button
           type="button"
           onClick={onToggle}
           aria-label="Toggle navigation"
-          className="h-9 w-9 flex items-center justify-center rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shrink-0"
+          className="h-9 w-9 flex items-center justify-center rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors shrink-0"
         >
           {collapsed ? (
             <PanelLeft className="h-4 w-4" />
@@ -76,14 +78,16 @@ export function AppSidebar({
         </button>
         {!collapsed && (
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-[#2563eb] to-[#1e40af] text-white flex items-center justify-center shrink-0 shadow-sm shadow-[#2563eb]/30">
-              <Sparkles className="h-4 w-4" />
-            </div>
+            <img
+              src={LOGO_URL}
+              alt={brandName}
+              className="h-9 w-9 rounded-lg object-contain shrink-0"
+            />
             <div className="flex flex-col min-w-0 leading-tight">
-              <span className="font-bold text-sm tracking-tight truncate">
+              <span className="font-bold text-sm tracking-tight truncate text-white">
                 {brandName}
               </span>
-              <span className="text-[10px] text-muted-foreground tracking-wider uppercase truncate">
+              <span className="text-[10px] text-slate-400 tracking-wider uppercase truncate">
                 {brandTagline}
               </span>
             </div>
@@ -102,7 +106,7 @@ export function AppSidebar({
 
             {/* Section header */}
             {!collapsed && (
-              <div className="h-5 flex items-center px-4 mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/60 leading-none">
+              <div className="h-5 flex items-center px-4 mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 leading-none">
                 {section.label}
               </div>
             )}
@@ -125,14 +129,14 @@ export function AppSidebar({
                         "group flex h-9 w-full items-center gap-2.5 rounded-lg text-sm transition-colors",
                         collapsed ? "justify-center px-0" : "px-3",
                         isActive
-                          ? "bg-primary/10 text-primary font-medium ring-1 ring-primary/15"
-                          : "text-foreground/75 hover:bg-accent hover:text-foreground",
+                          ? "bg-white/10 text-white font-medium ring-1 ring-white/20"
+                          : "text-slate-300 hover:bg-white/5 hover:text-white",
                       )}
                     >
                       <Icon
                         className={cn(
                           "h-4 w-4 shrink-0",
-                          isActive ? "text-primary" : "",
+                          isActive ? "text-white" : "",
                         )}
                       />
                       {!collapsed && (
@@ -151,7 +155,7 @@ export function AppSidebar({
 
       {/* Footer */}
       {footer && (
-        <div className="border-t p-3 shrink-0">
+        <div className="border-t border-slate-800 p-3 shrink-0">
           {footer}
         </div>
       )}
@@ -160,7 +164,7 @@ export function AppSidebar({
       {!collapsed && onResizeMouseDown && (
         <div
           onMouseDown={onResizeMouseDown}
-          className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/30 transition-colors z-50"
+          className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-white/20 transition-colors z-50"
           aria-hidden="true"
         />
       )}
