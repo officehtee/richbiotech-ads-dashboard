@@ -22,7 +22,7 @@ import { Link } from "wouter";
 type SortKey = "spend" | "messaging" | "purchases" | "purchaseValue" | "roas" | "ctr";
 
 export default function AdIntelligence() {
-  const [dateRange, setDateRange] = useState<DateRangeInput>({ preset: "1d" });
+  const [dateRange, setDateRange] = useState<DateRangeInput>({ preset: "14d" });
   const [search, setSearch] = useState("");
   const [accountFilter, setAccountFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<SortKey>("spend");

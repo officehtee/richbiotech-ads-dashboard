@@ -173,3 +173,16 @@
 - [x] Decorative blob 2 ชิ้น (มุมล่างขวา + ขวาบน) + rounded-2xl + soft shadow + hover lift
 - [x] Sparkline = path ขาว + area gradient ขาวโปร่งใส
 - [x] vitest 82/82 ผ่าน, TypeScript clean
+
+## Round 7.4: Revert default preset (เฉพาะหน้า Hub Dashboard เท่านั้นที่ใช้ 1d)
+- [x] HubDashboard — คง 1d
+- [x] GroupOverview → 7d
+- [x] SingleDashboard → 14d
+- [x] Leaderboard → 7d
+- [x] PerformanceComparison (rangeA+B) → 7d
+- [x] AIAdvisor → 7d
+- [x] AdIntelligence → 14d
+- [x] AdMetricBenchmark → 30d
+- [x] Cohort → 30d
+- [x] SmartScaling — คง 7d
+- [x] vitest 82/82 ผ่าน, TypeScript clean

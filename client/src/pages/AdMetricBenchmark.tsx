@@ -29,7 +29,7 @@ type Mode = "messaging" | "purchase";
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#14b8a6", "#84cc16", "#f97316"];
 
 export default function AdMetricBenchmark() {
-  const [dateRange, setDateRange] = useState<DateRangeInput>({ preset: "1d" });
+  const [dateRange, setDateRange] = useState<DateRangeInput>({ preset: "30d" });
   const [mode, setMode] = useState<Mode>("messaging");
   const adsQuery = trpc.ads.list.useQuery({ dateRange });
 

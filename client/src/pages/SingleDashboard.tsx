@@ -25,7 +25,7 @@ import {
 } from "recharts";
 
 export default function SingleDashboard() {
-  const [dateRange, setDateRange] = useState<DateRangeInput>({ preset: "1d" });
+  const [dateRange, setDateRange] = useState<DateRangeInput>({ preset: "14d" });
   const accountsQuery = trpc.accounts.list.useQuery();
   const [accountId, setAccountId] = useState<number | null>(null);
 

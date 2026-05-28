@@ -98,8 +98,8 @@ function Sparkline({
 export default function PerformanceComparison() {
   const [entityType, setEntityType] = useState<EntityType>("accounts");
   const [mode, setMode] = useState<Mode>("auto");
-  const [rangeA, setRangeA] = useState<DateRangeInput>({ preset: "1d" });
-  const [rangeB, setRangeB] = useState<DateRangeInput>({ preset: "1d" });
+  const [rangeA, setRangeA] = useState<DateRangeInput>({ preset: "7d" });
+  const [rangeB, setRangeB] = useState<DateRangeInput>({ preset: "7d" });
   const [sparkMetric, setSparkMetric] = useState<MetricKey>("spend");
 
   const compareQuery = trpc.comparison.compare.useQuery({

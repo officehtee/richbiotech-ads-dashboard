@@ -44,7 +44,7 @@ function HeatCell({ spend, roas, bucket }: { spend: number; roas: number; bucket
 
 export default function Cohort() {
   const [mode, setMode] = useState<"adAge" | "weekStart">("adAge");
-  const [dateRange, setDateRange] = useState<DateRangeInput>({ preset: "1d" });
+  const [dateRange, setDateRange] = useState<DateRangeInput>({ preset: "30d" });
   const [maxDays, setMaxDays] = useState(14);
 
   const adAgeQ = trpc.cohort.byAdAge.useQuery(
