@@ -62,7 +62,6 @@ import { useLocation } from "wouter";
 import AlertBell from "./AlertBell";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
-import { Separator } from "./ui/separator";
 
 type MenuItem = {
   icon: typeof LayoutDashboard;
@@ -129,7 +128,7 @@ const menuSections: MenuSection[] = [
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
 const DEFAULT_WIDTH = 264;
-const MIN_WIDTH = 220;
+const MIN_WIDTH = 240;
 const MAX_WIDTH = 400;
 
 const BRAND_NAME = "Richbiotech";
@@ -142,7 +141,9 @@ export default function DashboardLayout({
 }) {
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
-    return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
+    const parsed = saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
+    // บังคับ min width ใหม่ ป้องกัน label ยาวถูก truncate
+    return Math.max(parsed, MIN_WIDTH);
   });
   const { loading, user } = useAuth();
 
@@ -308,17 +309,20 @@ function DashboardLayoutContent({
             </div>
           </SidebarHeader>
 
-          <SidebarContent className="gap-0 py-2 overflow-y-auto">
+          <SidebarContent className="gap-0 py-3 overflow-y-auto">
             {visibleSections.map((section, sectionIndex) => (
               <SidebarGroup
                 key={section.label}
-                className="flex flex-col py-0"
-              >
-                {!isCollapsed && sectionIndex > 0 && (
-                  <Separator className="mx-3 my-2 opacity-40" />
+                className={cn(
+                  "flex flex-col p-0",
+                  sectionIndex > 0 && "mt-5",
                 )}
+              >
                 {!isCollapsed && (
-                  <div className="px-5 pt-3 pb-2 text-[10px] font-semibold tracking-[0.08em] uppercase leading-none text-muted-foreground/70">
+                  <div
+                    style={{ position: "static", transform: "none", margin: 0 }}
+                    className="px-5 pt-1 pb-2 text-[10px] font-semibold tracking-[0.08em] uppercase leading-none text-muted-foreground/60"
+                  >
                     {section.label}
                   </div>
                 )}
