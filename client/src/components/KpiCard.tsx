@@ -1,4 +1,3 @@
-import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { ArrowDown, ArrowUp, LucideIcon, Minus } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
@@ -23,20 +22,30 @@ export type KpiCardProps = {
   goodWhen?: "up" | "down" | "neutral";
   /** Right-aligned footer note (e.g. "5 ทักชั่วโมงนี้") */
   footer?: ReactNode;
-  /** Subtle ring color for active/hover state */
+  /** Subtle hint shown on the left of footer */
   hint?: string;
 };
 
-const accentMap: Record<KpiAccent, { bg: string; text: string; stroke: string }> = {
-  spend:     { bg: "bg-[var(--kpi-spend)]/10",     text: "text-[var(--kpi-spend)]",     stroke: "var(--kpi-spend)" },
-  messaging: { bg: "bg-[var(--kpi-messaging)]/10", text: "text-[var(--kpi-messaging)]", stroke: "var(--kpi-messaging)" },
-  orders:    { bg: "bg-[var(--kpi-orders)]/10",    text: "text-[var(--kpi-orders)]",    stroke: "var(--kpi-orders)" },
-  revenue:   { bg: "bg-[var(--kpi-revenue)]/10",   text: "text-[var(--kpi-revenue)]",   stroke: "var(--kpi-revenue)" },
-  roas:      { bg: "bg-[var(--kpi-roas)]/10",      text: "text-[var(--kpi-roas)]",      stroke: "var(--kpi-roas)" },
-  primary:   { bg: "bg-primary/10",                text: "text-primary",                stroke: "var(--primary)" },
+/**
+ * Full-color gradient palette per KPI accent.
+ * Each accent uses two stops for a smooth modern gradient.
+ */
+const gradientMap: Record<KpiAccent, { from: string; to: string; ring: string }> = {
+  // orange — spend
+  spend:     { from: "#fb923c", to: "#ea580c", ring: "rgba(234, 88, 12, 0.45)" },
+  // royal blue — messaging
+  messaging: { from: "#3b82f6", to: "#1d4ed8", ring: "rgba(29, 78, 216, 0.45)" },
+  // emerald — orders
+  orders:    { from: "#10b981", to: "#047857", ring: "rgba(4, 120, 87, 0.45)" },
+  // amber — revenue
+  revenue:   { from: "#fbbf24", to: "#d97706", ring: "rgba(217, 119, 6, 0.45)" },
+  // violet — ROAS
+  roas:      { from: "#a78bfa", to: "#6d28d9", ring: "rgba(109, 40, 217, 0.45)" },
+  // primary fallback
+  primary:   { from: "#3b82f6", to: "#1e40af", ring: "rgba(30, 64, 175, 0.45)" },
 };
 
-function Sparkline({ data, color }: { data: number[]; color: string }) {
+function Sparkline({ data }: { data: number[] }) {
   if (!data || data.length < 2) {
     return <div className="h-8 w-full" />;
   }
@@ -55,13 +64,21 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
   return (
     <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-8 w-full">
       <defs>
-        <linearGradient id={`spark-${color}`} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.35" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        <linearGradient id="kpi-spark-white" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
         </linearGradient>
       </defs>
-      <path d={area} fill={`url(#spark-${color})`} />
-      <path d={path} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={area} fill="url(#kpi-spark-white)" />
+      <path
+        d={path}
+        fill="none"
+        stroke="#ffffff"
+        strokeOpacity={0.9}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -69,18 +86,21 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
 function DeltaBadge({ deltaPct, goodWhen }: { deltaPct: number; goodWhen: "up" | "down" | "neutral" }) {
   const isUp = deltaPct > 0.05;
   const isDown = deltaPct < -0.05;
-  const positive =
-    (isUp && goodWhen === "up") || (isDown && goodWhen === "down");
-  const negative =
-    (isDown && goodWhen === "up") || (isUp && goodWhen === "down");
-  const color = positive
-    ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
-    : negative
-      ? "text-rose-600 dark:text-rose-400 bg-rose-500/10"
-      : "text-muted-foreground bg-muted/60";
   const Icon = isUp ? ArrowUp : isDown ? ArrowDown : Minus;
   return (
-    <span className={cn("inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold num", color)}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold num",
+        "bg-white/20 text-white backdrop-blur-sm",
+      )}
+      title={
+        (isUp && goodWhen === "up") || (isDown && goodWhen === "down")
+          ? "ดีขึ้นเทียบงวดก่อน"
+          : (isDown && goodWhen === "up") || (isUp && goodWhen === "down")
+            ? "แย่ลงเทียบงวดก่อน"
+            : "ใกล้เคียงงวดก่อน"
+      }
+    >
       <Icon className="h-3 w-3" />
       {Math.abs(deltaPct).toFixed(1)}%
     </span>
@@ -101,7 +121,8 @@ export default function KpiCard({
   footer,
   hint,
 }: KpiCardProps) {
-  const a = accentMap[accent];
+  const g = gradientMap[accent];
+
   // Stabilize CountUp end value to prevent restart on every render
   const [end, setEnd] = useState(numericValue ?? 0);
   useEffect(() => {
@@ -109,20 +130,38 @@ export default function KpiCard({
   }, [numericValue]);
 
   return (
-    <Card
+    <div
       className={cn(
-        "relative overflow-hidden p-4 border-border/60",
-        "transition-all duration-200 hover:shadow-md hover:-translate-y-0.5",
+        "relative overflow-hidden rounded-xl p-4 text-white",
+        "transition-all duration-200 hover:-translate-y-0.5",
       )}
+      style={{
+        backgroundImage: `linear-gradient(135deg, ${g.from} 0%, ${g.to} 100%)`,
+        boxShadow: `0 10px 20px -10px ${g.ring}, 0 2px 6px -2px rgba(0,0,0,0.08)`,
+      }}
     >
-      {/* Accent stripe */}
-      <span className="absolute left-0 top-0 h-full w-1" style={{ background: a.stroke }} />
-      <div className="flex items-start justify-between gap-3 pl-2">
+      {/* Decorative blurred circle (soft glow, lower-right) */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -right-8 -bottom-10 h-32 w-32 rounded-full opacity-25"
+        style={{ background: "radial-gradient(closest-side, #ffffff 0%, transparent 70%)" }}
+      />
+      {/* Subtle diagonal sheen */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.08]"
+        style={{
+          backgroundImage:
+            "linear-gradient(120deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 40%)",
+        }}
+      />
+
+      <div className="relative flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <p className="text-[11px] font-medium text-muted-foreground tracking-wide uppercase">
+          <p className="text-[11px] font-medium tracking-wide uppercase text-white/85">
             {label}
           </p>
-          <p className="text-2xl font-bold tracking-tight mt-1 truncate num">
+          <p className="text-2xl font-bold tracking-tight mt-1 truncate num text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.15)]">
             {value !== undefined ? (
               value
             ) : (
@@ -137,7 +176,7 @@ export default function KpiCard({
             )}
           </p>
           {(sublabel || typeof deltaPct === "number") && (
-            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2 mt-1 text-xs text-white/90">
               {typeof deltaPct === "number" && goodWhen !== "neutral" && (
                 <DeltaBadge deltaPct={deltaPct} goodWhen={goodWhen} />
               )}
@@ -145,23 +184,28 @@ export default function KpiCard({
             </div>
           )}
         </div>
-        <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center shrink-0", a.bg)}>
-          <Icon className={cn("h-5 w-5", a.text)} />
+        <div
+          className={cn(
+            "h-10 w-10 rounded-lg flex items-center justify-center shrink-0",
+            "bg-white/20 backdrop-blur-sm ring-1 ring-white/25",
+          )}
+        >
+          <Icon className="h-5 w-5 text-white" />
         </div>
       </div>
 
       {sparkline && sparkline.length > 0 && (
-        <div className="mt-3 pl-2">
-          <Sparkline data={sparkline} color={a.stroke} />
+        <div className="relative mt-3">
+          <Sparkline data={sparkline} />
         </div>
       )}
 
       {(footer || hint) && (
-        <div className="mt-2 pl-2 flex items-center justify-between text-[11px] text-muted-foreground">
+        <div className="relative mt-2 flex items-center justify-between text-[11px] text-white/85">
           {hint ? <span className="truncate">{hint}</span> : <span />}
-          {footer ? <span className="truncate font-medium num">{footer}</span> : <span />}
+          {footer ? <span className="truncate font-medium num text-white">{footer}</span> : <span />}
         </div>
       )}
-    </Card>
+    </div>
   );
 }
