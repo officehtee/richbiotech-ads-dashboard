@@ -62,6 +62,7 @@ import { useLocation } from "wouter";
 import AlertBell from "./AlertBell";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
+import { Separator } from "./ui/separator";
 
 type MenuItem = {
   icon: typeof LayoutDashboard;
@@ -311,13 +312,13 @@ function DashboardLayoutContent({
             {visibleSections.map((section, sectionIndex) => (
               <SidebarGroup
                 key={section.label}
-                className={cn(
-                  "flex flex-col py-0",
-                  sectionIndex === 0 ? "mt-1" : "mt-4",
-                )}
+                className="flex flex-col py-0"
               >
+                {!isCollapsed && sectionIndex > 0 && (
+                  <Separator className="mx-3 my-2 opacity-40" />
+                )}
                 {!isCollapsed && (
-                  <div className="px-5 pt-2 pb-1.5 text-[10px] font-semibold tracking-[0.08em] uppercase leading-none text-muted-foreground/70">
+                  <div className="px-5 pt-3 pb-2 text-[10px] font-semibold tracking-[0.08em] uppercase leading-none text-muted-foreground/70">
                     {section.label}
                   </div>
                 )}
