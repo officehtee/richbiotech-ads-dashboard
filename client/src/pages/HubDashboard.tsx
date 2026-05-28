@@ -1402,13 +1402,13 @@ export default function HubDashboard() {
         <GroupBreakdown dateRange={dateRange} />
       </div>
 
-      {/* ====== Row 5: Smart Scaling (full-width) ====== */}
-      <SmartScalingPanel dateRange={dateRange} />
+      {/* ====== Row 5: Smart Scaling (ซ้าย) + Top Performing Ads (ขวา) — 50/50 ====== */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <SmartScalingPanel dateRange={dateRange} />
+        <TopPerformingAds dateRange={dateRange} />
+      </div>
 
-      {/* ====== Row 6: Top Performing Ads (full-width) ====== */}
-      <TopPerformingAds dateRange={dateRange} />
-
-      {/* ====== Row 7: All ad accounts (full-width) ====== */}
+      {/* ====== Row 6: All ad accounts (full-width) ====== */}
       <AccountsTable dateRange={dateRange} />
     </div>
   );
