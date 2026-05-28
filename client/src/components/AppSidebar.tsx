@@ -92,7 +92,7 @@ export function AppSidebar({
       </div>
 
       {/* Nav body */}
-      <nav className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-3">
+      <nav className="sidebar-scroll sidebar-scroll-mask flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-3">
         {sections.map((section, sectionIndex) => (
           <div key={section.label} className="flex flex-col">
             {/* Spacer 36px = 1 บรรทัดเต็ม (ยกเว้น section แรก) */}

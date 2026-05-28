@@ -64,19 +64,19 @@ const menuSections: SidebarSection[] = [
   {
     label: "วิเคราะห์",
     items: [
-      { icon: Trophy, label: "ชาร์ตอันดับ (Leaderboard)", path: "/leaderboard", roles: ALL_ROLES },
+      { icon: Trophy, label: "ชาร์ตอันดับ", path: "/leaderboard", roles: ALL_ROLES },
       { icon: ArrowLeftRight, label: "เปรียบเทียบผลงาน", path: "/comparison", roles: ALL_ROLES },
       { icon: Brain, label: "AI แนะนำ", path: "/ai-advisor", roles: ALL_ROLES },
       { icon: Sparkles, label: "วิเคราะห์แอดเชิงลึก", path: "/ad-intelligence", roles: ALL_ROLES },
       { icon: Target, label: "Benchmark มาตรวัดแอด", path: "/ad-metric-benchmark", roles: ALL_ROLES },
-      { icon: Bell, label: "การแจ้งเตือน (Alerts)", path: "/alerts", roles: ALL_ROLES },
+      { icon: Bell, label: "การแจ้งเตือน", path: "/alerts", roles: ALL_ROLES },
       { icon: Grid3x3, label: "วิเคราะห์ Cohort", path: "/cohort", roles: ALL_ROLES },
     ],
   },
   {
     label: "ปรับงบ + แชร์ลิงก์",
     items: [
-      { icon: TrendingUp, label: "แนะนำปรับงบ (Smart Scaling)", path: "/smart-scaling", roles: ALL_ROLES },
+      { icon: TrendingUp, label: "แนะนำปรับงบ", path: "/smart-scaling", roles: ALL_ROLES },
       { icon: Share2, label: "ลิงก์แชร์", path: "/share-links", roles: OWNER_ROLES },
     ],
   },
