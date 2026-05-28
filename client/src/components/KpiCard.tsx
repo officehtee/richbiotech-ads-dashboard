@@ -57,15 +57,15 @@ const accentMap: Record<
   primary: { gradFrom: "#3b82f6", gradTo: "#1e40af", blob: "rgba(255,255,255,0.18)" },
 };
 
-function Sparkline({ data }: { data: number[] }) {
+function SparklineCompact({ data }: { data: number[] }) {
   if (!data || data.length < 2) {
-    return <div className="h-10 w-full" />;
+    return <div className="h-7 w-full" />;
   }
   const max = Math.max(...data, 1);
   const min = Math.min(...data, 0);
   const range = max - min || 1;
   const w = 100;
-  const h = 32;
+  const h = 24;
   const pts = data.map((v, i) => {
     const x = (i / (data.length - 1)) * w;
     const y = h - ((v - min) / range) * h;
@@ -75,7 +75,7 @@ function Sparkline({ data }: { data: number[] }) {
   const area = `${path} L ${w},${h} L 0,${h} Z`;
   const last = pts[pts.length - 1];
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-10 w-full">
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-7 w-full">
       <defs>
         <linearGradient id="kpi-spark-area" x1="0" x2="0" y1="0" y2="1">
           <stop offset="0%" stopColor="rgba(255,255,255,0.35)" />
@@ -178,7 +178,7 @@ export default function KpiCard({
       <div className="relative flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="h-1.5 w-1.5 rounded-full shrink-0 bg-white/90 shadow-[0_0_6px_rgba(255,255,255,0.7)]" />
-          <span className="text-[11px] font-semibold tracking-wider uppercase text-white/85 truncate">
+          <span className="text-[14px] font-bold tracking-wider uppercase text-white truncate drop-shadow-[0_1px_1px_rgba(0,0,0,0.25)]">
             {label}
           </span>
         </div>
@@ -202,12 +202,12 @@ export default function KpiCard({
         )}
       </div>
 
-      {/* Sparkline full-width */}
+      {/* Sparkline full-width — ลดความสูงเพื่อให้ label ใหญ่ขึ้นได้ */}
       <div className="relative mt-2 -mx-1">
         {sparkline && sparkline.length > 0 ? (
-          <Sparkline data={sparkline} />
+          <SparklineCompact data={sparkline} />
         ) : (
-          <div className="h-10 w-full" />
+          <div className="h-7 w-full" />
         )}
       </div>
 

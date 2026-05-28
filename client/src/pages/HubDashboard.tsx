@@ -284,12 +284,12 @@ function GroupBreakdown({ dateRange }: { dateRange: DateRangeInput }) {
     <Card className="bg-card border-border p-5">
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
-          <h3 className="text-base font-semibold text-foreground inline-flex items-center gap-2">
-            <ShoppingCart className="h-4 w-4 text-fuchsia-400" />
+          <h3 className="text-lg font-bold text-foreground inline-flex items-center gap-2">
+            <ShoppingCart className="h-5 w-5 text-fuchsia-400" />
             แยกตามกลุ่มสินค้า
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {mode === "spend" ? "สัดส่วนการใช้จ่าย" : "ROAS เทียบเป้า"} · งวดที่เลือก
+            {mode === "spend" ? "สัดส่วนการใช้จ่ายของแต่ละกลุ่มสินค้า" : "ROAS ของแต่ละกลุ่มเทียบเป้า"} · งวดที่เลือก
           </p>
         </div>
         <div className="inline-flex h-7 rounded-md border border-border bg-muted/50 p-0.5 text-xs">
@@ -322,19 +322,28 @@ function GroupBreakdown({ dateRange }: { dateRange: DateRangeInput }) {
             const pct = mode === "spend" ? g.spendPct : g.roasPct;
             const value =
               mode === "spend" ? formatCurrency(g.spend) : `${formatRoas(g.roas)}x`;
+            const subValue =
+              mode === "spend"
+                ? `ROAS ${formatRoas(g.roas)}x`
+                : `ใช้จ่าย ${formatCurrency(g.spend)}`;
             return (
               <li key={g.groupId} className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2 text-sm">
                   <span className="inline-flex items-center gap-2 min-w-0 text-foreground">
                     <span
-                      className="h-2 w-2 rounded-full shrink-0"
+                      className="h-2.5 w-2.5 rounded-full shrink-0"
                       style={{ backgroundColor: g.color }}
                     />
-                    <span className="truncate">{g.groupName}</span>
+                    <span className="truncate font-medium">{g.groupName}</span>
                   </span>
-                  <span className="num font-semibold text-white shrink-0">{value}</span>
+                  <span className="flex items-baseline gap-2 shrink-0">
+                    <span className="num text-base font-bold text-foreground tabular-nums">{value}</span>
+                    <span className="text-[11px] text-muted-foreground tabular-nums">
+                      ({pct.toFixed(1)}%)
+                    </span>
+                  </span>
                 </div>
-                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                <div className="h-2 rounded-full bg-muted overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-700"
                     style={{
@@ -343,6 +352,9 @@ function GroupBreakdown({ dateRange }: { dateRange: DateRangeInput }) {
                       boxShadow: `0 0 6px ${g.color}88`,
                     }}
                   />
+                </div>
+                <div className="text-[11px] text-muted-foreground tabular-nums num pl-4.5">
+                  {subValue}
                 </div>
               </li>
             );
