@@ -1288,3 +1288,145 @@ export async function getAccountsTableWithTrend(
     };
   });
 }
+
+
+/* ============================================================
+ * Round 7.18: Live Hour Pulse (Sales view)
+ * ============================================================ */
+
+export type LiveHourPulse = {
+  /** ค่า messaging ในชั่วโมงปัจจุบัน (today, hour=now) */
+  currentHour: number;
+  /** ชั่วโมง 0..23 ที่ค่ากำลังนับอยู่ (ตาม UTC server) */
+  currentHourIndex: number;
+  /** baseline = ค่าเฉลี่ยชั่วโมงเดียวกัน 7 วันย้อนหลัง */
+  baselineSameHour: number;
+  /** เทียบเมื่อวานเวลาเดียวกัน (deltaPct) */
+  deltaVsYesterdayPct: number;
+  /** ผลรวม messaging วันนี้สะสมจนถึงตอนนี้ */
+  todayCumulative: number;
+  /** ค่าเฉลี่ย messaging ต่อวัน 7 วันก่อนหน้า */
+  avg7Days: number;
+  /** Bar chart รายชั่วโมง 0..23 ของวันนี้ */
+  todayBars: { hour: number; messaging: number; isCurrent: boolean; isFuture: boolean }[];
+  /** Urgency badge */
+  urgency: UrgencyBadge;
+  /** ข้อความกระตุ้น sales */
+  motivation: { tone: "fire" | "push" | "calm" | "wake"; text: string };
+};
+
+/**
+ * Pure helper: build LiveHourPulse from HourlyInsight rows.
+ * Exported for testability — server side calls with data fetched from Meta API.
+ */
+export function buildLiveHourPulse(
+  rows: HourlyInsight[],
+  now: Date,
+): LiveHourPulse {
+  const todayIso = now.toISOString().slice(0, 10);
+  const yesterday = new Date(now);
+  yesterday.setUTCDate(now.getUTCDate() - 1);
+  const yesterdayIso = yesterday.toISOString().slice(0, 10);
+  const currentHourIndex = now.getUTCHours();
+
+  // 24 bars
+  const map = new Map<number, number>();
+  let todayCumulative = 0;
+  for (const r of rows) {
+    if (r.date !== todayIso) continue;
+    const cur = map.get(r.hour) ?? 0;
+    map.set(r.hour, cur + r.messaging);
+    todayCumulative += r.messaging;
+  }
+  const todayBars: { hour: number; messaging: number; isCurrent: boolean; isFuture: boolean }[] = [];
+  for (let h = 0; h < 24; h++) {
+    todayBars.push({
+      hour: h,
+      messaging: map.get(h) ?? 0,
+      isCurrent: h === currentHourIndex,
+      isFuture: h > currentHourIndex,
+    });
+  }
+
+  const currentHour = map.get(currentHourIndex) ?? 0;
+
+  // Baseline: same hour over last 7 days (excluding today)
+  let baselineSum = 0;
+  let baselineCount = 0;
+  let yesterdaySameHour = 0;
+  // ค่าเฉลี่ย 7 วันก่อนหน้า (ทั้งวัน)
+  const dayTotals = new Map<string, number>();
+  for (const r of rows) {
+    if (r.date === todayIso) continue;
+    if (r.hour === currentHourIndex) {
+      baselineSum += r.messaging;
+      baselineCount += 1;
+    }
+    if (r.date === yesterdayIso && r.hour === currentHourIndex) {
+      yesterdaySameHour += r.messaging;
+    }
+    const cur = dayTotals.get(r.date) ?? 0;
+    dayTotals.set(r.date, cur + r.messaging);
+  }
+  const baselineSameHour = baselineCount > 0 ? baselineSum / baselineCount : 0;
+  const deltaVsYesterdayPct =
+    yesterdaySameHour > 0
+      ? ((currentHour - yesterdaySameHour) / yesterdaySameHour) * 100
+      : 0;
+
+  // average 7 days
+  const sortedDays = Array.from(dayTotals.entries())
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    .slice(0, 7);
+  const avg7Days =
+    sortedDays.length > 0
+      ? sortedDays.reduce((s, [, v]) => s + v, 0) / sortedDays.length
+      : 0;
+
+  const urgency = computeUrgency(currentHour, baselineSameHour);
+
+  // Motivation copy
+  let motivation: { tone: "fire" | "push" | "calm" | "wake"; text: string };
+  if (urgency.level === "peak") {
+    motivation = {
+      tone: "fire",
+      text: `ชั่วโมงนี้พีคแล้ว — รีบตอบลูกค้าให้เร็วที่สุด ปิดได้ทุกแชต! 🔥`,
+    };
+  } else if (urgency.level === "rising") {
+    motivation = {
+      tone: "push",
+      text: `กำลังขึ้น — อย่าหยุดติดต่อลูกค้า ดันต่อให้ถึงพีคนะ! 💪`,
+    };
+  } else if (urgency.level === "normal") {
+    const target = Math.ceil(baselineSameHour * 1.2);
+    motivation = {
+      tone: "calm",
+      text: `เข้าใกล้เป้าชั่วโมงนี้แล้ว — เหลืออีก ${Math.max(target - currentHour, 1)} ทักก็แตะเป้าหมาย`,
+    };
+  } else {
+    motivation = {
+      tone: "wake",
+      text: `ชั่วโมงนี้เงียบกว่าปกติ — ลองส่งข้อความกระตุ้น re-engagement สักหน่อย`,
+    };
+  }
+
+  return {
+    currentHour,
+    currentHourIndex,
+    baselineSameHour,
+    deltaVsYesterdayPct,
+    todayCumulative,
+    avg7Days,
+    todayBars,
+    urgency,
+    motivation,
+  };
+}
+
+/**
+ * Server fetcher: Live hour pulse — uses cached hourly rollup.
+ */
+export async function getHubLivePulse(tenantId: number): Promise<LiveHourPulse> {
+  const rows = await getHubHourlyRollup(tenantId);
+  return buildLiveHourPulse(rows, new Date());
+}

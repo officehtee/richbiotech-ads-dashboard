@@ -32,6 +32,7 @@ import {
   getWeekStartCohort,
   resolveDateRange,
   getHubHourlyRollup,
+  getHubLivePulse,
   getHubKpiSparklines,
   getHubHotPages,
   getRevenueVsSpendDaily,
@@ -475,6 +476,12 @@ export const appRouter = router({
       const tid = await tenantId(ctx);
       const rows = await getHubHourlyRollup(tid);
       return buildWeeklyHeatmap(rows);
+    }),
+
+    /* Round 7.18: Live Hour Pulse — 24 hourly bars + motivation (Sales view) */
+    liveHourPulse: protectedProcedure.query(async ({ ctx }) => {
+      const tid = await tenantId(ctx);
+      return getHubLivePulse(tid);
     }),
 
     /* Hub 2.0: top 5 hot pages by messaging today */

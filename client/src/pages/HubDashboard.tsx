@@ -908,6 +908,207 @@ function HotPages() {
   );
 }
 
+/* ============================================================
+ * Round 7.18: Live Hour Pulse (Sales view)
+ * ============================================================ */
+function LiveHourPulse() {
+  const q = trpc.dashboard.liveHourPulse.useQuery(undefined, {
+    refetchInterval: 60 * 1000, // refresh ทุกนาที
+    staleTime: 30 * 1000,
+  });
+
+  if (q.isLoading) {
+    return (
+      <Card className="p-5 bg-slate-950 border-slate-800">
+        <Skeleton className="h-44 w-full bg-slate-900" />
+      </Card>
+    );
+  }
+  if (!q.data) {
+    return null;
+  }
+  const data = q.data;
+  const max = Math.max(1, ...data.todayBars.map((b) => b.messaging));
+  const target = Math.max(
+    1,
+    Math.ceil(data.baselineSameHour * 1.2),
+    data.currentHour,
+  );
+  const targetY = (target / max) * 100; // % from bottom
+
+  // Urgency badge mapping → color
+  const urgencyColor = {
+    peak: "text-rose-400 bg-rose-500/10 border-rose-500/30",
+    rising: "text-amber-400 bg-amber-500/10 border-amber-500/30",
+    normal: "text-sky-400 bg-sky-500/10 border-sky-500/30",
+    quiet: "text-slate-400 bg-slate-500/10 border-slate-500/30",
+  }[data.urgency.level];
+  const UrgencyIcon =
+    data.urgency.iconName === "Flame"
+      ? Flame
+      : data.urgency.iconName === "TrendingUp"
+        ? TrendingUp
+        : data.urgency.iconName === "Moon"
+          ? Moon
+          : Activity;
+
+  // Motivation tone color
+  const motiColor = {
+    fire: "text-rose-300",
+    push: "text-amber-300",
+    calm: "text-sky-300",
+    wake: "text-slate-300",
+  }[data.motivation.tone];
+
+  // Delta vs yesterday
+  const deltaPositive = data.deltaVsYesterdayPct >= 0;
+
+  return (
+    <Card className="relative overflow-hidden p-0 bg-slate-950 border-slate-800">
+      {/* Glow background */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-60"
+        style={{
+          background:
+            "radial-gradient(ellipse at top right, rgba(34,197,94,0.10), transparent 60%), radial-gradient(ellipse at bottom left, rgba(59,130,246,0.08), transparent 55%)",
+        }}
+      />
+      <div className="relative grid grid-cols-1 lg:grid-cols-[280px_1fr_220px] gap-6 p-6">
+        {/* ========== Left: LIVE label + big number + sub copy ========== */}
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+            </span>
+            <span className="text-[12px] font-bold tracking-wider uppercase text-emerald-300">
+              LIVE · 1 ชม.ล่าสุด
+            </span>
+          </div>
+          <div className="mt-3 flex items-baseline gap-3">
+            <span className="text-6xl font-black text-white tabular-nums leading-none num drop-shadow-[0_2px_6px_rgba(255,255,255,0.15)]">
+              {formatNumber(data.currentHour)}
+            </span>
+            <span className="text-base text-slate-400">คนทัก</span>
+          </div>
+          <p className="mt-2 text-[13px] text-slate-300 leading-relaxed">
+            คนทักเข้ามาใน 1 ชั่วโมงที่ผ่านมา
+            <br />
+            <span className="text-slate-500">
+              เฉลี่ย 7 วันที่ผ่านมา เวลานี้ {formatNumber(Math.round(data.baselineSameHour))} คน
+            </span>
+          </p>
+        </div>
+
+        {/* ========== Center: 24h bar chart ========== */}
+        <div className="flex flex-col">
+          <div className="relative h-[140px] flex items-end gap-[3px]">
+            {/* Target line (dashed) */}
+            <div
+              aria-hidden
+              className="absolute left-0 right-0 border-t border-dashed border-slate-600/70"
+              style={{ bottom: `${Math.min(targetY, 95)}%` }}
+            >
+              <span className="absolute -top-4 right-0 text-[10px] text-slate-500 num">
+                target {formatNumber(target)}
+              </span>
+            </div>
+            {data.todayBars.map((b) => {
+              const heightPct = max > 0 ? (b.messaging / max) * 100 : 0;
+              const fill = b.isCurrent
+                ? "bg-gradient-to-t from-emerald-500 to-emerald-300 ring-2 ring-emerald-300/50 shadow-[0_0_12px_rgba(16,185,129,0.6)]"
+                : b.isFuture
+                  ? "bg-slate-800/40"
+                  : "bg-gradient-to-t from-blue-600 to-blue-400 hover:from-blue-500 hover:to-blue-300";
+              return (
+                <Tooltip key={b.hour}>
+                  <TooltipTrigger asChild>
+                    <div
+                      className={cn(
+                        "flex-1 rounded-t-sm min-h-[2px] transition-all duration-300",
+                        fill,
+                      )}
+                      style={{ height: `${Math.max(heightPct, b.messaging > 0 ? 4 : 1.5)}%` }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="text-xs">
+                      <div className="font-medium">
+                        {String(b.hour).padStart(2, "0")}:00
+                        {b.isCurrent && <span className="text-emerald-400 ml-1">(ตอนนี้)</span>}
+                      </div>
+                      <div>{formatNumber(b.messaging)} ทัก</div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </div>
+          {/* x-axis labels */}
+          <div className="mt-2 flex justify-between text-[10px] text-slate-500 num px-[1px]">
+            {[0, 3, 6, 9, 12, 15, 18, 21].map((h) => (
+              <span key={h}>{String(h).padStart(2, "0")}</span>
+            ))}
+          </div>
+          {/* Motivation copy */}
+          <p
+            className={cn(
+              "mt-3 text-sm font-medium leading-relaxed",
+              motiColor,
+            )}
+          >
+            {data.motivation.text}
+          </p>
+        </div>
+
+        {/* ========== Right: Urgency badge + delta + cumulative ========== */}
+        <div className="flex flex-col items-end justify-between gap-3">
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold",
+              urgencyColor,
+            )}
+          >
+            <UrgencyIcon className="h-3.5 w-3.5" />
+            {data.urgency.label}
+          </span>
+
+          <div className="text-right">
+            <div
+              className={cn(
+                "inline-flex items-center gap-1 text-base font-bold num",
+                deltaPositive ? "text-emerald-400" : "text-rose-400",
+              )}
+            >
+              {deltaPositive ? (
+                <ArrowUp className="h-4 w-4" />
+              ) : (
+                <ArrowDown className="h-4 w-4" />
+              )}
+              {Math.abs(data.deltaVsYesterdayPct).toFixed(0)}%
+            </div>
+            <p className="text-[11px] text-slate-500 mt-0.5">vs เมื่อวานเวลาเดียวกัน</p>
+          </div>
+
+          <div className="text-right">
+            <div className="text-[11px] text-slate-500 uppercase tracking-wider">
+              ยอดสะสมวันนี้
+            </div>
+            <div className="text-2xl font-bold text-white num tabular-nums">
+              {formatNumber(data.todayCumulative)}
+              <span className="text-sm text-slate-400 font-normal ml-1">คน</span>
+            </div>
+            <div className="text-[11px] text-slate-500 num">
+              เฉลี่ย 7 วัน {formatNumber(Math.round(data.avg7Days))} คน/วัน
+            </div>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function HourlyHeatmap() {
   const q = trpc.dashboard.hourlyHeatmap.useQuery(undefined, { refetchInterval: 5 * 60 * 1000 });
   const data = q.data ?? [];
@@ -1217,6 +1418,9 @@ export default function HubDashboard() {
           footer={peakRoas > 0 ? `peak ${formatRoas(peakRoas)}x` : undefined}
         />
       </div>
+
+      {/* ====== Sales-only: LIVE · 1 ชม.ล่าสุด (full-width) ====== */}
+      {persona === "sales" && <LiveHourPulse />}
 
       {/* ====== Row 2: AI Insight (50%) + Hot Pages (50%) ====== */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
