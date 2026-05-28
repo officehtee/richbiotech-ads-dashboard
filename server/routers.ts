@@ -60,6 +60,8 @@ import {
   deleteCommissionStaff,
   deleteScaleLog,
   deleteShareLink,
+  createInviteToken,
+  findInviteByToken,
   findUserByCompanyCode,
   getAccountGroupsByUser,
   getAdAccountById,
@@ -73,6 +75,9 @@ import {
   getUserById,
   listClipAssignments,
   listClipGrades,
+  listInviteTokensByOwner,
+  markInviteUsed,
+  revokeInviteToken,
   listCommissionGrades,
   listCommissionLocks,
   listCommissionStaff,
@@ -187,6 +192,94 @@ export const appRouter = router({
         }
         await setUserRole(input.userId, "pending", null);
         return { ok: true };
+      }),
+  }),
+
+  /* ----- Invite Tokens (Magic Invite Link) ----- */
+  invites: router({
+    /** ตรวจสอบลิงก์โดยไม่ต้อง login (public) — ใช้ในหน้า /invite/:token ก่อนพา login */
+    verify: publicProcedure
+      .input(z.object({ token: z.string().min(1) }))
+      .query(async ({ input }) => {
+        const inv = await findInviteByToken(input.token);
+        if (!inv) {
+          return { ok: false as const, reason: "not_found" as const };
+        }
+        if (inv.revokedAt) {
+          return { ok: false as const, reason: "revoked" as const, role: inv.role, label: inv.label };
+        }
+        if (inv.usedAt) {
+          return { ok: false as const, reason: "used" as const, role: inv.role, label: inv.label };
+        }
+        if (new Date(inv.expiresAt).getTime() < Date.now()) {
+          return { ok: false as const, reason: "expired" as const, role: inv.role, label: inv.label };
+        }
+        return {
+          ok: true as const,
+          role: inv.role,
+          label: inv.label,
+          expiresAt: inv.expiresAt,
+        };
+      }),
+
+    /** Owner ออกลิงก์เชิญใหม่ — อายุ 7 วัน */
+    create: ownerProcedure
+      .input(
+        z.object({
+          role: z.enum(["ceo", "content", "staff"]),
+          label: z.string().max(255).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        const token = generateToken();
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        const row = await createInviteToken({
+          token,
+          ownerId: tid,
+          role: input.role,
+          label: input.label?.trim() || null,
+          expiresAt,
+        });
+        return { ok: true, token, invite: row };
+      }),
+
+    /** Owner ดู list ลิงก์ที่ออกไปแล้ว */
+    list: ownerProcedure.query(async ({ ctx }) => {
+      const tid = await tenantId(ctx);
+      return listInviteTokensByOwner(tid);
+    }),
+
+    /** Owner ปิดลิงก์ (revoke) */
+    revoke: ownerProcedure
+      .input(z.object({ inviteId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        await revokeInviteToken(input.inviteId, tid);
+        return { ok: true };
+      }),
+
+    /** ผู้รับเชิญ login แล้วมา redeem token — protected (ต้อง login ก่อน) */
+    redeem: protectedProcedure
+      .input(z.object({ token: z.string().min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        const invite = await findInviteByToken(input.token);
+        if (!invite) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "ลิงก์เชิญไม่ถูกต้อง" });
+        }
+        if (invite.revokedAt) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "ลิงก์เชิญถูกยกเลิกแล้ว" });
+        }
+        if (invite.usedAt) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "ลิงก์เชิญถูกใช้ไปแล้ว" });
+        }
+        if (new Date(invite.expiresAt).getTime() < Date.now()) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "ลิงก์เชิญหมดอายุแล้ว" });
+        }
+        // ตั้ง role + ownerId ตาม invite
+        await setUserRole(ctx.user.id, invite.role, invite.ownerId);
+        await markInviteUsed(invite.id, ctx.user.id);
+        return { ok: true, role: invite.role, ownerId: invite.ownerId };
       }),
   }),
 

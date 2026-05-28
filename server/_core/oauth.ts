@@ -44,7 +44,20 @@ export function registerOAuthRoutes(app: Express) {
       const cookieOptions = getSessionCookieOptions(req);
       res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
 
-      res.redirect(302, "/");
+      // ถ้า state ถูก encode เป็น JSON ที่มี returnPath ให้ redirect กลับไปหน้าเดิม (เช่น /invite/xxx)
+      let target = "/";
+      try {
+        const decoded = Buffer.from(state, "base64").toString("utf8");
+        if (decoded.startsWith("{")) {
+          const obj = JSON.parse(decoded);
+          if (typeof obj.returnPath === "string" && obj.returnPath.startsWith("/")) {
+            target = obj.returnPath;
+          }
+        }
+      } catch {
+        /* ignore — fallback to / */
+      }
+      res.redirect(302, target);
     } catch (error) {
       console.error("[OAuth] Callback failed", error);
       res.status(500).json({ error: "OAuth callback failed" });

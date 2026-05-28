@@ -17,6 +17,8 @@ import {
   InsertScaleSettings,
   InsertShareLink,
   InsertUser,
+  InviteToken,
+  InsertInviteToken,
   ScaleLog,
   ScaleSettings,
   ShareLink,
@@ -29,6 +31,7 @@ import {
   commissionGrades,
   commissionLocks,
   commissionStaff,
+  inviteTokens,
   scaleLogs,
   scaleSettings,
   shareLinks,
@@ -171,6 +174,66 @@ export async function setOwnerCompany(
   const db = await getDb();
   if (!db) return;
   await db.update(users).set(data).where(eq(users.id, userId));
+}
+
+/* ---------- Invite Tokens (Magic Invite Link) ---------- */
+
+export async function createInviteToken(
+  data: InsertInviteToken,
+): Promise<InviteToken | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  await db.insert(inviteTokens).values(data);
+  const r = await db
+    .select()
+    .from(inviteTokens)
+    .where(eq(inviteTokens.token, data.token))
+    .limit(1);
+  return r[0];
+}
+
+export async function listInviteTokensByOwner(ownerId: number): Promise<InviteToken[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return await db
+    .select()
+    .from(inviteTokens)
+    .where(eq(inviteTokens.ownerId, ownerId));
+}
+
+export async function findInviteByToken(token: string): Promise<InviteToken | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const r = await db
+    .select()
+    .from(inviteTokens)
+    .where(eq(inviteTokens.token, token))
+    .limit(1);
+  return r[0];
+}
+
+export async function markInviteUsed(
+  inviteId: number,
+  usedByUserId: number,
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(inviteTokens)
+    .set({ usedAt: new Date(), usedByUserId })
+    .where(eq(inviteTokens.id, inviteId));
+}
+
+export async function revokeInviteToken(
+  inviteId: number,
+  ownerId: number,
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(inviteTokens)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(inviteTokens.id, inviteId), eq(inviteTokens.ownerId, ownerId)));
 }
 
 /* ---------- Ad Accounts ---------- */

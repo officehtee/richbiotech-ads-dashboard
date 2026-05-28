@@ -226,3 +226,15 @@
 - [x] รวม messagingToday + baseline ของทุกบัญชีในเพจเดียวกัน + คำนวณ deltaPct หลังรวม
 - [x] เพิ่ม field accountCount + nickname format "N บัญชี • ชื่อเล่น" เมื่อ accountCount > 1
 - [x] vitest hotPagesGroup 7 case (106/106 ผ่าน)
+
+## Round 7.14: Magic Invite Link (Option A)
+- [x] เพิ่มตาราง `inviteTokens` (id, token, ownerId, role, label, expiresAt, usedAt, usedByUserId, revokedAt, createdAt) + migrate
+- [x] db helpers: createInviteToken / listInviteTokensByOwner / findInviteByToken / markInviteUsed / revokeInviteToken
+- [x] tRPC procedures: invites.create / invites.list / invites.revoke / invites.redeem
+- [x] UI ส่วน Invite ในหน้า UserManagement — ปุ่ม "ออก User ใหม่" + dialog เลือก role + label + ตารางลิงก์ (copy/revoke) + status badge
+- [x] หน้า /invite/:token (ถ้ายังไม่ login → ปุ่ม login พร้อม returnPath; ถ้า login → auto redeem → toast → redirect /)
+- [x] OAuth callback สนับสนุน returnPath ใน state (base64 JSON) → redirect กลับ /invite/:token หลัง login
+- [x] vitest inviteTokens 14 case (validation + status + getLoginUrl returnPath round-trip)
+- [x] เพิ่ม `invites.verify` (publicProcedure) — ตรวจลิงก์ได้ก่อน login
+- [x] ปรับ InviteRedeem — verify-first flow: invalid/revoked/expired โชว์ทันทีไม่ต้องรอ login
+- [x] vitest invites.procedure 12 case (create/list/revoke/verify x4 + redeem x6 + uniqueness + expiry) — 132/132 ผ่าน

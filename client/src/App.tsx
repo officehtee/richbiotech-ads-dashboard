@@ -17,6 +17,7 @@ import CommissionTable from "./pages/CommissionTable";
 import GroupOverview from "./pages/GroupOverview";
 import GroupsSettings from "./pages/GroupsSettings";
 import HubDashboard from "./pages/HubDashboard";
+import InviteRedeem from "./pages/InviteRedeem";
 import AIAdvisor from "./pages/AIAdvisor";
 import Alerts from "./pages/Alerts";
 import Cohort from "./pages/Cohort";
@@ -59,6 +60,9 @@ function Router() {
 
       {/* Onboarding (rendered without sidebar) */}
       <Route path="/onboarding" component={Onboarding} />
+
+      {/* Magic Invite Link (rendered without sidebar) */}
+      <Route path="/invite/:token" component={InviteRedeem} />
 
       <Route path="/">
         <ProtectedShell>

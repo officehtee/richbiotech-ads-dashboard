@@ -294,3 +294,24 @@ export const alertEvents = mysqlTable("alertEvents", {
 });
 export type AlertEvent = typeof alertEvents.$inferSelect;
 export type InsertAlertEvent = typeof alertEvents.$inferInsert;
+
+
+/**
+ * Invite Tokens — Magic Invite Link
+ * Owner ออกลิงก์ส่วนตัวพร้อมเลือก role ปลายทาง อายุ 7 วัน Owner ปิดเอง
+ */
+export const inviteTokens = mysqlTable("inviteTokens", {
+  id: int("id").autoincrement().primaryKey(),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  ownerId: int("ownerId").notNull(), // workspace owner user id
+  role: mysqlEnum("role", ["ceo", "content", "staff"]).notNull(),
+  label: varchar("label", { length: 255 }), // ชื่อพนักงาน (optional)
+  expiresAt: timestamp("expiresAt").notNull(),
+  usedAt: timestamp("usedAt"),
+  usedByUserId: int("usedByUserId"),
+  revokedAt: timestamp("revokedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type InviteToken = typeof inviteTokens.$inferSelect;
+export type InsertInviteToken = typeof inviteTokens.$inferInsert;
