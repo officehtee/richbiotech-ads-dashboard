@@ -57,6 +57,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 import { useLocation } from "wouter";
 import AlertBell from "./AlertBell";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
@@ -306,15 +307,21 @@ function DashboardLayoutContent({
             </div>
           </SidebarHeader>
 
-          <SidebarContent className="gap-0">
-            {visibleSections.map((section) => (
-              <SidebarGroup key={section.label} className="py-1">
+          <SidebarContent className="gap-0 py-3 overflow-y-auto">
+            {visibleSections.map((section, sectionIndex) => (
+              <SidebarGroup
+                key={section.label}
+                className={cn(
+                  "py-0",
+                  sectionIndex === 0 ? "mt-2" : "mt-5",
+                )}
+              >
                 {!isCollapsed && (
-                  <SidebarGroupLabel className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground/70 px-3">
+                  <SidebarGroupLabel className="h-auto py-1.5 mb-1 text-[10px] font-semibold tracking-[0.08em] leading-snug uppercase text-muted-foreground/70 px-3">
                     {section.label}
                   </SidebarGroupLabel>
                 )}
-                <SidebarMenu className="px-2">
+                <SidebarMenu className="px-2 gap-0.5">
                   {section.items.map((item) => {
                     const isActive =
                       location === item.path ||

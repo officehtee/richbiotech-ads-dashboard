@@ -128,4 +128,4 @@
 - [x] Card hover translateY(-2px) + shadow
 - [x] Mobile-friendly grid (KPI 2 col / desktop 4-5 col)
 - [x] vitest: hourly heatmap + funnel + urgency badge (14 tests)
-- [ ] บันทึก final checkpoint
+- [x] บันทึก final checkpoint Round 6 (7f201720)
