@@ -166,3 +166,10 @@
 - [x] Cohort — default 1d
 - [x] SmartScaling — คงค่าเดิม (7d, ยกเว้น)
 - [x] vitest 82/82 ผ่าน, TypeScript clean
+
+## Round 7.3: KPI Cards เป็น Gradient เต็มสี
+- [x] KpiCard ใช้ linear-gradient 135° ตาม accent (ส้ม/ฟ้า/เขียว/ส้ม+ทอง/ม่วง)
+- [x] ตัวอักษร/ตัวเลข/ไอคอน/Delta pill = สีขาวทั้งหมด + drop shadow
+- [x] Decorative blob 2 ชิ้น (มุมล่างขวา + ขวาบน) + rounded-2xl + soft shadow + hover lift
+- [x] Sparkline = path ขาว + area gradient ขาวโปร่งใส
+- [x] vitest 82/82 ผ่าน, TypeScript clean
