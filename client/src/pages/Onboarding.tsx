@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trpc } from "@/lib/trpc";
-import { Building2, Loader2, Sparkles, UserPlus } from "lucide-react";
+import { Building2, Loader2, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
@@ -17,7 +17,11 @@ export default function Onboarding() {
   const [companyName, setCompanyName] = useState("");
   const join = trpc.onboarding.joinByCompanyCode.useMutation({
     onSuccess: async () => {
-      toast.success("เข้าร่วม workspace สำเร็จ");
+      // Round 7.16 (BUG-5): สถานะเริ่มต้นของพนักงานคือ "pending" — รอเจ้าของ workspace approve
+      toast.success("เข้าร่วม workspace สำเร็จ — รอเจ้าของ workspace กำหนดสิทธิ์ให้", {
+        description: "สถานะปัจจุบัน: รออนุมัติ (Pending Approval)",
+        duration: 6000,
+      });
       await refresh();
       setLocation("/");
     },
@@ -38,8 +42,8 @@ export default function Onboarding() {
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-background to-accent/30">
       <Card className="w-full max-w-md p-7">
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="h-12 w-12 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-lg shadow-primary/20 mb-3">
-            <Sparkles className="h-6 w-6" />
+          <div className="h-14 w-14 rounded-2xl bg-white ring-2 ring-orange-300/60 shadow-lg shadow-orange-300/30 flex items-center justify-center mb-3 overflow-hidden">
+            <img src="/manus-storage/logo_329a1fce.png" alt="Richbiotech" className="h-12 w-12 object-contain" />
           </div>
           <h1 className="text-xl font-semibold tracking-tight">ยินดีต้อนรับ {user.name}</h1>
           <p className="text-sm text-muted-foreground mt-1">

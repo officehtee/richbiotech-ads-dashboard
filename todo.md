@@ -238,3 +238,22 @@
 - [x] เพิ่ม `invites.verify` (publicProcedure) — ตรวจลิงก์ได้ก่อน login
 - [x] ปรับ InviteRedeem — verify-first flow: invalid/revoked/expired โชว์ทันทีไม่ต้องรอ login
 - [x] vitest invites.procedure 12 case (create/list/revoke/verify x4 + redeem x6 + uniqueness + expiry) — 132/132 ผ่าน
+
+## Round 7.16 (✅ เสร็จบริบูรณ์): Bug Fixes 3 Packs
+### Pack A — P1+P3 Quick Fix
+- [x] ลบ function `_LiveActivityHero` + `_ConversionFunnel` ใน HubDashboard.tsx (BUG-1 + BUG-4) — ลด ~250 lines
+- [x] Sparkline early-return เมื่อ data.length < 2 + ResponsiveContainer minWidth/minHeight (BUG-2)
+
+### Pack B — Brand Polish
+- [x] --primary / --ring / --sidebar-primary -> hue 50 (Brand Orange) ทั้ง :root และ .dark (BUG-7)
+- [x] favicon + apple-touch-icon -> โลโก้ R ส้ม (BUG-8)
+- [x] OG meta + twitter card + theme-color #f97316 (BUG-8)
+
+### Pack C — Onboarding UX
+- [x] Onboarding toast แจ้ง 'รอเจ้าของ workspace กำหนดสิทธิ์' + duration 6s (BUG-5)
+- [x] Onboarding แทน Sparkles ด้วยโลโก้ R + ring ส้ม
+- [x] InviteRedeem ปุ่ม 'ไม่ใช่ฉัน — ออกจากระบบ' (logout + กลับมา invite) (BUG-9)
+
+### Tests
+- [x] vitest round716 13 case + รวม 145/145 ผ่าน, TS clean
+

@@ -71,9 +71,13 @@ function Sparkline({
   if (!data.length) {
     return <div className="text-xs text-muted-foreground">—</div>;
   }
+  // Round 7.16 (BUG-2): ต้องมีอย่างน้อย 2 จุด line chart ถึงจะ render ได้ + ปิด warning width(0)
+  if (data.length < 2) {
+    return <div className="text-xs text-muted-foreground">{data[0] ? formatCompact(data[0].value) : "—"}</div>;
+  }
   return (
-    <div className="h-9 w-24">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="h-9 w-24 min-w-[80px]">
+      <ResponsiveContainer width="100%" height="100%" minWidth={50} minHeight={20}>
         <LineChart data={data} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
           <RTooltip
             cursor={false}

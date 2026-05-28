@@ -51,6 +51,13 @@ export default function InviteRedeem() {
     { enabled: !!token, retry: false },
   );
 
+  const logoutMutation = trpc.auth.logout.useMutation({
+    onSuccess: () => {
+      // Round 7.16 (BUG-9): logout จากบัญชีผิด → พากลับหน้า login พร้อม returnPath เดิม
+      window.location.href = getLoginUrl(`/invite/${token}`);
+    },
+  });
+
   const redeem = trpc.invites.redeem.useMutation({
     onSuccess: async (res) => {
       setSuccess({ role: res.role });
@@ -134,6 +141,9 @@ export default function InviteRedeem() {
     );
   }
 
+  // ถ้า login อยู่แล้วแต่ไม่ได้ redeem (เช่น redeem.isPending) → ออฟีเจรชั่วคราว
+  // รวมถึงตอน user logged-in ของบัญชีอื่น — ให้ปุ่ม "ไม่ใช่ฉัน" (BUG-9)
+
   if (success) {
     return (
       <CenterShell>
@@ -158,7 +168,19 @@ export default function InviteRedeem() {
           <ShieldAlert className="h-10 w-10 mx-auto text-rose-500" />
           <h1 className="text-xl font-semibold mt-3">ใช้ลิงก์เชิญไม่สำเร็จ</h1>
           <p className="text-sm text-rose-600 mt-2">{error}</p>
-          <Button variant="outline" className="mt-5" onClick={() => setLocation("/")}>
+          {/* Round 7.16 (BUG-9): ปุ่ม "ไม่ใช่ฉัน" — logout แล้วกลับมา invite ด้วยบัญชีถูก */}
+          {user ? (
+            <Button
+              variant="outline"
+              className="mt-5 w-full"
+              disabled={logoutMutation.isPending}
+              onClick={() => logoutMutation.mutate()}
+            >
+              {logoutMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              ไม่ใช่ฉัน — ออกจากระบบแล้วล็อกอินใหม่
+            </Button>
+          ) : null}
+          <Button variant="ghost" className="mt-2" onClick={() => setLocation("/")}>
             ไปหน้าแรก
           </Button>
         </Card>

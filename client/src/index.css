@@ -43,11 +43,11 @@
 }
 
 :root {
-  /* Royal Blue Corporate Theme — hue 265 (royal blue) */
-  --primary: oklch(0.45 0.22 265);
-  --primary-foreground: oklch(0.98 0.005 265);
-  --sidebar-primary: oklch(0.5 0.22 265);
-  --sidebar-primary-foreground: oklch(0.98 0.005 265);
+  /* Round 7.16 (BUG-7): Brand Orange — hue ~50 ให้ตรงกับโลโก้ R สีส้ม */
+  --primary: oklch(0.68 0.18 50);
+  --primary-foreground: oklch(0.99 0.005 50);
+  --sidebar-primary: oklch(0.7 0.18 50);
+  --sidebar-primary-foreground: oklch(0.99 0.005 50);
   --chart-1: oklch(0.55 0.22 265);
   --chart-2: oklch(0.65 0.18 200);
   --chart-3: oklch(0.65 0.18 145);
@@ -70,13 +70,13 @@
   --destructive-foreground: oklch(0.98 0 0);
   --border: oklch(0.9 0.01 265);
   --input: oklch(0.9 0.01 265);
-  --ring: oklch(0.55 0.22 265);
+  --ring: oklch(0.7 0.18 50);
   --sidebar: oklch(0.98 0.01 265);
   --sidebar-foreground: oklch(0.2 0.03 265);
   --sidebar-accent: oklch(0.93 0.03 265);
   --sidebar-accent-foreground: oklch(0.25 0.1 265);
   --sidebar-border: oklch(0.9 0.01 265);
-  --sidebar-ring: oklch(0.55 0.22 265);
+  --sidebar-ring: oklch(0.7 0.18 50);
 
   /* KPI semantic colors (Hub Dashboard 2.0 — Round 6) */
   --kpi-spend: #f97316;     /* orange   */
@@ -87,10 +87,10 @@
 }
 
 .dark {
-  --primary: oklch(0.65 0.2 265);
-  --primary-foreground: oklch(0.15 0.02 265);
-  --sidebar-primary: oklch(0.65 0.2 265);
-  --sidebar-primary-foreground: oklch(0.15 0.02 265);
+  --primary: oklch(0.75 0.17 50);
+  --primary-foreground: oklch(0.18 0.05 50);
+  --sidebar-primary: oklch(0.75 0.17 50);
+  --sidebar-primary-foreground: oklch(0.18 0.05 50);
   --background: oklch(0.16 0.02 265);
   --foreground: oklch(0.92 0.01 265);
   --card: oklch(0.2 0.025 265);
@@ -107,7 +107,7 @@
   --destructive-foreground: oklch(0.98 0 0);
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.65 0.2 265);
+  --ring: oklch(0.75 0.17 50);
   --chart-1: oklch(0.7 0.2 265);
   --chart-2: oklch(0.7 0.18 200);
   --chart-3: oklch(0.7 0.18 145);
@@ -118,7 +118,7 @@
   --sidebar-accent: oklch(0.28 0.04 265);
   --sidebar-accent-foreground: oklch(0.95 0.01 265);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.65 0.2 265);
+  --sidebar-ring: oklch(0.75 0.17 50);
 }
 
 @layer base {
