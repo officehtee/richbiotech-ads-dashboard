@@ -8,6 +8,22 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { toast } from "sonner";
 
+const LOGO_URL = "/manus-storage/logo_329a1fce.png";
+
+function Brand({ subtitle }: { subtitle?: string }) {
+  return (
+    <div className="flex flex-col items-center mb-5">
+      <img
+        src={LOGO_URL}
+        alt="Richbiotech"
+        className="h-14 w-14 rounded-2xl shadow-md ring-1 ring-orange-500/20 bg-white p-1.5"
+      />
+      <h2 className="mt-3 text-base font-semibold tracking-tight">Richbiotech Ads Dashboard</h2>
+      {subtitle ? <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p> : null}
+    </div>
+  );
+}
+
 const ROLE_LABEL: Record<string, string> = {
   ceo: "Co-Owner (CEO)",
   content: "ทีมคอนเทนต์",
@@ -60,6 +76,7 @@ export default function InviteRedeem() {
   if (loading || verify.isLoading) {
     return (
       <CenterShell>
+        <Brand subtitle="กำลังตรวจสอบลิงก์เชิญ…" />
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
       </CenterShell>
     );
@@ -71,6 +88,7 @@ export default function InviteRedeem() {
     return (
       <CenterShell>
         <Card className="w-full max-w-md p-7 text-center">
+          <Brand />
           <ShieldAlert className="h-10 w-10 mx-auto text-rose-500" />
           <h1 className="text-xl font-semibold mt-3">ใช้ลิงก์เชิญไม่ได้</h1>
           <p className="text-sm text-rose-600 mt-2">{reason}</p>
@@ -93,6 +111,7 @@ export default function InviteRedeem() {
     return (
       <CenterShell>
         <Card className="w-full max-w-md p-7 text-center">
+          <Brand />
           <h1 className="text-xl font-semibold">คุณได้รับเชิญเข้าใช้งาน</h1>
           <p className="text-sm text-muted-foreground mt-2">
             สิทธิ์ที่จะได้รับ: <b>{ROLE_LABEL[verify.data.role] ?? verify.data.role}</b>
@@ -119,6 +138,7 @@ export default function InviteRedeem() {
     return (
       <CenterShell>
         <Card className="w-full max-w-md p-7 text-center">
+          <Brand />
           <CheckCircle2 className="h-10 w-10 mx-auto text-emerald-500" />
           <h1 className="text-xl font-semibold mt-3">เข้าร่วม workspace สำเร็จ</h1>
           <p className="text-sm text-muted-foreground mt-2">
@@ -134,6 +154,7 @@ export default function InviteRedeem() {
     return (
       <CenterShell>
         <Card className="w-full max-w-md p-7 text-center">
+          <Brand />
           <ShieldAlert className="h-10 w-10 mx-auto text-rose-500" />
           <h1 className="text-xl font-semibold mt-3">ใช้ลิงก์เชิญไม่สำเร็จ</h1>
           <p className="text-sm text-rose-600 mt-2">{error}</p>
@@ -147,8 +168,8 @@ export default function InviteRedeem() {
 
   return (
     <CenterShell>
+      <Brand subtitle="กำลังเข้าร่วม workspace…" />
       <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      <p className="text-sm text-muted-foreground mt-3">กำลังเข้าร่วม workspace…</p>
     </CenterShell>
   );
 }
