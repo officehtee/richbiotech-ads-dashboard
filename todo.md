@@ -186,3 +186,9 @@
 - [x] Cohort → 30d
 - [x] SmartScaling — คง 7d
 - [x] vitest 82/82 ผ่าน, TypeScript clean
+
+## Round 7.5: บังคับ Light Mode = โทนสว่างจริง
+- [x] สแกนพบ 27 จุด hardcoded dark ใน HubDashboard แทนด้วย semantic tokens (bg-card / bg-muted / text-foreground / text-muted-foreground / border-border / ring-border) รองรับทั้ง light/dark
+- [x] Recharts (RevenueVsSpendChart) ใช้ useTheme + chartColors object (grid/axis/tick/tooltip/activeDot)
+- [x] KpiCard คง gradient ไว้ (ไม่มี hardcoded dark)
+- [x] vitest 82/82 ผ่าน, TypeScript clean

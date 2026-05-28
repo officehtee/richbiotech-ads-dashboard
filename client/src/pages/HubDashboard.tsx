@@ -71,6 +71,7 @@ import {
   Legend,
 } from "recharts";
 import { Link } from "wouter";
+import { useTheme } from "@/contexts/ThemeContext";
 
 type Persona = "buyer" | "sales";
 
@@ -85,7 +86,7 @@ function PersonaPills({ value, onChange }: { value: Persona; onChange: (v: Perso
     { key: "sales", label: "Sales", icon: MessageCircle },
   ];
   return (
-    <div className="inline-flex h-9 items-center rounded-lg border border-white/10 bg-zinc-900/50 p-0.5">
+    <div className="inline-flex h-9 items-center rounded-lg border border-border bg-muted/50 p-0.5">
       {items.map((it) => {
         const active = value === it.key;
         const Icon = it.icon;
@@ -98,7 +99,7 @@ function PersonaPills({ value, onChange }: { value: Persona; onChange: (v: Perso
               "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-all",
               active
                 ? "bg-blue-600 text-white shadow-[0_2px_8px_-2px_rgba(37,99,235,0.6)]"
-                : "text-zinc-400 hover:text-zinc-200",
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             <Icon className="h-3.5 w-3.5" />
@@ -130,7 +131,7 @@ function AccountSelector({
       value={value === null ? "all" : String(value)}
       onValueChange={(v) => onChange(v === "all" ? null : Number(v))}
     >
-      <SelectTrigger className="h-9 w-[220px] border-white/10 bg-zinc-900/50 text-zinc-200 [&>svg]:text-zinc-500">
+      <SelectTrigger className="h-9 w-[220px] border-border bg-muted/50 text-foreground [&>svg]:text-muted-foreground">
         <span className="inline-flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.7)]" />
           <span className="truncate text-sm">{label}</span>
@@ -152,6 +153,17 @@ function AccountSelector({
  * Section: Revenue vs Spend area chart (30 days)
  * ============================================================ */
 function RevenueVsSpendChart({ dateRange }: { dateRange: DateRangeInput }) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+  const chartColors = {
+    grid: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
+    axis: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
+    tick: isDark ? "#71717a" : "#52525b",
+    tooltipBg: isDark ? "#0a0d12" : "#ffffff",
+    tooltipBorder: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+    tooltipLabel: isDark ? "#a1a1aa" : "#52525b",
+    activeDotFill: isDark ? "#0d1117" : "#ffffff",
+  };
   // Always force 30d preset for this chart per reference design
   const q = trpc.dashboard.revenueVsSpend.useQuery(
     { dateRange: { preset: "30d" } },
@@ -165,16 +177,16 @@ function RevenueVsSpendChart({ dateRange }: { dateRange: DateRangeInput }) {
   }));
 
   return (
-    <Card className="bg-[#0d1117] border-white/[0.06] p-5 lg:col-span-2">
+    <Card className="bg-card border-border p-5 lg:col-span-2">
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
-          <h3 className="text-base font-semibold text-white inline-flex items-center gap-2">
+          <h3 className="text-base font-semibold text-foreground inline-flex items-center gap-2">
             <LineChartIcon className="h-4 w-4 text-blue-400" />
             รายได้ vs. ค่าโฆษณา
           </h3>
-          <p className="text-xs text-zinc-500 mt-0.5">30 วันล่าสุด · รายวัน</p>
+          <p className="text-xs text-muted-foreground mt-0.5">30 วันล่าสุด · รายวัน</p>
         </div>
-        <div className="flex items-center gap-3 text-xs text-zinc-400">
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-blue-500" />
             รายได้
@@ -187,9 +199,9 @@ function RevenueVsSpendChart({ dateRange }: { dateRange: DateRangeInput }) {
       </div>
       <div className="h-[280px]">
         {q.isLoading ? (
-          <Skeleton className="h-full w-full bg-zinc-800/50" />
+          <Skeleton className="h-full w-full bg-muted" />
         ) : data.length < 2 ? (
-          <div className="flex h-full items-center justify-center text-sm text-zinc-500">
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             ยังไม่มีข้อมูล 30 วันล่าสุด
           </div>
         ) : (
@@ -205,28 +217,29 @@ function RevenueVsSpendChart({ dateRange }: { dateRange: DateRangeInput }) {
                   <stop offset="100%" stopColor="#f97316" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+              <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
               <XAxis
                 dataKey="idx"
-                tick={{ fill: "#71717a", fontSize: 10 }}
-                axisLine={{ stroke: "rgba(255,255,255,0.08)" }}
+                tick={{ fill: chartColors.tick, fontSize: 10 }}
+                axisLine={{ stroke: chartColors.axis }}
                 tickLine={false}
               />
               <YAxis
                 tickFormatter={(v) => formatCompact(Number(v))}
-                tick={{ fill: "#71717a", fontSize: 10 }}
+                tick={{ fill: chartColors.tick, fontSize: 10 }}
                 axisLine={false}
                 tickLine={false}
                 width={48}
               />
               <RTooltip
                 contentStyle={{
-                  background: "#0a0d12",
-                  border: "1px solid rgba(255,255,255,0.1)",
+                  background: chartColors.tooltipBg,
+                  border: `1px solid ${chartColors.tooltipBorder}`,
                   borderRadius: 8,
                   fontSize: 12,
+                  color: isDark ? "#fff" : "#18181b",
                 }}
-                labelStyle={{ color: "#a1a1aa" }}
+                labelStyle={{ color: chartColors.tooltipLabel }}
                 formatter={(v: number, name: string) => [formatCurrency(v), name]}
               />
               <Area
@@ -237,7 +250,7 @@ function RevenueVsSpendChart({ dateRange }: { dateRange: DateRangeInput }) {
                 strokeWidth={2}
                 fill="url(#revGrad)"
                 dot={false}
-                activeDot={{ r: 4, stroke: "#3b82f6", fill: "#0d1117" }}
+                activeDot={{ r: 4, stroke: "#3b82f6", fill: chartColors.activeDotFill }}
               />
               <Line
                 type="monotone"
@@ -268,18 +281,18 @@ function GroupBreakdown({ dateRange }: { dateRange: DateRangeInput }) {
   );
   const rows = q.data ?? [];
   return (
-    <Card className="bg-[#0d1117] border-white/[0.06] p-5">
+    <Card className="bg-card border-border p-5">
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
-          <h3 className="text-base font-semibold text-white inline-flex items-center gap-2">
+          <h3 className="text-base font-semibold text-foreground inline-flex items-center gap-2">
             <ShoppingCart className="h-4 w-4 text-fuchsia-400" />
             แยกตามกลุ่มสินค้า
           </h3>
-          <p className="text-xs text-zinc-500 mt-0.5">
+          <p className="text-xs text-muted-foreground mt-0.5">
             {mode === "spend" ? "สัดส่วนการใช้จ่าย" : "ROAS เทียบเป้า"} · งวดที่เลือก
           </p>
         </div>
-        <div className="inline-flex h-7 rounded-md border border-white/10 bg-zinc-900/50 p-0.5 text-xs">
+        <div className="inline-flex h-7 rounded-md border border-border bg-muted/50 p-0.5 text-xs">
           {(["spend", "roas"] as const).map((m) => (
             <button
               key={m}
@@ -287,7 +300,7 @@ function GroupBreakdown({ dateRange }: { dateRange: DateRangeInput }) {
               onClick={() => setMode(m)}
               className={cn(
                 "h-6 rounded px-3 font-medium transition-all",
-                mode === m ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-zinc-200",
+                mode === m ? "bg-muted-foreground/30 text-white" : "text-muted-foreground hover:text-foreground",
               )}
             >
               {m === "spend" ? "Spend" : "ROAS"}
@@ -298,11 +311,11 @@ function GroupBreakdown({ dateRange }: { dateRange: DateRangeInput }) {
       {q.isLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-10 w-full bg-zinc-800/50" />
+            <Skeleton key={i} className="h-10 w-full bg-muted" />
           ))}
         </div>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-zinc-500 py-8 text-center">ยังไม่มีกลุ่มสินค้า</p>
+        <p className="text-sm text-muted-foreground py-8 text-center">ยังไม่มีกลุ่มสินค้า</p>
       ) : (
         <ul className="space-y-3">
           {rows.slice(0, 5).map((g) => {
@@ -312,7 +325,7 @@ function GroupBreakdown({ dateRange }: { dateRange: DateRangeInput }) {
             return (
               <li key={g.groupId} className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2 text-sm">
-                  <span className="inline-flex items-center gap-2 min-w-0 text-zinc-300">
+                  <span className="inline-flex items-center gap-2 min-w-0 text-foreground">
                     <span
                       className="h-2 w-2 rounded-full shrink-0"
                       style={{ backgroundColor: g.color }}
@@ -321,7 +334,7 @@ function GroupBreakdown({ dateRange }: { dateRange: DateRangeInput }) {
                   </span>
                   <span className="num font-semibold text-white shrink-0">{value}</span>
                 </div>
-                <div className="h-1.5 rounded-full bg-zinc-800/80 overflow-hidden">
+                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-700"
                     style={{
@@ -360,20 +373,20 @@ function SmartScalingPanel({ dateRange }: { dateRange: DateRangeInput }) {
   );
   const rows = q.data ?? [];
   return (
-    <Card className="bg-[#0d1117] border-white/[0.06] p-5">
+    <Card className="bg-card border-border p-5">
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
-          <h3 className="text-base font-semibold text-white inline-flex items-center gap-2">
+          <h3 className="text-base font-semibold text-foreground inline-flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-violet-400" />
             Smart Scaling — แนะนำการปรับงบ
           </h3>
-          <p className="text-xs text-zinc-500 mt-0.5">
+          <p className="text-xs text-muted-foreground mt-0.5">
             5 adset เด่นจาก score = ROAS×0.7 + CTR×0.3
           </p>
         </div>
         <Link
           href="/smart-scaling"
-          className="inline-flex h-8 items-center gap-1 rounded-md border border-white/10 bg-zinc-900/50 px-3 text-xs text-zinc-300 hover:text-white hover:border-white/20 transition-colors"
+          className="inline-flex h-8 items-center gap-1 rounded-md border border-border bg-muted/50 px-3 text-xs text-foreground hover:text-foreground hover:border-border transition-colors"
         >
           ดูทั้งหมด
           <ChevronRight className="h-3 w-3" />
@@ -382,11 +395,11 @@ function SmartScalingPanel({ dateRange }: { dateRange: DateRangeInput }) {
       {q.isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-14 w-full bg-zinc-800/50" />
+            <Skeleton key={i} className="h-14 w-full bg-muted" />
           ))}
         </div>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-zinc-500 py-8 text-center">
+        <p className="text-sm text-muted-foreground py-8 text-center">
           ยังไม่มี adset ที่ผ่านเงื่อนไข minSpend
         </p>
       ) : (
@@ -402,7 +415,7 @@ function SmartScalingPanel({ dateRange }: { dateRange: DateRangeInput }) {
               >
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-white truncate">{r.adsetName}</p>
-                  <p className="text-[11px] text-zinc-500 truncate num">
+                  <p className="text-[11px] text-muted-foreground truncate num">
                     {r.pageName ?? "—"} · score {r.score.toFixed(2)}
                   </p>
                 </div>
@@ -416,7 +429,7 @@ function SmartScalingPanel({ dateRange }: { dateRange: DateRangeInput }) {
                   {r.actionLabel}
                 </span>
                 <div className="text-right shrink-0 num text-sm">
-                  <div className="text-zinc-400 text-xs">{formatCurrency(r.fromBudget)}</div>
+                  <div className="text-muted-foreground text-xs">{formatCurrency(r.fromBudget)}</div>
                   <div
                     className={cn(
                       "font-semibold",
@@ -432,7 +445,7 @@ function SmartScalingPanel({ dateRange }: { dateRange: DateRangeInput }) {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 border-white/10 bg-zinc-900/50 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                  className="h-8 border-border bg-muted/50 text-xs text-foreground hover:bg-muted hover:text-foreground"
                   asChild
                 >
                   <Link href={`/smart-scaling`}>ปรับ</Link>
@@ -458,29 +471,29 @@ function TopPerformingAds({ dateRange }: { dateRange: DateRangeInput }) {
   const rankColors = [
     "bg-amber-500 text-amber-950",  // 1
     "bg-blue-500 text-white",       // 2
-    "bg-zinc-600 text-white",       // 3
-    "bg-zinc-700 text-zinc-200",    // 4
-    "bg-zinc-700 text-zinc-200",    // 5
+    "bg-muted-foreground/40 text-foreground",       // 3
+    "bg-muted-foreground/30 text-foreground",    // 4
+    "bg-muted-foreground/30 text-foreground",    // 5
   ];
   return (
-    <Card className="bg-[#0d1117] border-white/[0.06] p-5">
+    <Card className="bg-card border-border p-5">
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
-          <h3 className="text-base font-semibold text-white inline-flex items-center gap-2">
+          <h3 className="text-base font-semibold text-foreground inline-flex items-center gap-2">
             <Megaphone className="h-4 w-4 text-emerald-400" />
             Top Performing Ads
           </h3>
-          <p className="text-xs text-zinc-500 mt-0.5">Rising Stars · 7 วันล่าสุด</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Rising Stars · 7 วันล่าสุด</p>
         </div>
       </div>
       {q.isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full bg-zinc-800/50" />
+            <Skeleton key={i} className="h-12 w-full bg-muted" />
           ))}
         </div>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-zinc-500 py-8 text-center">
+        <p className="text-sm text-muted-foreground py-8 text-center">
           ยังไม่มี ads ที่ผ่านเงื่อนไข
         </p>
       ) : (
@@ -488,7 +501,7 @@ function TopPerformingAds({ dateRange }: { dateRange: DateRangeInput }) {
           {rows.map((r) => (
             <li
               key={r.adsetId}
-              className="flex items-center gap-3 rounded-lg bg-zinc-900/40 px-3 py-2.5 ring-1 ring-white/5 hover:ring-white/10 transition-colors"
+              className="flex items-center gap-3 rounded-lg bg-muted/40 px-3 py-2.5 ring-1 ring-border hover:ring-border transition-colors"
             >
               <span
                 className={cn(
@@ -500,7 +513,7 @@ function TopPerformingAds({ dateRange }: { dateRange: DateRangeInput }) {
               </span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-white truncate">{r.adsetName}</p>
-                <p className="text-[11px] text-zinc-500 truncate">{r.pageName ?? "—"}</p>
+                <p className="text-[11px] text-muted-foreground truncate">{r.pageName ?? "—"}</p>
               </div>
               <span className="num text-sm font-bold text-emerald-400 shrink-0">
                 {formatRoas(r.roas)}x
@@ -522,7 +535,7 @@ function TopPerformingAds({ dateRange }: { dateRange: DateRangeInput }) {
 type SortKey = "spend" | "messaging" | "purchases" | "purchaseValue" | "roas" | "status";
 
 function MiniSparkline({ data, status }: { data: number[]; status: string }) {
-  if (!data || data.length < 2) return <span className="text-[10px] text-zinc-600">—</span>;
+  if (!data || data.length < 2) return <span className="text-[10px] text-muted-foreground">—</span>;
   const max = Math.max(...data, 1);
   const min = Math.min(...data, 0);
   const range = max - min || 1;
@@ -633,7 +646,7 @@ function AccountsTable({ dateRange }: { dateRange: DateRangeInput }) {
       type="button"
       onClick={() => toggleSort(k)}
       className={cn(
-        "inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400 hover:text-white transition-colors",
+        "inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors",
         align === "right" && "justify-end w-full",
       )}
     >
@@ -660,11 +673,11 @@ function AccountsTable({ dateRange }: { dateRange: DateRangeInput }) {
   };
 
   return (
-    <Card className="bg-[#0d1117] border-white/[0.06] overflow-hidden">
-      <div className="px-5 py-4 flex items-center justify-between border-b border-white/5">
+    <Card className="bg-card border-border overflow-hidden">
+      <div className="px-5 py-4 flex items-center justify-between border-b border-border">
         <div>
           <h3 className="text-base font-semibold text-white">บัญชีโฆษณาทั้งหมด</h3>
-          <p className="text-xs text-zinc-500 mt-0.5 num">
+          <p className="text-xs text-muted-foreground mt-0.5 num">
             {sorted.length} บัญชีที่กำลังรัน · เรียงตาม {sortBy === "spend" ? "Spend" : sortBy}
           </p>
         </div>
@@ -672,7 +685,7 @@ function AccountsTable({ dateRange }: { dateRange: DateRangeInput }) {
           <Button
             variant="outline"
             size="sm"
-            className="h-8 border-white/10 bg-zinc-900/50 text-zinc-300 hover:bg-zinc-800"
+            className="h-8 border-border bg-muted/50 text-foreground hover:bg-muted"
             asChild
           >
             <Link href="/ad-intelligence">
@@ -683,7 +696,7 @@ function AccountsTable({ dateRange }: { dateRange: DateRangeInput }) {
           <Button
             variant="outline"
             size="sm"
-            className="h-8 border-white/10 bg-zinc-900/50 text-zinc-300 hover:bg-zinc-800"
+            className="h-8 border-border bg-muted/50 text-foreground hover:bg-muted"
             onClick={onExport}
             disabled={sorted.length === 0}
           >
@@ -695,11 +708,11 @@ function AccountsTable({ dateRange }: { dateRange: DateRangeInput }) {
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
-            <TableRow className="border-white/5 hover:bg-transparent">
-              <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+            <TableRow className="border-border hover:bg-transparent">
+              <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 บัญชี
               </TableHead>
-              <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+              <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 กลุ่ม
               </TableHead>
               <TableHead className="text-right">
@@ -717,7 +730,7 @@ function AccountsTable({ dateRange }: { dateRange: DateRangeInput }) {
               <TableHead className="text-right">
                 <Sortable k="roas">ROAS</Sortable>
               </TableHead>
-              <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+              <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Trend 14D
               </TableHead>
               <TableHead className="text-right">
@@ -728,15 +741,15 @@ function AccountsTable({ dateRange }: { dateRange: DateRangeInput }) {
           <TableBody>
             {q.isLoading ? (
               Array.from({ length: 4 }).map((_, i) => (
-                <TableRow key={i} className="border-white/5">
+                <TableRow key={i} className="border-border">
                   <TableCell colSpan={9}>
-                    <Skeleton className="h-8 w-full bg-zinc-800/50" />
+                    <Skeleton className="h-8 w-full bg-muted" />
                   </TableCell>
                 </TableRow>
               ))
             ) : sorted.length === 0 ? (
-              <TableRow className="border-white/5">
-                <TableCell colSpan={9} className="h-32 text-center text-zinc-500">
+              <TableRow className="border-border">
+                <TableCell colSpan={9} className="h-32 text-center text-muted-foreground">
                   ยังไม่มีบัญชีโฆษณา
                 </TableCell>
               </TableRow>
@@ -748,7 +761,7 @@ function AccountsTable({ dateRange }: { dateRange: DateRangeInput }) {
                 return (
                   <TableRow
                     key={a.accountId}
-                    className="border-white/5 hover:bg-white/[0.02] cursor-pointer"
+                    className="border-border hover:bg-muted/50 cursor-pointer"
                   >
                     <TableCell>
                       <Link
@@ -765,7 +778,7 @@ function AccountsTable({ dateRange }: { dateRange: DateRangeInput }) {
                           <span className="block text-sm font-semibold text-white truncate">
                             {a.nickname ?? a.adAccountId}
                           </span>
-                          <span className="block text-[11px] text-zinc-500 truncate num">
+                          <span className="block text-[11px] text-muted-foreground truncate num">
                             {a.adAccountId}
                             {a.phaseName ? ` · ${a.phaseName}` : ""}
                           </span>
@@ -774,21 +787,21 @@ function AccountsTable({ dateRange }: { dateRange: DateRangeInput }) {
                     </TableCell>
                     <TableCell>
                       {a.groupName ? (
-                        <span className="text-sm text-zinc-300">{a.groupName}</span>
+                        <span className="text-sm text-foreground">{a.groupName}</span>
                       ) : (
-                        <span className="text-zinc-600">—</span>
+                        <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
                     <TableCell className="text-right num text-sm text-white font-semibold">
                       {formatCurrency(a.spend)}
                     </TableCell>
-                    <TableCell className="text-right num text-sm text-zinc-200">
+                    <TableCell className="text-right num text-sm text-foreground">
                       {formatNumber(a.messaging)}
                     </TableCell>
-                    <TableCell className="text-right num text-sm text-zinc-200">
+                    <TableCell className="text-right num text-sm text-foreground">
                       {formatNumber(a.purchases)}
                     </TableCell>
-                    <TableCell className="text-right num text-sm text-zinc-200">
+                    <TableCell className="text-right num text-sm text-foreground">
                       {formatCurrency(a.purchaseValue)}
                     </TableCell>
                     <TableCell
@@ -1296,7 +1309,7 @@ export default function HubDashboard() {
           <Button
             variant="outline"
             size="sm"
-            className="h-9 border-white/10 bg-zinc-900/50 text-zinc-300 hover:bg-zinc-800"
+            className="h-9 border-border bg-muted/50 text-foreground hover:bg-muted"
             onClick={onRefreshAll}
             disabled={accountsQuery.isFetching}
             title="รีเฟรชทุกการ์ด"
