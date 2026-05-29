@@ -297,3 +297,11 @@
 - [ ] Cross-link จาก role guide → ส่วนที่ 1 (ปุ่ม "→ อ่านรายละเอียดหน้านี้")
 - [ ] Verify Search + PDF stylesheet + Topbar `?` icon
 - [ ] vitest + checkpoint
+
+
+## Round 7.21 — Help Center ฉบับสมบูรณ์ (Batch 2)
+- [x] เพิ่ม 19 หน้า + 5 หัวข้อทุกหน้า (Leaderboard, Comparison, AI Advisor, Alerts, Cohort, Ad Intelligence, Adset Detail, Benchmark, Smart Scaling, Share Links, Commission Table/Dashboard/Personal/Settings, Accounts Settings, Groups Settings, User Management, Profile)
+- [x] ขยาย Glossary 14 → 26 คำ (เพิ่ม Score, Action Badge, Auto-pilot, Sandbox, Attribution, Tier Rate, Slug, Forecast, Severity, Benchmark Bands, Sales Cohort)
+- [x] ขยาย FAQ 5 → 13 ข้อ (เพิ่ม API access blocked, Role permission, Lock unlock, Share forward, AI Advisor security, refresh interval, retention)
+- [x] vitest 180/180 ผ่าน (เพิ่ม Batch 2 coverage test 17 case)
+- [x] TS clean 0 errors

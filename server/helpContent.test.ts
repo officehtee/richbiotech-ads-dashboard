@@ -33,9 +33,36 @@ describe("Help Center content — structure & coverage", () => {
     }
   });
 
-  // Batch 1 = 3 หน้า, Batch 2 จะเพิ่มเป็น 19 หน้า
-  it("PAGE_GUIDES has at least 3 pages (Batch 1)", () => {
-    expect(PAGE_GUIDES.length).toBeGreaterThanOrEqual(3);
+  // Batch 2 = รวม 22 หน้า (Batch 1: 3 + Batch 2: 19)
+  it("PAGE_GUIDES has at least 19 pages (Batch 2)", () => {
+    expect(PAGE_GUIDES.length).toBeGreaterThanOrEqual(19);
+  });
+
+  it("Batch 2 includes key analysis + scaling + commission + settings pages", () => {
+    const ids = PAGE_GUIDES.map((p) => p.id);
+    const required = [
+      "leaderboard",
+      "comparison",
+      "ai-advisor",
+      "alerts",
+      "cohort",
+      "ad-intelligence",
+      "adset-detail",
+      "ad-metric-benchmark",
+      "smart-scaling",
+      "share-links",
+      "commission-table",
+      "commission-dashboard",
+      "commission-personal",
+      "commission-settings",
+      "accounts-settings",
+      "groups-settings",
+      "user-management",
+      "profile",
+    ];
+    for (const id of required) {
+      expect(ids, `missing page: ${id}`).toContain(id);
+    }
   });
 
   it("PAGE_GUIDES — every page has unique id and 5-section schema", () => {
@@ -81,11 +108,15 @@ describe("Help Center content — structure & coverage", () => {
     }
   });
 
-  it("GLOSSARY contains key terms", () => {
+  it("GLOSSARY contains key terms (Batch 2 expanded)", () => {
     const terms = GLOSSARY.map((g) => g.term);
     expect(terms).toContain("ROAS");
     expect(terms).toContain("Spend");
     expect(terms).toContain("CTR");
+    expect(terms).toContain("Auto-pilot Mode");
+    expect(terms).toContain("Tier Rate");
+    expect(terms).toContain("Benchmark Bands");
+    expect(GLOSSARY.length).toBeGreaterThanOrEqual(25);
   });
 
   it("GLOSSARY entries all have non-empty meaning", () => {
@@ -94,8 +125,8 @@ describe("Help Center content — structure & coverage", () => {
     }
   });
 
-  it("FAQS has at least 5 entries with q + a", () => {
-    expect(FAQS.length).toBeGreaterThanOrEqual(5);
+  it("FAQS has at least 10 entries with q + a (Batch 2 expanded)", () => {
+    expect(FAQS.length).toBeGreaterThanOrEqual(10);
     for (const f of FAQS) {
       expect(f.q.length).toBeGreaterThan(5);
       expect(f.a.length).toBeGreaterThan(10);
