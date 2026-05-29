@@ -103,6 +103,7 @@ import {
 import {
   fetchAdsForAdset,
   fetchAdsetDailyInsights,
+  testAdAccountToken,
   validateToken,
 } from "./metaApi";
 
@@ -347,6 +348,30 @@ export const appRouter = router({
         const tid = await tenantId(ctx);
         await deleteAdAccount(input.id, tid);
         return { ok: true };
+      }),
+    /**
+     * ทดสอบ Token + Ad Account จริงกับ Meta Graph API
+     * คืนสถานะ + raw error + คำแปลไทย + คำแนะนำการแก้
+     */
+    testToken: ownerProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        const acc = await getAdAccountById(input.id, tid);
+        if (!acc) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "ไม่พบบัญชีโฆษณา" });
+        }
+        if (!acc.accessToken) {
+          return {
+            ok: false,
+            category: "token_invalid" as const,
+            title: "ยังไม่ได้บันทึก Access Token",
+            message: "บัญชีนี้ยังไม่มี Access Token ในระบบ",
+            suggestion: "ไปที่ปุ่ม แก้ไข ของบัญชีนี้ แล้วใส่ Token",
+            testedAt: Date.now(),
+          };
+        }
+        return await testAdAccountToken(acc.adAccountId, acc.accessToken);
       }),
   }),
 

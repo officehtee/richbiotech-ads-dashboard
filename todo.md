@@ -313,3 +313,11 @@
 - [x] Batch 3: Role Guide ฉบับเต็ม 4 บทบาท (Owner/CEO/Content/Staff) + Search ครอบคลุม Role + Cmd+/ shortcut + Cross-link Role↔Page + Print stylesheet (A4 + @page) + pagesUsed lookup รองรับ path+title+shortLabel
 - [x] vitest 185/185 ผ่าน · TS clean
 - [x] checkpoint Batch 3
+
+
+## Round 7.22 — ปุ่มทดสอบ Token ในหน้า /accounts
+- [x] Backend: tRPC `accounts.testToken({ id })` — ยิง `/me?fields=id,name` + `/{actId}?fields=name,account_status,disable_reason` ของ Meta
+- [x] Error mapper: 6 กลุ่ม (token_expired/token_invalid/app_blocked/permission_missing/rate_limit/account_not_found/account_disabled/network/unknown) + แปลไทย + คำแนะนำ
+- [x] Frontend: ปุ่ม Plug icon ใน AccountsSettings table + Dialog แสดง banner เขียว/เหลือง/แดง + ข้อมูลบัญชี (เจ้าของ token / ชื่อบัญชี / status) + raw error block + copy fbtrace_id + ปุ่มทดสอบอีกครั้ง
+- [x] vitest: 11 case ครอบคลุม mapper (รวมติบตอน 196/196)
+- [x] checkpoint
