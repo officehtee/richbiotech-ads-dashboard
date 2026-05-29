@@ -251,3 +251,25 @@
     transparent 100%
   );
 }
+
+
+/* ── Help Center print stylesheet ─────────────────────────────────── */
+@media print {
+  @page {
+    size: A4;
+    margin: 16mm 14mm;
+  }
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 11pt;
+    line-height: 1.45;
+  }
+  /* avoid splitting cards mid-section */
+  .print\:hidden { display: none !important; }
+  [data-print-section] { break-inside: avoid; page-break-inside: avoid; }
+  h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
+  a { color: #1d4ed8 !important; text-decoration: underline; }
+  /* expand sticky panels */
+  .lg\:sticky, .sticky { position: static !important; }
+}

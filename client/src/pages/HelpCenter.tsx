@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import {
   BookOpen,
@@ -71,7 +71,23 @@ export default function HelpCenter() {
             e.meaning.toLowerCase().includes(q),
         ) ||
         p.formulas.some((f) => f.name.toLowerCase().includes(q)) ||
-        p.tips.some((t) => t.text.toLowerCase().includes(q)),
+        p.tips.some((t) => t.text.toLowerCase().includes(q)) ||
+        p.useCases.some(
+          (u) =>
+            u.title.toLowerCase().includes(q) ||
+            (u.outcome ?? "").toLowerCase().includes(q),
+        ),
+    );
+    const roles = ROLE_GUIDES.filter(
+      (r) =>
+        r.whoYouAre.toLowerCase().includes(q) ||
+        r.pagesUsed.some(
+          (p) =>
+            p.page.toLowerCase().includes(q) ||
+            p.purpose.toLowerCase().includes(q),
+        ) ||
+        r.dailyRoutine.some((d) => d.toLowerCase().includes(q)) ||
+        r.metricsToWatch.some((m) => m.toLowerCase().includes(q)),
     );
     const faqs = FAQS.filter(
       (f) => f.q.toLowerCase().includes(q) || f.a.toLowerCase().includes(q),
@@ -80,8 +96,22 @@ export default function HelpCenter() {
       (g) =>
         g.term.toLowerCase().includes(q) || g.meaning.toLowerCase().includes(q),
     );
-    return { pages, faqs, glossary };
+    return { pages, roles, faqs, glossary };
   }, [search]);
+
+  // Cmd+/ or Ctrl+/ → focus search input
+  const searchRef = useRef<HTMLInputElement>(null);
+  const mobileSearchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "/" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        (searchRef.current ?? mobileSearchRef.current)?.focus();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   const groupedPages = useMemo(() => {
     const map: Record<PageGuide["category"], PageGuide[]> = {
@@ -123,11 +153,15 @@ export default function HelpCenter() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
+                ref={searchRef}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="ค้นหาหน้า / คำถาม / ศัพท์..."
-                className="pl-9"
+                placeholder="ค้นหาหน้า / บทบาท / ศัพท์... (Cmd+/)"
+                className="pl-9 pr-12"
               />
+              <kbd className="hidden md:inline absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded border">
+                ⌘/
+              </kbd>
             </div>
           </div>
           <Button
@@ -144,6 +178,7 @@ export default function HelpCenter() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
+              ref={mobileSearchRef}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="ค้นหา..."
@@ -237,7 +272,10 @@ export default function HelpCenter() {
           ) : section.kind === "role" ? (
             <RoleSection role={section.role} onPickPage={(id) => setSection({ kind: "page", pageId: id })} />
           ) : section.kind === "page" ? (
-            <PageSection pageId={section.pageId} />
+            <PageSection
+              pageId={section.pageId}
+              onPickRole={(r) => setSection({ kind: "role", role: r })}
+            />
           ) : section.kind === "glossary" ? (
             <GlossarySection />
           ) : (
@@ -453,7 +491,13 @@ function RoleSection({
           </h3>
           <div className="space-y-2">
             {guide.pagesUsed.map((p) => {
-              const pg = PAGE_GUIDES.find((x) => x.title === p.page);
+              // match ทั้งจาก title หรือ path ในข้อความ (เช่น `/hub`)
+              const pathMatch = p.page.match(/`([^`]+)`/);
+              const path = pathMatch ? pathMatch[1] : null;
+              const pg =
+                PAGE_GUIDES.find((x) => path && x.path === path) ??
+                PAGE_GUIDES.find((x) => p.page.toLowerCase().includes(x.title.toLowerCase())) ??
+                PAGE_GUIDES.find((x) => !!x.shortLabel && p.page.includes(x.shortLabel));
               return (
                 <button
                   key={p.page}
@@ -513,7 +557,13 @@ function RoleSection({
   );
 }
 
-function PageSection({ pageId }: { pageId: string }) {
+function PageSection({
+  pageId,
+  onPickRole,
+}: {
+  pageId: string;
+  onPickRole: (r: HelpRole) => void;
+}) {
   const p = PAGE_GUIDES.find((x) => x.id === pageId);
   if (!p) return null;
   const meta = CATEGORY_META[p.category];
@@ -525,14 +575,23 @@ function PageSection({ pageId }: { pageId: string }) {
         description={p.what}
       />
 
-      <div className="flex flex-wrap gap-2 mb-2">
+      <div className="flex flex-wrap gap-2 mb-2 print:hidden">
+        <span className="text-xs text-muted-foreground self-center mr-1">สำหรับ:</span>
         {p.who.map((r) => (
-          <Badge key={r} variant="secondary">
-            {ROLE_META[r].emoji} {ROLE_META[r].label}
-          </Badge>
+          <button
+            key={r}
+            type="button"
+            onClick={() => onPickRole(r)}
+            className="inline-flex items-center gap-1 rounded-md border bg-secondary px-2 py-0.5 text-xs hover:bg-muted transition-colors"
+            title={`ดูคู่มือของ ${ROLE_META[r].label}`}
+          >
+            <span>{ROLE_META[r].emoji}</span>
+            <span>{ROLE_META[r].label}</span>
+            <ChevronRight className="h-3 w-3 opacity-60" />
+          </button>
         ))}
         <Link href={p.path}>
-          <Badge variant="outline" className="cursor-pointer hover:bg-muted">
+          <Badge variant="outline" className="cursor-pointer hover:bg-muted ml-auto">
             <ExternalLink className="h-3 w-3 mr-1" />
             ไปยังหน้านี้
           </Badge>
@@ -798,6 +857,7 @@ function SearchResults({
 }: {
   matched: {
     pages: typeof PAGE_GUIDES;
+    roles: typeof ROLE_GUIDES;
     faqs: typeof FAQS;
     glossary: typeof GLOSSARY;
   };
@@ -805,7 +865,10 @@ function SearchResults({
   onPick: (s: Section) => void;
 }) {
   const total =
-    matched.pages.length + matched.faqs.length + matched.glossary.length;
+    matched.pages.length +
+    matched.roles.length +
+    matched.faqs.length +
+    matched.glossary.length;
   return (
     <div className="space-y-4">
       <SectionHeader
@@ -818,6 +881,32 @@ function SearchResults({
             ไม่พบข้อมูลที่เกี่ยวข้อง ลองใช้คำค้นหาอื่นดู
           </CardContent>
         </Card>
+      )}
+
+      {matched.roles.length > 0 && (
+        <div>
+          <h3 className="font-semibold mb-2 text-sm text-muted-foreground">
+            บทบาท ({matched.roles.length})
+          </h3>
+          <div className="space-y-2">
+            {matched.roles.map((r) => (
+              <button
+                key={r.role}
+                type="button"
+                onClick={() => onPick({ kind: "role", role: r.role })}
+                className="w-full text-left rounded-lg border bg-card hover:bg-muted/50 p-3 transition-colors"
+              >
+                <div className="font-medium text-sm flex items-center gap-2">
+                  <span>{ROLE_META[r.role].emoji}</span>
+                  {ROLE_META[r.role].label}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                  {r.whoYouAre}
+                </p>
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       {matched.pages.length > 0 && (

@@ -305,3 +305,11 @@
 - [x] ขยาย FAQ 5 → 13 ข้อ (เพิ่ม API access blocked, Role permission, Lock unlock, Share forward, AI Advisor security, refresh interval, retention)
 - [x] vitest 180/180 ผ่าน (เพิ่ม Batch 2 coverage test 17 case)
 - [x] TS clean 0 errors
+
+
+## Round 7.21 — Help Center ฉบับสมบูรณ์ (Batch 1+2+3)
+- [x] Batch 1: schema 5-section + Getting Started + 3 หน้า (Hub/Group/Single)
+- [x] Batch 2: 19 หน้าใหม่ (Leaderboard/Comparison/AI Advisor/Alerts/Cohort/Ad Intel/Adset/Benchmark/Smart Scaling/Share Links/Commission ×4/Accounts/Groups/Users/Profile) + Glossary 26 + FAQ 13
+- [x] Batch 3: Role Guide ฉบับเต็ม 4 บทบาท (Owner/CEO/Content/Staff) + Search ครอบคลุม Role + Cmd+/ shortcut + Cross-link Role↔Page + Print stylesheet (A4 + @page) + pagesUsed lookup รองรับ path+title+shortLabel
+- [x] vitest 185/185 ผ่าน · TS clean
+- [x] checkpoint Batch 3

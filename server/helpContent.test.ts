@@ -197,3 +197,76 @@ describe("Help Center search logic (new 5-section schema)", () => {
     expect(upper.glossary.length).toBe(lower.glossary.length);
   });
 });
+
+describe("Help Center — Batch 3: Role Guides ฉบับเต็ม + cross-link integrity", () => {
+  it("ROLE_GUIDES — every role has fully expanded content (not stub)", () => {
+    for (const g of ROLE_GUIDES) {
+      // คาดว่าเนื้อหาเต็มต้องยาวกว่า stub
+      expect(g.whoYouAre.length, `${g.role} whoYouAre too short`).toBeGreaterThan(40);
+      expect(g.pagesUsed.length, `${g.role} pagesUsed too few`).toBeGreaterThanOrEqual(3);
+      expect(g.dailyRoutine.length, `${g.role} dailyRoutine too few`).toBeGreaterThanOrEqual(3);
+      expect(g.metricsToWatch.length, `${g.role} metricsToWatch too few`).toBeGreaterThanOrEqual(3);
+      for (const p of g.pagesUsed) {
+        expect(p.page.length).toBeGreaterThan(3);
+        expect(p.purpose.length).toBeGreaterThan(5);
+      }
+    }
+  });
+
+  it("Role pages reference real PAGE_GUIDES paths", () => {
+    const knownPaths = new Set(PAGE_GUIDES.map((p) => p.path));
+    // จับ path จาก backtick `...` ใน g.pagesUsed[].page
+    const pathRegex = /`([^`]+)`/;
+    let referenced = 0;
+    let matched = 0;
+    for (const g of ROLE_GUIDES) {
+      for (const p of g.pagesUsed) {
+        const m = p.page.match(pathRegex);
+        if (m) {
+          referenced++;
+          if (knownPaths.has(m[1])) matched++;
+        }
+      }
+    }
+    // อย่างน้อย 60% ของ path ที่อ้างใน role ต้องตรงกับหน้าจริง
+    expect(referenced).toBeGreaterThan(0);
+    expect(matched / referenced).toBeGreaterThanOrEqual(0.6);
+  });
+
+  it("PAGE_GUIDES paths are unique and start with /", () => {
+    const paths = PAGE_GUIDES.map((p) => p.path);
+    const set = new Set(paths);
+    expect(set.size, "duplicate path detected").toBe(paths.length);
+    for (const p of paths) expect(p.startsWith("/")).toBe(true);
+  });
+});
+
+describe("Help Center search — Batch 3 includes Role matches", () => {
+  function searchAll(q: string) {
+    const query = q.trim().toLowerCase();
+    if (!query) return null;
+    const pages = PAGE_GUIDES.filter(
+      (p) =>
+        p.title.toLowerCase().includes(query) ||
+        p.what.toLowerCase().includes(query),
+    );
+    const roles = ROLE_GUIDES.filter(
+      (r) =>
+        r.whoYouAre.toLowerCase().includes(query) ||
+        r.pagesUsed.some((p) => p.page.toLowerCase().includes(query) || p.purpose.toLowerCase().includes(query)) ||
+        r.dailyRoutine.some((d) => d.toLowerCase().includes(query)) ||
+        r.metricsToWatch.some((m) => m.toLowerCase().includes(query)),
+    );
+    return { pages, roles };
+  }
+
+  it("finds 'commission' in role guides", () => {
+    const r = searchAll("commission")!;
+    expect(r.roles.length).toBeGreaterThan(0);
+  });
+
+  it("finds 'smart scaling' across role + pages", () => {
+    const r = searchAll("smart scaling")!;
+    expect(r.pages.length + r.roles.length).toBeGreaterThan(0);
+  });
+});
