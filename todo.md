@@ -269,3 +269,31 @@
 - [x] vitest 19 case (`server/helpContent.test.ts`) — structure / role coverage / 19 pages / glossary / search logic
 - [x] vitest 182/182 ผ่าน, TS clean
 - [x] checkpoint
+
+
+## Round 7.21: Help Center ฉบับสมบูรณ์ (3 Batches per user spec)
+
+### Batch 1 — โครงสร้าง + Getting Started + 3 หน้าแรก
+- [ ] Audit เว็บจริง: ทุก route, KPI, สูตร, badge, threshold (ห้ามจาก spec)
+- [ ] รื้อ HelpCenter เดิม → โครงสร้างใหม่ตาม sidebar 2 ส่วน + Getting Started + Glossary + FAQ
+- [ ] Getting Started: Dashboard คืออะไร / Login / โครงหน้าจอ / Persona toggle
+- [ ] ส่วนที่ 1 — 3 หน้า ครบ 5 หัวข้อ (องค์ประกอบ → คืออะไร → วิธีคิด+แสดงผล → วิธีใช้ → เคล็ดลับ):
+  - [ ] หน้าหลัก (Hub Dashboard)
+  - [ ] ภาพรวมกลุ่มสินค้า (Group Overview)
+  - [ ] แดชบอร์ดบัญชีเดี่ยว (Single Account)
+- [ ] ตรวจให้ครบ: Search bar + Download PDF + Topbar `?` (ของเดิมมีแล้ว)
+- [ ] ขอ approve จาก user ก่อนไป batch ถัดไป
+
+### Batch 2 — ส่วนที่ 1 อีก 16 หน้า + Glossary + FAQ
+- [ ] วิเคราะห์: Leaderboard / เปรียบเทียบ / AI แนะนำ / วิเคราะห์เชิงลึก / Benchmark / Alerts
+- [ ] ปรับงบ + แชร์: Cohort / Smart Scaling / ลิงก์แชร์
+- [ ] คอมมิชชั่น: ตาราง / ภาพรวม / ของฉัน / ตั้งค่า
+- [ ] ตั้งค่า: จัดการบัญชี / กลุ่มสินค้า / ผู้ใช้
+- [ ] Glossary ครบทุกคำ + FAQ ≥ 15 ข้อ + Troubleshooting ≥ 5 ข้อ
+- [ ] ขอ approve
+
+### Batch 3 — 4 Roles + Cross-link + Final
+- [ ] Owner / CEO / Content / Sales — แต่ละ role ครบ 3 หัวข้อ (หน้าที่ใช้ + กิจวัตร + KPI watchlist)
+- [ ] Cross-link จาก role guide → ส่วนที่ 1 (ปุ่ม "→ อ่านรายละเอียดหน้านี้")
+- [ ] Verify Search + PDF stylesheet + Topbar `?` icon
+- [ ] vitest + checkpoint

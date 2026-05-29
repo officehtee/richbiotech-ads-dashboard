@@ -64,11 +64,14 @@ export default function HelpCenter() {
       (p) =>
         p.title.toLowerCase().includes(q) ||
         p.what.toLowerCase().includes(q) ||
-        p.contains.some(
-          (c) =>
-            c.item.toLowerCase().includes(q) ||
-            c.meaning.toLowerCase().includes(q),
-        ),
+        p.elements.some((e) => e.item.toLowerCase().includes(q)) ||
+        p.explanations.some(
+          (e) =>
+            e.item.toLowerCase().includes(q) ||
+            e.meaning.toLowerCase().includes(q),
+        ) ||
+        p.formulas.some((f) => f.name.toLowerCase().includes(q)) ||
+        p.tips.some((t) => t.text.toLowerCase().includes(q)),
     );
     const faqs = FAQS.filter(
       (f) => f.q.toLowerCase().includes(q) || f.a.toLowerCase().includes(q),
@@ -351,7 +354,12 @@ function StartSection({
                 <span className="size-6 rounded-full bg-primary/10 text-primary text-xs font-bold grid place-items-center shrink-0">
                   {i + 1}
                 </span>
-                <span className="text-sm pt-0.5">{s}</span>
+                <div className="pt-0.5">
+                  <div className="text-sm font-medium">{s.step}</div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {s.detail}
+                  </p>
+                </div>
               </li>
             ))}
           </ol>
@@ -364,12 +372,12 @@ function StartSection({
           <div className="grid sm:grid-cols-2 gap-3">
             {GETTING_STARTED.layoutNotes.map((n) => (
               <div
-                key={n.label}
+                key={n.zone}
                 className="rounded-lg border bg-muted/30 p-3"
               >
-                <div className="font-medium text-sm">{n.label}</div>
+                <div className="font-medium text-sm">{n.zone}</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {n.detail}
+                  {n.purpose}
                 </p>
               </div>
             ))}
@@ -383,7 +391,7 @@ function StartSection({
             มุมมอง คนยิงแอด vs เซลส์
           </h3>
           <p className="text-sm text-muted-foreground">
-            {GETTING_STARTED.personaDiff}
+            {GETTING_STARTED.personaDiffSummary}
           </p>
         </CardContent>
       </Card>
@@ -531,31 +539,198 @@ function PageSection({ pageId }: { pageId: string }) {
         </Link>
       </div>
 
+      {/* (0) Wireframe annotation */}
+      {p.wireSpots && p.wireSpots.length > 0 && (
+        <Card className="overflow-hidden">
+          <CardContent className="pt-6 space-y-2">
+            <h3 className="text-lg font-semibold">ผังหน้า (Wireframe)</h3>
+            <p className="text-xs text-muted-foreground">
+              ตำแหน่งขององค์ประกอบหลักบนหน้าจริง — ตัวเลข = ลำดับอ้างอิง จะตรงกับรายการข้างล่าง
+            </p>
+            <div className="relative bg-gradient-to-br from-muted/40 to-muted/10 rounded-lg border aspect-[16/10] mt-3">
+              {p.wireSpots.map((spot, i) => (
+                <div
+                  key={i}
+                  className="absolute"
+                  style={{ left: `${spot.x}%`, top: `${spot.y}%` }}
+                >
+                  <div className="size-6 rounded-full bg-primary text-primary-foreground text-[10px] font-bold grid place-items-center shadow-md">
+                    {i + 1}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <ol className="space-y-1 mt-3">
+              {p.wireSpots.map((spot, i) => (
+                <li key={i} className="flex gap-2 text-xs">
+                  <span className="size-4 rounded-full bg-primary/10 text-primary text-[10px] font-bold grid place-items-center shrink-0 mt-0.5">
+                    {i + 1}
+                  </span>
+                  <span>{spot.label}</span>
+                </li>
+              ))}
+            </ol>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* (1) องค์ประกอบในหน้า */}
       <Card>
         <CardContent className="pt-6 space-y-3">
-          <h3 className="text-lg font-semibold">มีอะไรในหน้านี้บ้าง</h3>
-          <div className="divide-y">
-            {p.contains.map((c) => (
-              <div key={c.item} className="py-3 first:pt-0 last:pb-0">
-                <div className="font-medium text-sm">{c.item}</div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {c.meaning}
-                </p>
+          <h3 className="text-lg font-semibold">1. องค์ประกอบในหน้านี้</h3>
+          <p className="text-xs text-muted-foreground">
+            รายการสิ่งที่คุณจะเห็นบนหน้าจอ พร้อมตำแหน่งที่อยู่
+          </p>
+          <div className="grid sm:grid-cols-2 gap-2">
+            {p.elements.map((e) => (
+              <div
+                key={e.item}
+                className="rounded-lg border bg-muted/30 p-3 text-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-[10px]">
+                    {e.kind}
+                  </Badge>
+                  <span className="text-[11px] text-muted-foreground">
+                    {e.zone}
+                  </span>
+                </div>
+                <div className="font-medium mt-1">{e.item}</div>
               </div>
             ))}
           </div>
         </CardContent>
       </Card>
 
-      <Card className="border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10">
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-3">
-            <Lightbulb className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
-            <div>
-              <p className="font-medium text-sm mb-1">เคล็ดลับ</p>
-              <p className="text-sm text-muted-foreground">{p.tip}</p>
-            </div>
+      {/* (2) แต่ละ element คืออะไร */}
+      <Card>
+        <CardContent className="pt-6 space-y-3">
+          <h3 className="text-lg font-semibold">2. แต่ละองค์ประกอบคืออะไร</h3>
+          <div className="divide-y">
+            {p.explanations.map((e) => (
+              <div key={e.item} className="py-3 first:pt-0 last:pb-0">
+                <div className="font-medium text-sm">{e.item}</div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {e.meaning}
+                </p>
+                {e.note && (
+                  <p className="text-[11px] text-muted-foreground mt-1 italic">
+                    {e.note}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* (3) สูตร + วิธีแสดงผล */}
+      {p.formulas.length > 0 && (
+        <Card>
+          <CardContent className="pt-6 space-y-3">
+            <h3 className="text-lg font-semibold">
+              3. วิธีคิด + วิธีแสดงผล
+            </h3>
+            <div className="space-y-3">
+              {p.formulas.map((f) => (
+                <div
+                  key={f.name}
+                  className="rounded-lg border bg-muted/30 p-3 text-sm"
+                >
+                  <div className="font-semibold">{f.name}</div>
+                  <code className="text-xs block mt-1 bg-card px-2 py-1 rounded">
+                    {f.formula}
+                  </code>
+                  {f.colorRules && f.colorRules.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {f.colorRules.map((c, i) => (
+                        <Badge
+                          key={i}
+                          variant="outline"
+                          className={`text-[10px] ${
+                            c.color === "green"
+                              ? "border-emerald-500/50 text-emerald-700 dark:text-emerald-300"
+                              : c.color === "amber"
+                                ? "border-amber-500/50 text-amber-700 dark:text-amber-300"
+                                : c.color === "red"
+                                  ? "border-red-500/50 text-red-700 dark:text-red-300"
+                                  : c.color === "blue"
+                                    ? "border-blue-500/50 text-blue-700 dark:text-blue-300"
+                                    : c.color === "violet"
+                                      ? "border-violet-500/50 text-violet-700 dark:text-violet-300"
+                                      : ""
+                          }`}
+                        >
+                          {c.when}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  {f.example && (
+                    <p className="text-[11px] text-muted-foreground mt-2">
+                      ตัวอย่าง: {f.example}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-3 mt-2 text-[10px] text-muted-foreground">
+                    <span>ที่มา: {f.dataSource}</span>
+                    <span>อัปเดต: {f.refresh}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* (4) วิธีใช้ */}
+      <Card>
+        <CardContent className="pt-6 space-y-3">
+          <h3 className="text-lg font-semibold">4. วิธีใช้ (ทำตามได้)</h3>
+          <div className="space-y-4">
+            {p.useCases.map((u) => (
+              <div key={u.title}>
+                <div className="font-medium text-sm mb-1">{u.title}</div>
+                <ol className="space-y-1 ml-1">
+                  {u.steps.map((s, i) => (
+                    <li key={i} className="flex gap-2 text-xs">
+                      <span className="size-4 rounded-full bg-primary/10 text-primary text-[10px] font-bold grid place-items-center shrink-0 mt-0.5">
+                        {i + 1}
+                      </span>
+                      <span>{s}</span>
+                    </li>
+                  ))}
+                </ol>
+                {u.outcome && (
+                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">
+                    → ผลที่ได้: {u.outcome}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* (5) เคล็ดลับ */}
+      <Card className="border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10">
+        <CardContent className="pt-6 space-y-2">
+          <div className="flex items-center gap-2">
+            <Lightbulb className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            <h3 className="text-lg font-semibold">5. เคล็ดลับ</h3>
+          </div>
+          <ul className="space-y-2">
+            {p.tips.map((t, i) => (
+              <li key={i} className="flex gap-2 text-sm">
+                <Badge
+                  variant="outline"
+                  className="text-[10px] shrink-0 mt-0.5"
+                >
+                  {t.type}
+                </Badge>
+                <span>{t.text}</span>
+              </li>
+            ))}
+          </ul>
         </CardContent>
       </Card>
     </div>

@@ -33,11 +33,12 @@ describe("Help Center content — structure & coverage", () => {
     }
   });
 
-  it("PAGE_GUIDES has at least 19 pages", () => {
-    expect(PAGE_GUIDES.length).toBeGreaterThanOrEqual(19);
+  // Batch 1 = 3 หน้า, Batch 2 จะเพิ่มเป็น 19 หน้า
+  it("PAGE_GUIDES has at least 3 pages (Batch 1)", () => {
+    expect(PAGE_GUIDES.length).toBeGreaterThanOrEqual(3);
   });
 
-  it("PAGE_GUIDES — every page has unique id and required fields", () => {
+  it("PAGE_GUIDES — every page has unique id and 5-section schema", () => {
     const ids = new Set<string>();
     for (const p of PAGE_GUIDES) {
       expect(ids.has(p.id), `duplicate id: ${p.id}`).toBe(false);
@@ -45,57 +46,36 @@ describe("Help Center content — structure & coverage", () => {
       expect(p.title).toBeTruthy();
       expect(p.path.startsWith("/")).toBe(true);
       expect(p.what.length).toBeGreaterThan(10);
-      expect(p.contains.length).toBeGreaterThan(0);
       expect(p.who.length).toBeGreaterThan(0);
-      expect(p.tip.length).toBeGreaterThan(5);
+      // 5-section schema ใหม่
+      expect(p.elements.length).toBeGreaterThan(0);
+      expect(p.explanations.length).toBeGreaterThan(0);
+      expect(p.useCases.length).toBeGreaterThan(0);
+      expect(p.tips.length).toBeGreaterThan(0);
+      // formulas optional แต่ tips ต้องมีอย่างน้อย 1
+      for (const t of p.tips) {
+        expect(["การใช้งาน", "การตัดสินใจ"]).toContain(t.type);
+        expect(t.text.length).toBeGreaterThan(5);
+      }
     }
   });
 
-  it("PAGE_GUIDES — every category appears at least once", () => {
-    const categories = new Set(PAGE_GUIDES.map((p) => p.category));
-    expect(categories.has("overview")).toBe(true);
-    expect(categories.has("analysis")).toBe(true);
-    expect(categories.has("scaling")).toBe(true);
-    expect(categories.has("commission")).toBe(true);
-    expect(categories.has("settings")).toBe(true);
-  });
-
-  it("PAGE_GUIDES includes all critical pages", () => {
+  it("Batch 1 includes Hub, Group Overview, Single Account", () => {
     const ids = PAGE_GUIDES.map((p) => p.id);
-    const required = [
-      "hub",
-      "group-overview",
-      "single-dashboard",
-      "leaderboard",
-      "comparison",
-      "ai-advisor",
-      "ad-intelligence",
-      "ad-metric-benchmark",
-      "alerts",
-      "cohort",
-      "smart-scaling",
-      "share-links",
-      "commission-table",
-      "commission-dashboard",
-      "commission-personal",
-      "commission-settings",
-      "accounts",
-      "groups",
-      "users",
-    ];
-    for (const r of required) {
-      expect(ids, `missing page: ${r}`).toContain(r);
-    }
-  });
-
-  it("staff role has access to at least Hub + commission-personal", () => {
-    const staffPages = PAGE_GUIDES.filter((p) => p.who.includes("staff"));
-    const ids = staffPages.map((p) => p.id);
     expect(ids).toContain("hub");
-    expect(ids).toContain("commission-personal");
+    expect(ids).toContain("group-overview");
+    expect(ids).toContain("single-dashboard");
   });
 
-  it("owner has access to all pages", () => {
+  it("Hub page has wireframe spots + ROAS formula", () => {
+    const hub = PAGE_GUIDES.find((p) => p.id === "hub")!;
+    expect(hub.wireSpots && hub.wireSpots.length).toBeGreaterThan(0);
+    const roas = hub.formulas.find((f) => f.name.includes("ROAS"));
+    expect(roas).toBeDefined();
+    expect(roas!.formula.length).toBeGreaterThan(3);
+  });
+
+  it("owner has access to all batch-1 pages", () => {
     for (const p of PAGE_GUIDES) {
       expect(p.who, `owner missing on ${p.id}`).toContain("owner");
     }
@@ -106,9 +86,6 @@ describe("Help Center content — structure & coverage", () => {
     expect(terms).toContain("ROAS");
     expect(terms).toContain("Spend");
     expect(terms).toContain("CTR");
-    expect(terms).toContain("Adset");
-    expect(terms).toContain("Cohort");
-    expect(terms).toContain("Smart Scaling");
   });
 
   it("GLOSSARY entries all have non-empty meaning", () => {
@@ -125,16 +102,17 @@ describe("Help Center content — structure & coverage", () => {
     }
   });
 
-  it("GETTING_STARTED has core fields", () => {
+  it("GETTING_STARTED has core fields + backward-compat aliases", () => {
     expect(GETTING_STARTED.what.length).toBeGreaterThan(20);
     expect(GETTING_STARTED.loginSteps.length).toBeGreaterThan(0);
+    expect(GETTING_STARTED.layout.length).toBeGreaterThan(0);
+    // aliases
     expect(GETTING_STARTED.layoutNotes.length).toBeGreaterThan(0);
-    expect(GETTING_STARTED.personaDiff.length).toBeGreaterThan(20);
+    expect(GETTING_STARTED.personaDiffSummary.length).toBeGreaterThan(20);
   });
 });
 
-describe("Help Center search logic", () => {
-  // Simulate the same search behavior used in HelpCenter.tsx
+describe("Help Center search logic (new 5-section schema)", () => {
   function search(q: string) {
     const query = q.trim().toLowerCase();
     if (!query) return null;
@@ -142,11 +120,14 @@ describe("Help Center search logic", () => {
       (p) =>
         p.title.toLowerCase().includes(query) ||
         p.what.toLowerCase().includes(query) ||
-        p.contains.some(
-          (c) =>
-            c.item.toLowerCase().includes(query) ||
-            c.meaning.toLowerCase().includes(query),
-        ),
+        p.elements.some((e) => e.item.toLowerCase().includes(query)) ||
+        p.explanations.some(
+          (e) =>
+            e.item.toLowerCase().includes(query) ||
+            e.meaning.toLowerCase().includes(query),
+        ) ||
+        p.formulas.some((f) => f.name.toLowerCase().includes(query)) ||
+        p.tips.some((t) => t.text.toLowerCase().includes(query)),
     );
     const faqs = FAQS.filter(
       (f) =>
@@ -166,19 +147,9 @@ describe("Help Center search logic", () => {
     expect(search("   ")).toBeNull();
   });
 
-  it("finds ROAS in glossary + pages", () => {
-    const r = search("ROAS")!;
+  it("finds ROAS in glossary + pages (formula or explanation)", () => {
+    const r = search("roas")!;
     expect(r.glossary.length).toBeGreaterThan(0);
-    expect(r.pages.length).toBeGreaterThan(0);
-  });
-
-  it("finds คอม in commission-related content", () => {
-    const r = search("คอม")!;
-    expect(r.pages.length).toBeGreaterThan(0);
-  });
-
-  it("finds การแจ้งเตือน in pages", () => {
-    const r = search("แจ้งเตือน")!;
     expect(r.pages.length).toBeGreaterThan(0);
   });
 
