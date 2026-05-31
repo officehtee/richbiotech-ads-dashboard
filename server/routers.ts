@@ -402,11 +402,17 @@ export const appRouter = router({
         bms.map(async (bm) => {
           const links = await listBmLinks(bm.id);
           const activeLinks = links.filter((l) => l.status === "active");
+          let tokenPreview = "•••••";
+          try {
+            tokenPreview = maskToken(decryptToken(bm.accessTokenEncrypted));
+          } catch {
+            // ignore decrypt failure
+          }
           return {
             id: bm.id,
             bmId: bm.bmId,
             name: bm.name,
-            tokenPreview: maskToken(bm.bmId), // ไม่เปิดเผย token จริง
+            tokenPreview, // มาสก์จาก token จริงที่ decrypt ออกมา
             accountGroupId: bm.accountGroupId,
             status: bm.status,
             lastSyncAt: bm.lastSyncAt,

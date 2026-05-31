@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { BMSection } from "@/components/BMSection";
 import {
   Dialog,
   DialogContent,
@@ -116,6 +117,9 @@ export default function AccountsSettings() {
           เพิ่มบัญชี
         </Button>
       </header>
+
+      {/* Round 7.23 — BM Auto-Discovery */}
+      <BMSection />
 
       <Card>
         <Table>

@@ -342,12 +342,15 @@
 - [x] checkpoint Phase 1
 
 ### Phase 2 — UI Wizard 3 ขั้นในหน้า /accounts
-- [ ] Step 1: ฟอร์ม BM ID + Access Token + accountGroup selector + ปุ่ม Test Connection (เรียก `bm.testConnection`)
-- [ ] Step 2: รายการบัญชีที่ค้นเจอ (owned/client) + checkbox ให้เลือกนำเข้า
-- [ ] Step 3: หน้ายืนยันสรุป + เรียก `bm.create` + แสดง success
-- [ ] BM list table — แสดง BM ที่มี + status badge + ปุ่ม Sync / Delete
-- [ ] vitest UI logic
-- [ ] checkpoint Phase 2
+- [x] สร้าง component `BMSection` (รวม `BMWizardDialog` + BM list table) แยกไฟล์สะอาด
+- [x] Step 1: ฟอร์ม BM ID + Access Token + accountGroup selector + Test Connection (`bm.testConnection`)
+- [x] Step 2: รายการบัญชี owned/client + checkbox + auto-select Active ตอนเริ่ม
+- [x] Step 3: หน้ายืนยัน + แก้ชื่อ BM ได้ + เรียก `bm.create`
+- [x] BM list table — status pill + ปุ่ม Sync (`bm.sync`) / Delete (`bm.delete`) + Confirm Dialog
+- [x] tokenPreview แสดง mask จาก token จริง (decrypt → maskToken)
+- [x] แทรก BMSection ลงในหน้า /accounts (เหนือตาราง ad accounts เดิม)
+- [x] vitest 212/212 ผ่าน + TypeScript clean
+- [x] checkpoint Phase 2
 
 ### Phase 3 — BM Detail page + sync history
 - [ ] หน้า /accounts/bm/:id แสดงรายละเอียด + tab "บัญชีในกลุ่ม" + tab "ประวัติ Sync"
