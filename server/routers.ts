@@ -124,6 +124,7 @@ import {
   discoverBMAccounts,
 } from "./metaApi";
 import { encrypt as encryptToken, decrypt as decryptToken, maskToken } from "./encryption";
+import { syncOneBusinessManager } from "./bmSync";
 
 const tokenAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
 const generateToken = customAlphabet(tokenAlphabet, 24);
@@ -605,105 +606,15 @@ export const appRouter = router({
         const tid = await tenantId(ctx);
         const bm = await getBusinessManagerById(input.id, tid);
         if (!bm) throw new TRPCError({ code: "NOT_FOUND" });
-        const token = decryptToken(bm.accessTokenEncrypted);
-        const result = await discoverBMAccounts(bm.bmId, token);
-
-        if (!result.ok) {
-          await insertBmDiscoveryLog({
-            bmId: bm.id,
-            userId: tid,
-            runAt: new Date(),
-            status: "failed",
-            triggerSource: "manual",
-            foundCount: 0,
-            addedCount: 0,
-            linkedCount: 0,
-            removedCount: 0,
-            errorMessage: result.message,
-          });
-          await updateBusinessManager(bm.id, {
-            status: result.category === "token_expired" ? "token_expired" : "blocked",
-            lastSyncAt: new Date(),
-          });
-          return { ok: false, error: result };
-        }
-
-        // merge bookkeeping
-        const existingLinks = await listBmLinks(bm.id);
-        const seen = new Set<string>();
-        let newCount = 0;
-        let existingCount = 0;
-
-        const linkByAdAcct = new Map<number, typeof existingLinks[number]>();
-        for (const l of existingLinks) linkByAdAcct.set(l.adAccountId, l);
-
-        for (const acc of [...result.ownedAccounts, ...result.clientAccounts]) {
-          let dbAcct = await findAdAccountByMetaId(tid, acc.bmAdAccountId);
-          if (!dbAcct) {
-            const acctId = await createAdAccount({
-              userId: tid,
-              adAccountId: acc.bmAdAccountId,
-              accessToken: token,
-              nickname: acc.name,
-              pageName: null,
-              phaseName: null,
-              roasTarget: 2.0,
-              isActive: true,
-              bmId: bm.id,
-              discoveredAt: new Date(),
-            } as any);
-            dbAcct = { id: acctId } as any;
-            newCount += 1;
-          } else {
-            existingCount += 1;
-          }
-
-          if (dbAcct) {
-            const adId = (dbAcct as any).id as number;
-            seen.add(String(adId));
-            const link = linkByAdAcct.get(adId);
-            if (link) {
-              await updateBmLinkLastSeen(link.id);
-            } else {
-              await insertBmLink({
-                bmId: bm.id,
-                adAccountId: adId,
-                type: acc.ownership,
-                status: "active",
-                discoveredAt: new Date(),
-                lastSeenAt: new Date(),
-              });
-            }
-            await ensureAccountGroupMember(bm.accountGroupId, adId);
-          }
-        }
-
-        // mark removed
-        let removedCount = 0;
-        for (const link of existingLinks) {
-          if (!seen.has(String(link.adAccountId)) && link.status === "active") {
-            await markBmLinkRemoved(link.id);
-            removedCount += 1;
-          }
-        }
-
-        await insertBmDiscoveryLog({
-          bmId: bm.id,
-          userId: tid,
-          runAt: new Date(),
-          status: "success",
-          triggerSource: "manual",
-          foundCount: result.totalCount,
-          addedCount: newCount,
-          linkedCount: existingCount,
-          removedCount,
-        });
-        await updateBusinessManager(bm.id, {
-          status: "active",
-          lastSyncAt: new Date(),
-        });
-
-        return { ok: true, newCount, existingCount, removedCount, totalFound: result.totalCount };
+        const outcome = await syncOneBusinessManager(bm, tid, "manual");
+        if (!outcome.ok) return { ok: false as const, error: outcome.error };
+        return {
+          ok: true as const,
+          newCount: outcome.newCount,
+          existingCount: outcome.existingCount,
+          removedCount: outcome.removedCount,
+          totalFound: outcome.totalFound,
+        };
       }),
 
     delete: ownerProcedure

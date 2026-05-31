@@ -822,6 +822,17 @@ export async function listAllWorkspaceTenantIds(): Promise<number[]> {
 
 /* ---------- Business Manager (Round 7.23) ---------- */
 
+/** รวบรวม BM ที่ active ของทุก tenant — ใช้ใน scheduled auto-sync */
+export async function listAllActiveBusinessManagers(): Promise<BusinessManager[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return await db
+    .select()
+    .from(businessManagers)
+    .where(eq(businessManagers.status, "active"))
+    .orderBy(desc(businessManagers.createdAt));
+}
+
 export async function listBusinessManagers(userId: number): Promise<BusinessManager[]> {
   const db = await getDb();
   if (!db) return [];

@@ -7,7 +7,9 @@ import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { runAlertCheckForTenant } from "../alertEngine";
-import { listAllWorkspaceTenantIds } from "../db";
+import { listAllWorkspaceTenantIds, listAllActiveBusinessManagers } from "../db";
+import { syncOneBusinessManager, shouldNotifyOwner, summarizeOutcome } from "../bmSync";
+import { notifyOwner } from "./notification";
 import { sdk } from "./sdk";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
@@ -47,6 +49,55 @@ async function startServer() {
       createContext,
     })
   );
+
+  // Scheduled: BM Auto-Discovery — sync รายการบัญชีจาก BM ทุก 6 ชม. (Round 7.23 Phase 4)
+  app.post("/api/scheduled/syncBM", async (req, res) => {
+    try {
+      const user = await sdk.authenticateRequest(req as any);
+      if (!user?.isCron) {
+        return res.status(403).json({ error: "cron-only" });
+      }
+      const bms = await listAllActiveBusinessManagers();
+      let totalNew = 0;
+      let totalRemoved = 0;
+      let totalFailed = 0;
+      const notifyResults: { bmId: number; sent: boolean }[] = [];
+      for (const bm of bms) {
+        try {
+          const outcome = await syncOneBusinessManager(bm, bm.userId, "auto");
+          if (!outcome.ok) totalFailed += 1;
+          else {
+            totalNew += outcome.newCount;
+            totalRemoved += outcome.removedCount;
+          }
+          if (shouldNotifyOwner(outcome)) {
+            const msg = summarizeOutcome(bm, outcome);
+            const sent = await notifyOwner(msg).catch(() => false);
+            notifyResults.push({ bmId: bm.id, sent });
+          }
+        } catch (err) {
+          console.error(`[syncBM] bmId=${bm.id} failed`, err);
+          totalFailed += 1;
+        }
+      }
+      return res.json({
+        ok: true,
+        bmTotal: bms.length,
+        newAccounts: totalNew,
+        removedAccounts: totalRemoved,
+        failed: totalFailed,
+        notifications: notifyResults.length,
+      });
+    } catch (e: any) {
+      console.error("[syncBM] failed", e);
+      return res.status(500).json({
+        error: e?.message ?? String(e),
+        stack: e?.stack,
+        context: { url: req.url },
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
 
   // Scheduled: ตรวจ alert ทุก 3 ชม. (cron-only)
   app.post("/api/scheduled/checkAlerts", async (req, res) => {

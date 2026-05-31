@@ -362,6 +362,10 @@
 - [x] checkpoint Phase 3
 
 ### Phase 4 — Auto-sync + notification
-- [ ] Heartbeat job — ทุก 6 ชม. เรียก sync ทุก BM ที่ active
-- [ ] notifyOwner เมื่อพบบัญชีใหม่หรือบัญชีถูกถอด
-- [ ] checkpoint Phase 4
+- [x] Refactor sync logic → `server/bmSync.ts` (`syncOneBusinessManager`, `shouldNotifyOwner`, `summarizeOutcome`)
+- [x] tRPC `bm.sync` รียกผ่าน helper (ไม่มี logic ซ้ำ)
+- [x] db helper `listAllActiveBusinessManagers` — รวบ BM active ข้าม tenant
+- [x] Heartbeat handler `POST /api/scheduled/syncBM` — cron-only (`user.isCron`), วน BM ทุกตัว ที่ละ try/catch, return summary
+- [x] notifyOwner เมื่อ sync error หรือมี diff (พบใหม่ / ถูกถอด)
+- [x] vitest 8 case `bmSync.test.ts` (220/220 ผ่าน) + TypeScript clean
+- [x] checkpoint Phase 4 (cron registration รอหลัง deploy)
