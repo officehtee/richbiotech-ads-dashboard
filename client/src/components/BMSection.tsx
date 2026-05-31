@@ -56,6 +56,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useLocation } from "wouter";
 
 type DiscoveredAccount = {
   bmAdAccountId: string;
@@ -549,6 +550,7 @@ export function BMSection() {
   const utils = trpc.useUtils();
   const bmListQuery = trpc.bm.list.useQuery();
   const groupsQuery = trpc.groups.list.useQuery();
+  const [, navigate] = useLocation();
   const [wizardOpen, setWizardOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
@@ -628,7 +630,11 @@ export function BMSection() {
                 </TableRow>
               ) : (
                 bms.map((bm: any) => (
-                  <TableRow key={bm.id}>
+                  <TableRow
+                    key={bm.id}
+                    className="cursor-pointer hover:bg-muted/40"
+                    onClick={() => navigate(`/accounts/bm/${bm.id}`)}
+                  >
                     <TableCell className="font-medium">{bm.name}</TableCell>
                     <TableCell className="font-mono text-xs">{bm.bmId}</TableCell>
                     <TableCell>{groupName(bm.accountGroupId)}</TableCell>
@@ -644,7 +650,7 @@ export function BMSection() {
                     <TableCell className="text-xs whitespace-nowrap">
                       {fmtTime(bm.lastSyncAt)}
                     </TableCell>
-                    <TableCell className="text-right whitespace-nowrap">
+                    <TableCell className="text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <Button
                         size="sm"
                         variant="ghost"

@@ -562,7 +562,27 @@ export const appRouter = router({
         const bm = await getBusinessManagerById(input.id, tid);
         if (!bm) throw new TRPCError({ code: "NOT_FOUND" });
         const links = await listBmLinks(bm.id);
-        const logs = await listBmDiscoveryLogs(bm.id, 10);
+        const logs = await listBmDiscoveryLogs(bm.id, 25);
+
+        // join ข้อมูล ad account เข้า link เพื่อให้หน้า BM Detail แสดงชื่อ/รหัสได้
+        const accounts = await getAdAccountsByUser(tid);
+        const acctMap = new Map<number, (typeof accounts)[number]>(
+          accounts.map((a) => [a.id, a]),
+        );
+        const enrichedLinks = links.map((l) => {
+          const a = acctMap.get(l.adAccountId);
+          return {
+            id: l.id,
+            adAccountId: l.adAccountId,
+            type: l.type,
+            status: l.status,
+            discoveredAt: l.discoveredAt,
+            lastSeenAt: l.lastSeenAt,
+            metaAdAccountId: a?.adAccountId ?? null,
+            nickname: a?.nickname ?? null,
+            isActive: a?.isActive ?? null,
+          };
+        });
         return {
           bm: {
             id: bm.id,
@@ -574,7 +594,7 @@ export const appRouter = router({
             tokenExpiresAt: bm.tokenExpiresAt,
             createdAt: bm.createdAt,
           },
-          links,
+          links: enrichedLinks,
           logs,
         };
       }),

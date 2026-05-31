@@ -353,10 +353,13 @@
 - [x] checkpoint Phase 2
 
 ### Phase 3 — BM Detail page + sync history
-- [ ] หน้า /accounts/bm/:id แสดงรายละเอียด + tab "บัญชีในกลุ่ม" + tab "ประวัติ Sync"
-- [ ] ตาราง bmDiscoveryLogs แสดง runAt/status/foundCount/addedCount/removedCount
-- [ ] ปุ่ม Sync Now manual
-- [ ] checkpoint Phase 3
+- [x] หน้า /accounts/bm/:id (BMDetail.tsx) + route ใน App.tsx + clickable row ใน BM list
+- [x] ขยาย `bm.detail` ให้ join ข้อมูล ad account (nickname/metaAdAccountId/isActive) เข้า link
+- [x] tab "บัญชีในกลุ่ม" — รองรับทั้ง active + removed (ขีดฟ่า line-through)
+- [x] tab "ประวัติ Sync" — 25 record ล่าสุด + status icon + trigger label + counts + errorMessage tooltip
+- [x] ปุ่ม Sync Now manual + invalidate detail/list/accounts
+- [x] vitest 212/212 ผ่าน + TypeScript clean
+- [x] checkpoint Phase 3
 
 ### Phase 4 — Auto-sync + notification
 - [ ] Heartbeat job — ทุก 6 ชม. เรียก sync ทุก BM ที่ active

@@ -7,6 +7,7 @@ import { Redirect, Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import AccountsSettings from "./pages/AccountsSettings";
+import BMDetail from "./pages/BMDetail";
 import AdIntelligence from "./pages/AdIntelligence";
 import AdMetricBenchmark from "./pages/AdMetricBenchmark";
 import AdsetDetail from "./pages/AdsetDetail";
@@ -151,6 +152,11 @@ function Router() {
       <Route path="/commission/settings">
         <ProtectedShell>
           <CommissionSettings />
+        </ProtectedShell>
+      </Route>
+      <Route path="/accounts/bm/:id">
+        <ProtectedShell>
+          <BMDetail />
         </ProtectedShell>
       </Route>
       <Route path="/accounts">
