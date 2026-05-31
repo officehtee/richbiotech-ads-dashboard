@@ -648,3 +648,243 @@ export async function testAdAccountToken(
     testedAt,
   };
 }
+
+
+/* ---------- Business Manager Auto-Discovery (Round 7.23) ---------- */
+
+export type BMConnectionResult = {
+  ok: boolean;
+  category: MetaErrorCategory | "ok";
+  title: string;
+  message: string;
+  suggestion: string;
+  bmId?: string;
+  bmName?: string;
+  meId?: string;
+  meName?: string;
+  httpStatus?: number;
+  rawError?: unknown;
+  testedAt: number;
+};
+
+export type DiscoveredAccount = {
+  bmAdAccountId: string; // Meta adAccount id เช่น "act_1234"
+  name: string;
+  accountStatus: number;
+  accountStatusLabel: string;
+  ownership: "owned" | "client";
+  currency?: string;
+  timezone?: string;
+};
+
+export type BMDiscoveryResult = {
+  ok: boolean;
+  category: MetaErrorCategory | "ok";
+  title: string;
+  message: string;
+  suggestion: string;
+  bmId?: string;
+  bmName?: string;
+  ownedAccounts: DiscoveredAccount[];
+  clientAccounts: DiscoveredAccount[];
+  totalCount: number;
+  httpStatus?: number;
+  rawError?: unknown;
+  discoveredAt: number;
+};
+
+/**
+ * ทดสอบ token + BM แค่ 2 endpoint เร็ว ๆ:
+ *  - GET /me?fields=id,name (ตรวจ token)
+ *  - GET /{bm_id}?fields=id,name (ตรวจ BM ใช้งานได้ + Token เข้าถึงได้)
+ */
+export async function testBMConnection(
+  bmId: string,
+  accessToken: string,
+): Promise<BMConnectionResult> {
+  const testedAt = Date.now();
+
+  // /me
+  const meUrl = `${META_BASE}/me?fields=id,name&access_token=${encodeURIComponent(accessToken)}`;
+  let meBody: any = null;
+  let meHttp = 0;
+  try {
+    const r = await fetch(meUrl);
+    meHttp = r.status;
+    meBody = await r.json().catch(() => null);
+    if (!r.ok) {
+      const err = meBody?.error ?? { message: `HTTP ${r.status}` };
+      const cls = classifyMetaError(err, meHttp);
+      return { ok: false, ...cls, httpStatus: meHttp, rawError: err, testedAt };
+    }
+  } catch (e) {
+    const cls = classifyMetaError(null);
+    return {
+      ok: false,
+      ...cls,
+      httpStatus: 0,
+      rawError: { message: (e as Error).message },
+      testedAt,
+    };
+  }
+
+  // /{bm_id}
+  const bmUrl = `${META_BASE}/${bmId}?fields=id,name&access_token=${encodeURIComponent(accessToken)}`;
+  let bmBody: any = null;
+  let bmHttp = 0;
+  try {
+    const r = await fetch(bmUrl);
+    bmHttp = r.status;
+    bmBody = await r.json().catch(() => null);
+    if (!r.ok) {
+      const err = bmBody?.error ?? { message: `HTTP ${r.status}` };
+      const cls = classifyMetaError(err, bmHttp);
+      return {
+        ok: false,
+        ...cls,
+        httpStatus: bmHttp,
+        rawError: err,
+        meId: meBody?.id,
+        meName: meBody?.name,
+        testedAt,
+      };
+    }
+  } catch (e) {
+    const cls = classifyMetaError(null);
+    return {
+      ok: false,
+      ...cls,
+      httpStatus: 0,
+      rawError: { message: (e as Error).message },
+      meId: meBody?.id,
+      meName: meBody?.name,
+      testedAt,
+    };
+  }
+
+  return {
+    ok: true,
+    category: "ok",
+    title: "เชื่อมต่อ Business Manager สำเร็จ",
+    message: `ระบบดึง BM "${bmBody?.name}" ผ่าน Token ของ ${meBody?.name ?? "ผู้ใช้นี้"} ได้`,
+    suggestion: "ไปขั้นถัดไปเพื่อ discover บัญชีโฆษณาทั้งหมดใน BM นี้",
+    bmId: bmBody?.id,
+    bmName: bmBody?.name,
+    meId: meBody?.id,
+    meName: meBody?.name,
+    httpStatus: bmHttp,
+    testedAt,
+  };
+}
+
+/** ดึงทุกหน้าจาก paged endpoint ของ Graph */
+async function fetchAllPages(initialUrl: string, maxPages = 20): Promise<any[]> {
+  const out: any[] = [];
+  let url: string | null = initialUrl;
+  let pages = 0;
+  while (url && pages < maxPages) {
+    const r = await fetch(url);
+    const body: any = await r.json().catch(() => null);
+    if (!r.ok) {
+      const err = body?.error ?? { message: `HTTP ${r.status}` };
+      throw Object.assign(new Error(err.message ?? "fetch failed"), {
+        metaError: err,
+        httpStatus: r.status,
+      });
+    }
+    if (Array.isArray(body?.data)) out.push(...body.data);
+    url = body?.paging?.next ?? null;
+    pages += 1;
+  }
+  return out;
+}
+
+const ACCOUNT_FIELDS = "id,name,account_status,currency,timezone_name";
+
+function mapDiscovered(raw: any, ownership: "owned" | "client"): DiscoveredAccount {
+  const status = parseNum(raw?.account_status);
+  return {
+    bmAdAccountId: raw?.id ?? "",
+    name: raw?.name ?? "(ไม่มีชื่อ)",
+    accountStatus: status,
+    accountStatusLabel: ACCOUNT_STATUS_LABEL[status] ?? `ไม่ทราบสถานะ (${status})`,
+    ownership,
+    currency: raw?.currency,
+    timezone: raw?.timezone_name,
+  };
+}
+
+/**
+ * Discover ทุกบัญชีใน BM:
+ *  - /{bm_id}/owned_ad_accounts
+ *  - /{bm_id}/client_ad_accounts
+ */
+export async function discoverBMAccounts(
+  bmId: string,
+  accessToken: string,
+): Promise<BMDiscoveryResult> {
+  const discoveredAt = Date.now();
+  const tokenParam = `access_token=${encodeURIComponent(accessToken)}`;
+
+  // ตรวจ BM + token ก่อน
+  const conn = await testBMConnection(bmId, accessToken);
+  if (!conn.ok) {
+    return {
+      ok: false,
+      category: conn.category,
+      title: conn.title,
+      message: conn.message,
+      suggestion: conn.suggestion,
+      bmId: conn.bmId,
+      bmName: conn.bmName,
+      ownedAccounts: [],
+      clientAccounts: [],
+      totalCount: 0,
+      httpStatus: conn.httpStatus,
+      rawError: conn.rawError,
+      discoveredAt,
+    };
+  }
+
+  let owned: any[] = [];
+  let client: any[] = [];
+  try {
+    const ownedUrl = `${META_BASE}/${bmId}/owned_ad_accounts?fields=${ACCOUNT_FIELDS}&limit=100&${tokenParam}`;
+    const clientUrl = `${META_BASE}/${bmId}/client_ad_accounts?fields=${ACCOUNT_FIELDS}&limit=100&${tokenParam}`;
+    [owned, client] = await Promise.all([fetchAllPages(ownedUrl), fetchAllPages(clientUrl)]);
+  } catch (e: any) {
+    const err = e?.metaError ?? { message: e?.message ?? "unknown" };
+    const cls = classifyMetaError(err, e?.httpStatus);
+    return {
+      ok: false,
+      ...cls,
+      bmId: conn.bmId,
+      bmName: conn.bmName,
+      ownedAccounts: [],
+      clientAccounts: [],
+      totalCount: 0,
+      httpStatus: e?.httpStatus,
+      rawError: err,
+      discoveredAt,
+    };
+  }
+
+  const ownedAccounts = owned.map((r) => mapDiscovered(r, "owned"));
+  const clientAccounts = client.map((r) => mapDiscovered(r, "client"));
+  const totalCount = ownedAccounts.length + clientAccounts.length;
+
+  return {
+    ok: true,
+    category: "ok",
+    title: `พบบัญชีโฆษณาทั้งหมด ${totalCount} บัญชี`,
+    message: `Owned ${ownedAccounts.length} · Client ${clientAccounts.length} ใน BM "${conn.bmName}"`,
+    suggestion: "เลือกบัญชีที่ต้องการดึงเข้าระบบในขั้นถัดไป",
+    bmId: conn.bmId,
+    bmName: conn.bmName,
+    ownedAccounts,
+    clientAccounts,
+    totalCount,
+    httpStatus: 200,
+    discoveredAt,
+  };
+}

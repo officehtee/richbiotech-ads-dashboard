@@ -321,3 +321,41 @@
 - [x] Frontend: ปุ่ม Plug icon ใน AccountsSettings table + Dialog แสดง banner เขียว/เหลือง/แดง + ข้อมูลบัญชี (เจ้าของ token / ชื่อบัญชี / status) + raw error block + copy fbtrace_id + ปุ่มทดสอบอีกครั้ง
 - [x] vitest: 11 case ครอบคลุม mapper (รวมติบตอน 196/196)
 - [x] checkpoint
+
+
+## Round 7.23 — BM Auto-Discovery (1 BM = 1 กลุ่มสินค้า, AES, read-only)
+
+### Phase 1 — Backend foundation
+- [x] เพิ่มตาราง `businessManagers` (id, bmId, name, accountGroupId, accessTokenEncrypted, tokenExpiresAt, lastSyncAt, status, createdBy)
+- [x] เพิ่มตาราง `bmAdAccountLinks` (bmId, adAccountId, type[owned|client], discoveredAt, lastSeenAt, status[active|removed])
+- [x] เพิ่มตาราง `bmDiscoveryLogs` (bmId, runAt, foundCount, addedCount, linkedCount, removedCount, errorMessage)
+- [x] เพิ่ม column ใน `adAccounts`: `bmId` (nullable), `discoveredAt` (nullable)
+- [x] สร้าง `server/encryption.ts` — AES-256-GCM ด้วย JWT_SECRET (encrypt/decrypt helper)
+- [x] เพิ่ม `discoverBMAccounts()` ใน `server/metaApi.ts` — ยิง `/me`, `/{bm_id}`, `/{bm_id}/owned_ad_accounts`, `/{bm_id}/client_ad_accounts`
+- [x] เพิ่ม `testBMConnection()` — ยิง `/{bm_id}` ตรวจ token ใช้ได้ + ดึงชื่อ BM
+- [x] tRPC `bm.testConnection({ bmId, token })` — public test, ไม่บันทึก
+- [x] tRPC `bm.sync({ bmId })` — manual sync (รวม discover + apply diff)
+- [x] tRPC `bm.create({ bmId, name, token, accountGroupId, accountIds })` — สร้าง BM + link bulk + auto-assign group
+- [x] tRPC `bm.list()` — list BM ทั้งหมด (ไม่ส่ง token กลับ)
+- [x] tRPC `bm.detail({ id })` + `bm.delete({ id })`
+- [x] vitest — encryption round-trip (9) + BM error mapping (7) ผ่านทั้งหมด (212/212 รวม)
+- [x] checkpoint Phase 1
+
+### Phase 2 — UI Wizard 3 ขั้นในหน้า /accounts
+- [ ] Step 1: ฟอร์ม BM ID + Access Token + accountGroup selector + ปุ่ม Test Connection (เรียก `bm.testConnection`)
+- [ ] Step 2: รายการบัญชีที่ค้นเจอ (owned/client) + checkbox ให้เลือกนำเข้า
+- [ ] Step 3: หน้ายืนยันสรุป + เรียก `bm.create` + แสดง success
+- [ ] BM list table — แสดง BM ที่มี + status badge + ปุ่ม Sync / Delete
+- [ ] vitest UI logic
+- [ ] checkpoint Phase 2
+
+### Phase 3 — BM Detail page + sync history
+- [ ] หน้า /accounts/bm/:id แสดงรายละเอียด + tab "บัญชีในกลุ่ม" + tab "ประวัติ Sync"
+- [ ] ตาราง bmDiscoveryLogs แสดง runAt/status/foundCount/addedCount/removedCount
+- [ ] ปุ่ม Sync Now manual
+- [ ] checkpoint Phase 3
+
+### Phase 4 — Auto-sync + notification
+- [ ] Heartbeat job — ทุก 6 ชม. เรียก sync ทุก BM ที่ active
+- [ ] notifyOwner เมื่อพบบัญชีใหม่หรือบัญชีถูกถอด
+- [ ] checkpoint Phase 4

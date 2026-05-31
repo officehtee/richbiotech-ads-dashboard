@@ -23,9 +23,18 @@ import {
   ScaleSettings,
   ShareLink,
   User,
+  BusinessManager,
+  InsertBusinessManager,
+  BmAdAccountLink,
+  InsertBmAdAccountLink,
+  BmDiscoveryLog,
+  InsertBmDiscoveryLog,
   accountGroupMembers,
   accountGroups,
   adAccounts,
+  bmAdAccountLinks,
+  bmDiscoveryLogs,
+  businessManagers,
   commissionClipAssignments,
   commissionClipGrades,
   commissionGrades,
@@ -808,4 +817,189 @@ export async function listAllWorkspaceTenantIds(): Promise<number[]> {
   if (!db) return [];
   const rows = await db.select().from(users).where(eq(users.role, "owner"));
   return rows.map((u) => u.id);
+}
+
+
+/* ---------- Business Manager (Round 7.23) ---------- */
+
+export async function listBusinessManagers(userId: number): Promise<BusinessManager[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return await db
+    .select()
+    .from(businessManagers)
+    .where(eq(businessManagers.userId, userId))
+    .orderBy(desc(businessManagers.createdAt));
+}
+
+export async function getBusinessManagerById(
+  id: number,
+  userId: number,
+): Promise<BusinessManager | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(businessManagers)
+    .where(and(eq(businessManagers.id, id), eq(businessManagers.userId, userId)))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function findBusinessManagerByBmId(
+  userId: number,
+  bmIdMeta: string,
+): Promise<BusinessManager | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(businessManagers)
+    .where(and(eq(businessManagers.userId, userId), eq(businessManagers.bmId, bmIdMeta)))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function insertBusinessManager(input: InsertBusinessManager): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const result: any = await db.insert(businessManagers).values(input);
+  return Number(result?.[0]?.insertId ?? result?.insertId ?? 0);
+}
+
+export async function updateBusinessManager(
+  id: number,
+  patch: Partial<InsertBusinessManager>,
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(businessManagers).set(patch).where(eq(businessManagers.id, id));
+}
+
+export async function deleteBusinessManager(id: number, userId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .delete(businessManagers)
+    .where(and(eq(businessManagers.id, id), eq(businessManagers.userId, userId)));
+  // ลบ link ที่เกี่ยวข้องด้วย
+  await db.delete(bmAdAccountLinks).where(eq(bmAdAccountLinks.bmId, id));
+}
+
+/* ---------- BM ↔ AdAccount Links ---------- */
+
+export async function listBmLinks(bmId: number): Promise<BmAdAccountLink[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(bmAdAccountLinks).where(eq(bmAdAccountLinks.bmId, bmId));
+}
+
+export async function findBmLink(
+  bmId: number,
+  adAccountDbId: number,
+): Promise<BmAdAccountLink | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(bmAdAccountLinks)
+    .where(
+      and(eq(bmAdAccountLinks.bmId, bmId), eq(bmAdAccountLinks.adAccountId, adAccountDbId)),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function insertBmLink(input: InsertBmAdAccountLink): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(bmAdAccountLinks).values(input);
+}
+
+export async function updateBmLinkLastSeen(id: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(bmAdAccountLinks)
+    .set({ lastSeenAt: new Date(), status: "active" })
+    .where(eq(bmAdAccountLinks.id, id));
+}
+
+export async function markBmLinkRemoved(id: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(bmAdAccountLinks)
+    .set({ status: "removed" })
+    .where(eq(bmAdAccountLinks.id, id));
+}
+
+/* ---------- AdAccount: lookup by Meta act id (for BM linking) ---------- */
+
+export async function findAdAccountByMetaId(
+  userId: number,
+  metaActId: string,
+): Promise<AdAccount | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(adAccounts)
+    .where(and(eq(adAccounts.userId, userId), eq(adAccounts.adAccountId, metaActId)))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/* ---------- BM Discovery Logs ---------- */
+
+export async function insertBmDiscoveryLog(input: InsertBmDiscoveryLog): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(bmDiscoveryLogs).values(input);
+}
+
+export async function listBmDiscoveryLogs(
+  bmId: number,
+  limit = 20,
+): Promise<BmDiscoveryLog[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return await db
+    .select()
+    .from(bmDiscoveryLogs)
+    .where(eq(bmDiscoveryLogs.bmId, bmId))
+    .orderBy(desc(bmDiscoveryLogs.runAt))
+    .limit(limit);
+}
+
+/* ---------- Account Group Membership helpers ---------- */
+
+export async function findAccountGroupMember(
+  groupId: number,
+  accountDbId: number,
+): Promise<AccountGroupMember | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(accountGroupMembers)
+    .where(
+      and(
+        eq(accountGroupMembers.groupId, groupId),
+        eq(accountGroupMembers.accountId, accountDbId),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function ensureAccountGroupMember(
+  groupId: number,
+  accountDbId: number,
+): Promise<void> {
+  const existing = await findAccountGroupMember(groupId, accountDbId);
+  if (existing) return;
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(accountGroupMembers).values({ groupId, accountId: accountDbId });
 }

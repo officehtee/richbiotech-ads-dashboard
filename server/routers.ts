@@ -99,13 +99,31 @@ import {
   upsertClipGrade,
   upsertCommissionLock,
   upsertScaleSettings,
+  listBusinessManagers,
+  getBusinessManagerById,
+  findBusinessManagerByBmId,
+  insertBusinessManager,
+  updateBusinessManager,
+  deleteBusinessManager,
+  listBmLinks,
+  findBmLink,
+  insertBmLink,
+  updateBmLinkLastSeen,
+  markBmLinkRemoved,
+  findAdAccountByMetaId,
+  insertBmDiscoveryLog,
+  listBmDiscoveryLogs,
+  ensureAccountGroupMember,
 } from "./db";
 import {
   fetchAdsForAdset,
   fetchAdsetDailyInsights,
   testAdAccountToken,
   validateToken,
+  testBMConnection,
+  discoverBMAccounts,
 } from "./metaApi";
+import { encrypt as encryptToken, decrypt as decryptToken, maskToken } from "./encryption";
 
 const tokenAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
 const generateToken = customAlphabet(tokenAlphabet, 24);
@@ -372,6 +390,302 @@ export const appRouter = router({
           };
         }
         return await testAdAccountToken(acc.adAccountId, acc.accessToken);
+      }),
+  }),
+
+  /* ----- Business Managers (Round 7.23 — Auto-Discovery) ----- */
+  bm: router({
+    list: protectedProcedure.query(async ({ ctx }) => {
+      const tid = await tenantId(ctx);
+      const bms = await listBusinessManagers(tid);
+      const out = await Promise.all(
+        bms.map(async (bm) => {
+          const links = await listBmLinks(bm.id);
+          const activeLinks = links.filter((l) => l.status === "active");
+          return {
+            id: bm.id,
+            bmId: bm.bmId,
+            name: bm.name,
+            tokenPreview: maskToken(bm.bmId), // ไม่เปิดเผย token จริง
+            accountGroupId: bm.accountGroupId,
+            status: bm.status,
+            lastSyncAt: bm.lastSyncAt,
+            tokenExpiresAt: bm.tokenExpiresAt,
+            accountCount: activeLinks.length,
+            removedCount: links.length - activeLinks.length,
+            createdAt: bm.createdAt,
+          };
+        }),
+      );
+      return out;
+    }),
+
+    testConnection: ownerProcedure
+      .input(
+        z.object({
+          bmId: z.string().regex(/^\d{6,}$/, "BM ID ต้องเป็นตัวเลข 6 หลักขึ้นไป"),
+          accessToken: z.string().min(20),
+        }),
+      )
+      .mutation(async ({ input }) => {
+        return await testBMConnection(input.bmId, input.accessToken);
+      }),
+
+    discover: ownerProcedure
+      .input(
+        z.object({
+          bmId: z.string().regex(/^\d{6,}$/),
+          accessToken: z.string().min(20),
+        }),
+      )
+      .mutation(async ({ input }) => {
+        return await discoverBMAccounts(input.bmId, input.accessToken);
+      }),
+
+    create: ownerProcedure
+      .input(
+        z.object({
+          bmId: z.string().regex(/^\d{6,}$/),
+          name: z.string().min(1),
+          accessToken: z.string().min(20),
+          accountGroupId: z.number().int().positive(),
+          selectedAccounts: z
+            .array(
+              z.object({
+                bmAdAccountId: z.string().regex(/^act_\d+$/),
+                name: z.string(),
+                ownership: z.enum(["owned", "client"]),
+                accountStatus: z.number().int(),
+                currency: z.string().optional(),
+                timezone: z.string().optional(),
+                roasTarget: z.number().min(0).max(20).optional(),
+              }),
+            )
+            .min(1, "ต้องเลือกอย่างน้อย 1 บัญชี"),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+
+        // กันซ้ำ: BM นี้เคยเพิ่มไว้แล้วหรือยัง
+        const existing = await findBusinessManagerByBmId(tid, input.bmId);
+        if (existing) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Business Manager นี้ถูกเพิ่มไว้แล้ว (id=${existing.id})`,
+          });
+        }
+
+        // เข้ารหัส token
+        const encrypted = encryptToken(input.accessToken);
+
+        const newBmId = await insertBusinessManager({
+          userId: tid,
+          bmId: input.bmId,
+          name: input.name,
+          accessTokenEncrypted: encrypted,
+          accountGroupId: input.accountGroupId,
+          createdBy: ctx.user.id,
+          status: "active",
+          lastSyncAt: new Date(),
+        });
+
+        let createdAccounts = 0;
+        let linkedExisting = 0;
+
+        for (const sel of input.selectedAccounts) {
+          // หา ad account เดิมในระบบหรือยัง
+          let acct = await findAdAccountByMetaId(tid, sel.bmAdAccountId);
+          if (!acct) {
+            const acctId = await createAdAccount({
+              userId: tid,
+              adAccountId: sel.bmAdAccountId,
+              accessToken: input.accessToken, // BM token ใช้ดึง insight ได้เลย (read-only)
+              nickname: sel.name,
+              pageName: null,
+              phaseName: null,
+              roasTarget: sel.roasTarget ?? 2.0,
+              isActive: true,
+              bmId: newBmId,
+              discoveredAt: new Date(),
+            } as any);
+            acct = { id: acctId } as any;
+            createdAccounts += 1;
+          } else {
+            linkedExisting += 1;
+          }
+
+          // ผูกเข้า link table
+          if (acct) {
+            const existingLink = await findBmLink(newBmId, (acct as any).id);
+            if (!existingLink) {
+              await insertBmLink({
+                bmId: newBmId,
+                adAccountId: (acct as any).id,
+                type: sel.ownership,
+                status: "active",
+                discoveredAt: new Date(),
+                lastSeenAt: new Date(),
+              });
+            }
+            // ผูกเข้ากลุ่มสินค้า
+            await ensureAccountGroupMember(input.accountGroupId, (acct as any).id);
+          }
+        }
+
+        // log discovery
+        await insertBmDiscoveryLog({
+          bmId: newBmId,
+          userId: tid,
+          runAt: new Date(),
+          status: "success",
+          triggerSource: "initial",
+          foundCount: input.selectedAccounts.length,
+          addedCount: createdAccounts,
+          linkedCount: linkedExisting,
+          removedCount: 0,
+        });
+
+        return { id: newBmId, createdAccounts, linkedExisting };
+      }),
+
+    detail: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        const bm = await getBusinessManagerById(input.id, tid);
+        if (!bm) throw new TRPCError({ code: "NOT_FOUND" });
+        const links = await listBmLinks(bm.id);
+        const logs = await listBmDiscoveryLogs(bm.id, 10);
+        return {
+          bm: {
+            id: bm.id,
+            bmId: bm.bmId,
+            name: bm.name,
+            accountGroupId: bm.accountGroupId,
+            status: bm.status,
+            lastSyncAt: bm.lastSyncAt,
+            tokenExpiresAt: bm.tokenExpiresAt,
+            createdAt: bm.createdAt,
+          },
+          links,
+          logs,
+        };
+      }),
+
+    sync: ownerProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        const bm = await getBusinessManagerById(input.id, tid);
+        if (!bm) throw new TRPCError({ code: "NOT_FOUND" });
+        const token = decryptToken(bm.accessTokenEncrypted);
+        const result = await discoverBMAccounts(bm.bmId, token);
+
+        if (!result.ok) {
+          await insertBmDiscoveryLog({
+            bmId: bm.id,
+            userId: tid,
+            runAt: new Date(),
+            status: "failed",
+            triggerSource: "manual",
+            foundCount: 0,
+            addedCount: 0,
+            linkedCount: 0,
+            removedCount: 0,
+            errorMessage: result.message,
+          });
+          await updateBusinessManager(bm.id, {
+            status: result.category === "token_expired" ? "token_expired" : "blocked",
+            lastSyncAt: new Date(),
+          });
+          return { ok: false, error: result };
+        }
+
+        // merge bookkeeping
+        const existingLinks = await listBmLinks(bm.id);
+        const seen = new Set<string>();
+        let newCount = 0;
+        let existingCount = 0;
+
+        const linkByAdAcct = new Map<number, typeof existingLinks[number]>();
+        for (const l of existingLinks) linkByAdAcct.set(l.adAccountId, l);
+
+        for (const acc of [...result.ownedAccounts, ...result.clientAccounts]) {
+          let dbAcct = await findAdAccountByMetaId(tid, acc.bmAdAccountId);
+          if (!dbAcct) {
+            const acctId = await createAdAccount({
+              userId: tid,
+              adAccountId: acc.bmAdAccountId,
+              accessToken: token,
+              nickname: acc.name,
+              pageName: null,
+              phaseName: null,
+              roasTarget: 2.0,
+              isActive: true,
+              bmId: bm.id,
+              discoveredAt: new Date(),
+            } as any);
+            dbAcct = { id: acctId } as any;
+            newCount += 1;
+          } else {
+            existingCount += 1;
+          }
+
+          if (dbAcct) {
+            const adId = (dbAcct as any).id as number;
+            seen.add(String(adId));
+            const link = linkByAdAcct.get(adId);
+            if (link) {
+              await updateBmLinkLastSeen(link.id);
+            } else {
+              await insertBmLink({
+                bmId: bm.id,
+                adAccountId: adId,
+                type: acc.ownership,
+                status: "active",
+                discoveredAt: new Date(),
+                lastSeenAt: new Date(),
+              });
+            }
+            await ensureAccountGroupMember(bm.accountGroupId, adId);
+          }
+        }
+
+        // mark removed
+        let removedCount = 0;
+        for (const link of existingLinks) {
+          if (!seen.has(String(link.adAccountId)) && link.status === "active") {
+            await markBmLinkRemoved(link.id);
+            removedCount += 1;
+          }
+        }
+
+        await insertBmDiscoveryLog({
+          bmId: bm.id,
+          userId: tid,
+          runAt: new Date(),
+          status: "success",
+          triggerSource: "manual",
+          foundCount: result.totalCount,
+          addedCount: newCount,
+          linkedCount: existingCount,
+          removedCount,
+        });
+        await updateBusinessManager(bm.id, {
+          status: "active",
+          lastSyncAt: new Date(),
+        });
+
+        return { ok: true, newCount, existingCount, removedCount, totalFound: result.totalCount };
+      }),
+
+    delete: ownerProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        await deleteBusinessManager(input.id, tid);
+        return { ok: true };
       }),
   }),
 

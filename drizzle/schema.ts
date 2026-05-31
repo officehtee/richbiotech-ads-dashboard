@@ -62,6 +62,8 @@ export const adAccounts = mysqlTable("adAccounts", {
   roasTarget: double("roasTarget").default(2.0),
   isActive: boolean("isActive").default(true),
   sortOrder: int("sortOrder").default(0),
+  bmId: int("bmId"), // FK -> businessManagers.id (nullable: บัญชีที่ไม่ผ่าน BM)
+  discoveredAt: timestamp("discoveredAt"), // วันที่ discover ครั้งแรกผ่าน BM
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -315,3 +317,73 @@ export const inviteTokens = mysqlTable("inviteTokens", {
 
 export type InviteToken = typeof inviteTokens.$inferSelect;
 export type InsertInviteToken = typeof inviteTokens.$inferInsert;
+
+
+/* ---------- Business Manager Auto-Discovery (Round 7.23) ---------- */
+
+/**
+ * Business Managers — Meta Business Manager ที่ Owner ผูกเข้าระบบ
+ * 1 BM = 1 กลุ่มสินค้า (accountGroupId)
+ * accessTokenEncrypted: AES-256-GCM ciphertext (ใช้ JWT_SECRET เป็น key)
+ */
+export const businessManagers = mysqlTable("businessManagers", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(), // workspace owner
+  bmId: varchar("bmId", { length: 32 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  accountGroupId: int("accountGroupId").notNull(),
+  accessTokenEncrypted: text("accessTokenEncrypted").notNull(),
+  tokenExpiresAt: timestamp("tokenExpiresAt"), // null = system user (ไม่หมดอายุ)
+  lastSyncAt: timestamp("lastSyncAt"),
+  status: mysqlEnum("status", ["active", "token_expired", "blocked", "revoked"])
+    .default("active")
+    .notNull(),
+  createdBy: int("createdBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type BusinessManager = typeof businessManagers.$inferSelect;
+export type InsertBusinessManager = typeof businessManagers.$inferInsert;
+
+/**
+ * BM ↔ Ad Account Links — many-to-many (1 BM หลายบัญชี / 1 บัญชีอาจอยู่หลาย BM)
+ * type:
+ *  - owned: BM เป็นเจ้าของบัญชี
+ *  - client: BM แค่ดูแลให้
+ */
+export const bmAdAccountLinks = mysqlTable("bmAdAccountLinks", {
+  id: int("id").autoincrement().primaryKey(),
+  bmId: int("bmId").notNull(), // FK → businessManagers.id
+  adAccountId: int("adAccountId").notNull(), // FK → adAccounts.id
+  type: mysqlEnum("type", ["owned", "client"]).default("owned").notNull(),
+  discoveredAt: timestamp("discoveredAt").defaultNow().notNull(),
+  lastSeenAt: timestamp("lastSeenAt").defaultNow().notNull(),
+  status: mysqlEnum("status", ["active", "removed"]).default("active").notNull(),
+});
+
+export type BmAdAccountLink = typeof bmAdAccountLinks.$inferSelect;
+export type InsertBmAdAccountLink = typeof bmAdAccountLinks.$inferInsert;
+
+/**
+ * BM Discovery Logs — เก็บประวัติ sync ทุกครั้ง
+ */
+export const bmDiscoveryLogs = mysqlTable("bmDiscoveryLogs", {
+  id: int("id").autoincrement().primaryKey(),
+  bmId: int("bmId").notNull(),
+  userId: int("userId").notNull(),
+  runAt: timestamp("runAt").defaultNow().notNull(),
+  triggerSource: mysqlEnum("triggerSource", ["manual", "auto", "initial"])
+    .default("manual")
+    .notNull(),
+  foundCount: int("foundCount").default(0),
+  addedCount: int("addedCount").default(0),
+  linkedCount: int("linkedCount").default(0),
+  removedCount: int("removedCount").default(0),
+  status: mysqlEnum("status", ["success", "partial", "failed"]).default("success").notNull(),
+  errorMessage: text("errorMessage"),
+  durationMs: int("durationMs"),
+});
+
+export type BmDiscoveryLog = typeof bmDiscoveryLogs.$inferSelect;
+export type InsertBmDiscoveryLog = typeof bmDiscoveryLogs.$inferInsert;
