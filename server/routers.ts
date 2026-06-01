@@ -114,6 +114,9 @@ import {
   insertBmDiscoveryLog,
   listBmDiscoveryLogs,
   ensureAccountGroupMember,
+  getDeepAdsRows,
+  getScaleAmountMap,
+  upsertAdManualMetric,
 } from "./db";
 import {
   fetchAdsForAdset,
@@ -125,6 +128,10 @@ import {
 } from "./metaApi";
 import { encrypt as encryptToken, decrypt as decryptToken, maskToken } from "./encryption";
 import { syncOneBusinessManager } from "./bmSync";
+import {
+  syncAdInsightsForAccounts,
+  dateOffsetString,
+} from "./deepAdsSync";
 
 const tokenAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
 const generateToken = customAlphabet(tokenAlphabet, 24);
@@ -899,6 +906,104 @@ export const appRouter = router({
           fetchAdsForAdset(account.adAccountId, input.adsetId, account.accessToken, range),
         ]);
         return { daily, ads };
+      }),
+  }),
+
+  /* ----- Deep Ads Analysis (Round 7.24) — ad-day grain ----- */
+  deepAds: router({
+    list: protectedProcedure
+      .input(
+        z.object({
+          dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+          dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+          search: z.string().optional(),
+          accountId: z.number().optional(),
+          groupId: z.number().optional(),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        const [rows, scaleMap] = await Promise.all([
+          getDeepAdsRows(tid, input.dateFrom, input.dateTo, {
+            search: input.search,
+            accountId: input.accountId,
+            groupId: input.groupId,
+          }),
+          getScaleAmountMap(tid, input.dateFrom, input.dateTo),
+        ]);
+        // enrich each row with derived fields + prevDay scaleNextAmount
+        return rows.map((r) => {
+          const spend = r.spend ?? 0;
+          const messages = r.messages ?? 0;
+          const clicks = r.clicks ?? 0;
+          const orders = r.manualOrders ?? 0;
+          const salesCount = r.manualSalesCount ?? 0;
+          const salesAmount = r.manualSalesAmount ?? 0;
+          // prev day key
+          const d = new Date(`${r.date}T00:00:00Z`);
+          d.setUTCDate(d.getUTCDate() - 1);
+          const prevDate = d.toISOString().slice(0, 10);
+          const prevDayScale = scaleMap.get(`${r.adId}|${prevDate}`) ?? null;
+          return {
+            ...r,
+            costPerOrder: orders > 0 ? spend / orders : null,
+            costPerClick: clicks > 0 ? spend / clicks : null,
+            costPerMessage: messages > 0 ? spend / messages : null,
+            chatToOrderRate: messages > 0 ? (orders / messages) * 100 : null,
+            roas: spend > 0 && salesAmount > 0 ? salesAmount / spend : null,
+            adsSpendPct: salesAmount > 0 ? (spend / salesAmount) * 100 : null,
+            prevDayScale,
+          };
+        });
+      }),
+    updateManual: protectedProcedure
+      .input(
+        z.object({
+          adId: z.string().min(1),
+          date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+          field: z.enum(["orders", "salesCount", "salesAmount", "scaleNextAmount", "note"]),
+          value: z.union([z.number(), z.string(), z.null()]),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        const patch: Record<string, unknown> = {
+          userId: tid,
+          adId: input.adId,
+          date: input.date,
+          updatedBy: ctx.user.id,
+        };
+        if (input.field === "note") {
+          patch.note = input.value == null ? null : String(input.value);
+        } else {
+          const num =
+            input.value == null || input.value === "" ? null : Number(input.value);
+          if (num != null && !Number.isFinite(num)) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid number" });
+          }
+          patch[input.field] = num;
+        }
+        await upsertAdManualMetric(patch as any);
+        return { ok: true };
+      }),
+    syncNow: ownerProcedure
+      .input(z.object({ accountId: z.number().optional(), days: z.number().min(1).max(30).default(7) }))
+      .mutation(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        const all = await getAdAccountsByUser(tid);
+        const accounts = input.accountId
+          ? all.filter((a) => a.id === input.accountId)
+          : all.filter((a) => a.isActive);
+        const since = dateOffsetString(input.days - 1);
+        const until = dateOffsetString(0);
+        const results = await syncAdInsightsForAccounts(accounts, since, until, tid);
+        return {
+          accountsProcessed: results.length,
+          rowsSynced: results.reduce((s, r) => s + r.rowsSynced, 0),
+          previewsRefreshed: results.reduce((s, r) => s + r.previewsRefreshed, 0),
+          failed: results.filter((r) => !r.ok).length,
+          errors: results.filter((r) => !r.ok).map((r) => ({ accountId: r.accountId, message: r.errorMessage })),
+        };
       }),
   }),
 

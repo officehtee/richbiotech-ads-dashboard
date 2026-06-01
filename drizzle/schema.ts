@@ -1,11 +1,13 @@
 import {
   boolean,
   double,
+  index,
   int,
   mysqlEnum,
   mysqlTable,
   text,
   timestamp,
+  uniqueIndex,
   varchar,
 } from "drizzle-orm/mysql-core";
 
@@ -387,3 +389,65 @@ export const bmDiscoveryLogs = mysqlTable("bmDiscoveryLogs", {
 
 export type BmDiscoveryLog = typeof bmDiscoveryLogs.$inferSelect;
 export type InsertBmDiscoveryLog = typeof bmDiscoveryLogs.$inferInsert;
+
+/**
+ * Ad Insights Daily — 1 row per ad_id × date
+ * Synced from Meta API: level=ad + time_increment=1
+ * Used by: หน้า "วิเคราะห์แอดเชิงลึก" (ad-day grain)
+ */
+export const adInsightsDaily = mysqlTable("adInsightsDaily", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(), // workspace owner (tenant)
+  accountId: int("accountId").notNull(), // FK → adAccounts.id
+  adId: varchar("adId", { length: 64 }).notNull(),
+  adName: varchar("adName", { length: 512 }),
+  adsetId: varchar("adsetId", { length: 64 }),
+  adsetName: varchar("adsetName", { length: 512 }),
+  campaignId: varchar("campaignId", { length: 64 }),
+  campaignName: varchar("campaignName", { length: 512 }),
+  groupId: int("groupId"), // FK → accountGroups.id (denormalized for fast filter)
+  pageName: varchar("pageName", { length: 255 }),
+  date: varchar("date", { length: 10 }).notNull(), // YYYY-MM-DD
+  spend: double("spend").default(0).notNull(),
+  impressions: int("impressions").default(0).notNull(),
+  clicks: int("clicks").default(0).notNull(),
+  ctr: double("ctr").default(0).notNull(),
+  messages: int("messages").default(0).notNull(),
+  dailyBudget: double("dailyBudget"), // adset daily budget OR campaign daily budget (CBO fallback)
+  budgetSource: mysqlEnum("budgetSource", ["adset", "campaign", "none"]).default("none"),
+  previewCachedUrl: text("previewCachedUrl"), // /manus-storage/...
+  previewCachedAt: timestamp("previewCachedAt"),
+  syncedAt: timestamp("syncedAt").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("adInsightsDaily_adId_date_unique").on(t.adId, t.date),
+  index("adInsightsDaily_userId_date_idx").on(t.userId, t.date),
+  index("adInsightsDaily_accountId_date_idx").on(t.accountId, t.date),
+]);
+
+export type AdInsightDaily = typeof adInsightsDaily.$inferSelect;
+export type InsertAdInsightDaily = typeof adInsightsDaily.$inferInsert;
+
+/**
+ * Ad Manual Metrics — ค่าที่ผู้ใช้กรอกเอง (Orders / Sales / Scale Next / Note)
+ * 1 row per ad_id × date
+ */
+export const adManualMetrics = mysqlTable("adManualMetrics", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(), // workspace owner (tenant)
+  adId: varchar("adId", { length: 64 }).notNull(),
+  date: varchar("date", { length: 10 }).notNull(), // YYYY-MM-DD
+  orders: int("orders"),
+  salesCount: int("salesCount"),
+  salesAmount: double("salesAmount"),
+  scaleNextAmount: double("scaleNextAmount"), // ยอดใหม่ (จะกลายเป็นยอดเก่าของวันถัดไป)
+  note: text("note"),
+  updatedBy: int("updatedBy"), // FK → users.id
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("adManualMetrics_adId_date_unique").on(t.adId, t.date),
+  index("adManualMetrics_userId_date_idx").on(t.userId, t.date),
+]);
+
+export type AdManualMetric = typeof adManualMetrics.$inferSelect;
+export type InsertAdManualMetric = typeof adManualMetrics.$inferInsert;

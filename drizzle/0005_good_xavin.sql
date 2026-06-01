@@ -1,0 +1,41 @@
+CREATE TABLE `adInsightsDaily` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`userId` int NOT NULL,
+	`accountId` int NOT NULL,
+	`adId` varchar(64) NOT NULL,
+	`adName` varchar(512),
+	`adsetId` varchar(64),
+	`adsetName` varchar(512),
+	`campaignId` varchar(64),
+	`campaignName` varchar(512),
+	`groupId` int,
+	`pageName` varchar(255),
+	`date` varchar(10) NOT NULL,
+	`spend` double NOT NULL DEFAULT 0,
+	`impressions` int NOT NULL DEFAULT 0,
+	`clicks` int NOT NULL DEFAULT 0,
+	`ctr` double NOT NULL DEFAULT 0,
+	`messages` int NOT NULL DEFAULT 0,
+	`dailyBudget` double,
+	`budgetSource` enum('adset','campaign','none') DEFAULT 'none',
+	`previewCachedUrl` text,
+	`previewCachedAt` timestamp,
+	`syncedAt` timestamp NOT NULL DEFAULT (now()),
+	CONSTRAINT `adInsightsDaily_id` PRIMARY KEY(`id`)
+);
+--> statement-breakpoint
+CREATE TABLE `adManualMetrics` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`userId` int NOT NULL,
+	`adId` varchar(64) NOT NULL,
+	`date` varchar(10) NOT NULL,
+	`orders` int,
+	`salesCount` int,
+	`salesAmount` double,
+	`scaleNextAmount` double,
+	`note` text,
+	`updatedBy` int,
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	CONSTRAINT `adManualMetrics_id` PRIMARY KEY(`id`)
+);

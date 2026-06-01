@@ -888,3 +888,138 @@ export async function discoverBMAccounts(
     discoveredAt,
   };
 }
+
+
+/* ============================================================
+ * Round 7.24 — Deep Ads Analysis (ad-day grain)
+ * ============================================================ */
+
+export type AdDailyInsight = {
+  ad_id: string;
+  ad_name: string;
+  adset_id: string;
+  adset_name: string;
+  campaign_id: string;
+  campaign_name: string;
+  date: string; // YYYY-MM-DD
+  spend: number;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  messages: number;
+};
+
+/**
+ * Fetch ad-level daily insights from Meta Marketing API
+ * level=ad + time_increment=1 (1 row per ad × date)
+ * - returns empty array if API error
+ */
+export async function fetchAdInsightsDaily(
+  adAccountId: string,
+  accessToken: string,
+  dateRange: MetaDateRange,
+): Promise<AdDailyInsight[]> {
+  const fields = [
+    "ad_id",
+    "ad_name",
+    "adset_id",
+    "adset_name",
+    "campaign_id",
+    "campaign_name",
+    "spend",
+    "impressions",
+    "clicks",
+    "ctr",
+    "actions",
+    "date_start",
+  ].join(",");
+  const params = new URLSearchParams({
+    fields,
+    time_range: JSON.stringify(dateRange),
+    level: "ad",
+    time_increment: "1",
+    limit: "500",
+  });
+  const url = `${META_BASE}/${adAccountId}/insights?${params.toString()}`;
+  const res = await metaFetch<{ data: any[] }>(url, accessToken);
+  if (!res || !res.data) return [];
+  return res.data.map((r: any) => ({
+    ad_id: r.ad_id,
+    ad_name: r.ad_name,
+    adset_id: r.adset_id,
+    adset_name: r.adset_name,
+    campaign_id: r.campaign_id,
+    campaign_name: r.campaign_name,
+    date: r.date_start,
+    spend: parseNum(r.spend),
+    impressions: parseNum(r.impressions),
+    clicks: parseNum(r.clicks),
+    ctr: parseNum(r.ctr),
+    messages: extractMessaging(r.actions),
+  }));
+}
+
+/**
+ * Fetch ad creative thumbnail (preview) URL.
+ * Returns thumbnail_url (small) — caller should download + resize + cache to S3.
+ */
+export async function fetchAdPreviewThumb(
+  adId: string,
+  accessToken: string,
+): Promise<{ thumbnailUrl: string | null; pageId: string | null } | null> {
+  const fields = "creative{thumbnail_url,effective_object_story_id,object_story_spec}";
+  const url = `${META_BASE}/${adId}?fields=${encodeURIComponent(fields)}`;
+  const res = await metaFetch<{ creative?: any }>(url, accessToken);
+  if (!res || !res.creative) return null;
+  const c = res.creative;
+  const pageId =
+    (c.effective_object_story_id as string | undefined)?.split("_")[0] ||
+    c.object_story_spec?.page_id ||
+    null;
+  return {
+    thumbnailUrl: c.thumbnail_url || null,
+    pageId,
+  };
+}
+
+/**
+ * Fetch page name by page_id (for pageName denormalization)
+ */
+export async function fetchPageName(
+  pageId: string,
+  accessToken: string,
+): Promise<string | null> {
+  const url = `${META_BASE}/${pageId}?fields=name`;
+  const res = await metaFetch<{ name?: string }>(url, accessToken);
+  return res?.name ?? null;
+}
+
+/**
+ * Fetch daily_budget map per adset + campaign (for CBO fallback)
+ * Returns: { [adsetId]: budget, [campaignId]: budget }
+ */
+export async function fetchAdsetDailyBudgetMap(
+  adAccountId: string,
+  accessToken: string,
+): Promise<{ adset: Record<string, number>; campaign: Record<string, number> }> {
+  const result = { adset: {} as Record<string, number>, campaign: {} as Record<string, number> };
+  // adsets
+  const adsetUrl = `${META_BASE}/${adAccountId}/adsets?fields=id,daily_budget&limit=500`;
+  const adsetRes = await metaFetch<{ data: any[] }>(adsetUrl, accessToken);
+  if (adsetRes?.data) {
+    for (const a of adsetRes.data) {
+      const v = parseNum(a.daily_budget);
+      if (v > 0) result.adset[a.id] = v / 100; // Meta stores in cents
+    }
+  }
+  // campaigns (CBO)
+  const campUrl = `${META_BASE}/${adAccountId}/campaigns?fields=id,daily_budget&limit=500`;
+  const campRes = await metaFetch<{ data: any[] }>(campUrl, accessToken);
+  if (campRes?.data) {
+    for (const c of campRes.data) {
+      const v = parseNum(c.daily_budget);
+      if (v > 0) result.campaign[c.id] = v / 100;
+    }
+  }
+  return result;
+}

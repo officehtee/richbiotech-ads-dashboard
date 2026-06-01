@@ -36,6 +36,13 @@
       "when": 1780268117770,
       "tag": "0004_far_hercules",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1780282657833,
+      "tag": "0005_good_xavin",
+      "breakpoints": true
     }
   ]
 }

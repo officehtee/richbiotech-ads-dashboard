@@ -369,3 +369,41 @@
 - [x] notifyOwner เมื่อ sync error หรือมี diff (พบใหม่ / ถูกถอด)
 - [x] vitest 8 case `bmSync.test.ts` (220/220 ผ่าน) + TypeScript clean
 - [x] checkpoint Phase 4 (cron registration รอหลัง deploy)
+
+
+## Round 7.24 — หน้า "วิเคราะห์แอดเชิงลึก" Rebuild (ad-day grain + 21 cols)
+
+### Phase 0 — สำรวจหน้าเดิม
+- [x] ระบุ path = `/ad-intelligence`, component `AdIntelligence.tsx`, ใช้ `ads.list` + `getAdsetRows` (adset-grain ต้องเปลี่ยน → ad-day)
+- [x] ระบุของที่ต้องคงไว้ (getAdsetRows ใช้โดย Smart Scaling / AI Advisor) → สร้างของใหม่ไม่ทับเดิม
+
+### Phase 1 — Schema + Meta sync + preview cache + Heartbeat
+- [x] เพิ่มตาราง `adInsightsDaily` (22 cols, UNIQUE adId+date, +index userId/accountId)
+- [x] เพิ่มตาราง `adManualMetrics` (12 cols, UNIQUE adId+date, +index userId)
+- [x] migration 0005_good_xavin applied (+ schema indexes synced)
+- [x] `metaApi.ts` — `fetchAdInsightsDaily` (level=ad + time_increment=1)
+- [x] `metaApi.ts` — `fetchAdPreviewThumb` (creative{thumbnail_url, story_id})
+- [x] `metaApi.ts` — `fetchAdsetDailyBudgetMap` (adset + campaign / CBO fallback)
+- [x] `metaApi.ts` — `fetchPageName` (denormalize page_id → name)
+- [x] `server/previewCache.ts` — download → storagePut (skip resize; original is small) + isPreviewFresh (7d)
+- [x] `server/deepAdsSync.ts` — orchestrator `syncAdInsightsForAccount` + `syncAdInsightsForAccounts` + `dateOffsetString` + `pickBudgetForInsight`
+- [x] rate-limit guard: concurrency 5 (preview cache) + 300ms delay between accounts + try/catch isolation
+- [x] db helpers — upsertAdInsightsDaily, upsertAdManualMetric, getDeepAdsRows, getPrevDayScaleAmount, getScaleAmountMap, getLatestPreviewCachedAt, updateAdPreviewCache, getAccountGroupMap
+- [x] tRPC `deepAds.list({ dateFrom, dateTo, search?, accountId?, groupId? })` + derived (roas, costPerOrder, chatToOrderRate, adsSpendPct, prevDayScale)
+- [x] tRPC `deepAds.updateManual({ adId, date, field, value })`
+- [x] tRPC `deepAds.syncNow({ accountId?, days })` (owner-only)
+- [x] Heartbeat `POST /api/scheduled/syncAdInsights` — UTC 00:xx → 7d, otherwise → 1d
+- [x] vitest 12 case ใหม่ (deepAdsSync.test.ts: CBO fallback × 5, dateOffsetString × 3, isPreviewFresh × 4) — รวม 232/232 ผ่าน
+- [x] checkpoint Phase 1
+
+### Phase 2 — ตาราง 21 คอลัมน์ + freeze + sort + Export CSV
+- [ ] (จะขยายตอนเริ่ม)
+
+### Phase 3 — Inline edit 5 ช่อง + auto-save + ยอดเก่า rolling
+- [ ] (จะขยายตอนเริ่ม)
+
+### Phase 4 — Enhancements (conditional fmt + summary + NEW badge + quick filter)
+- [ ] (จะขยายตอนเริ่ม)
+
+### Phase 5 — ส่งมอบ
+- [ ] (จะขยายตอนเริ่ม)

@@ -1014,3 +1014,310 @@ export async function ensureAccountGroupMember(
   if (!db) return;
   await db.insert(accountGroupMembers).values({ groupId, accountId: accountDbId });
 }
+
+
+/* ============================================================
+ * Round 7.24 — Deep Ads Analysis (ad-day grain) DB helpers
+ * ============================================================ */
+import {
+  adInsightsDaily,
+  adManualMetrics,
+  type AdInsightDaily,
+  type InsertAdInsightDaily,
+  type AdManualMetric,
+  type InsertAdManualMetric,
+} from "../drizzle/schema";
+import { gte, lte, lt, sql, or, like } from "drizzle-orm";
+
+/**
+ * Upsert one row into adInsightsDaily (UNIQUE on adId+date).
+ * On conflict, overwrites all sync-managed fields (NOT manual metrics).
+ */
+export async function upsertAdInsightsDaily(row: InsertAdInsightDaily): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const updateSet: Record<string, unknown> = {
+    adName: row.adName,
+    adsetId: row.adsetId,
+    adsetName: row.adsetName,
+    campaignId: row.campaignId,
+    campaignName: row.campaignName,
+    groupId: row.groupId ?? null,
+    pageName: row.pageName ?? null,
+    spend: row.spend,
+    impressions: row.impressions,
+    clicks: row.clicks,
+    ctr: row.ctr,
+    messages: row.messages,
+    dailyBudget: row.dailyBudget ?? null,
+    budgetSource: row.budgetSource ?? "none",
+    syncedAt: new Date(),
+  };
+  // Don't clobber preview cache fields unless they're supplied in the input
+  if (row.previewCachedUrl !== undefined) updateSet.previewCachedUrl = row.previewCachedUrl;
+  if (row.previewCachedAt !== undefined) updateSet.previewCachedAt = row.previewCachedAt;
+  await db.insert(adInsightsDaily).values(row).onDuplicateKeyUpdate({ set: updateSet });
+}
+
+/**
+ * Update preview cache fields only (after async download finishes).
+ */
+export async function updateAdPreviewCache(
+  userId: number,
+  adId: string,
+  date: string,
+  url: string,
+  cachedAt: Date,
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(adInsightsDaily)
+    .set({ previewCachedUrl: url, previewCachedAt: cachedAt })
+    .where(
+      and(
+        eq(adInsightsDaily.userId, userId),
+        eq(adInsightsDaily.adId, adId),
+        eq(adInsightsDaily.date, date),
+      ),
+    );
+  // Propagate to all rows of this adId for the same tenant (preview is per-ad, not per-day)
+  await db
+    .update(adInsightsDaily)
+    .set({ previewCachedUrl: url, previewCachedAt: cachedAt })
+    .where(and(eq(adInsightsDaily.userId, userId), eq(adInsightsDaily.adId, adId)));
+}
+
+/**
+ * Find existing row by adId+date (for previewCachedAt check).
+ */
+export async function findAdInsightDaily(
+  userId: number,
+  adId: string,
+  date: string,
+): Promise<AdInsightDaily | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(adInsightsDaily)
+    .where(
+      and(
+        eq(adInsightsDaily.userId, userId),
+        eq(adInsightsDaily.adId, adId),
+        eq(adInsightsDaily.date, date),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/**
+ * Get most-recent previewCachedAt for an adId (across all dates).
+ * Used by sync to decide whether to re-download.
+ */
+export async function getLatestPreviewCachedAt(
+  userId: number,
+  adId: string,
+): Promise<Date | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select({
+      url: adInsightsDaily.previewCachedUrl,
+      at: adInsightsDaily.previewCachedAt,
+    })
+    .from(adInsightsDaily)
+    .where(and(eq(adInsightsDaily.userId, userId), eq(adInsightsDaily.adId, adId)))
+    .orderBy(desc(adInsightsDaily.previewCachedAt))
+    .limit(1);
+  return rows[0]?.at ?? null;
+}
+
+/**
+ * Upsert manual metric (Orders/Sales/ScaleNew/Note).
+ * Only the supplied fields are updated; others stay untouched.
+ */
+export async function upsertAdManualMetric(row: InsertAdManualMetric): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const updateSet: Record<string, unknown> = { updatedAt: new Date() };
+  if (row.orders !== undefined) updateSet.orders = row.orders;
+  if (row.salesCount !== undefined) updateSet.salesCount = row.salesCount;
+  if (row.salesAmount !== undefined) updateSet.salesAmount = row.salesAmount;
+  if (row.scaleNextAmount !== undefined) updateSet.scaleNextAmount = row.scaleNextAmount;
+  if (row.note !== undefined) updateSet.note = row.note;
+  if (row.updatedBy !== undefined) updateSet.updatedBy = row.updatedBy;
+  await db.insert(adManualMetrics).values(row).onDuplicateKeyUpdate({ set: updateSet });
+}
+
+/**
+ * Get scaleNextAmount from the previous day for a given adId (ยอดเก่า rolling).
+ */
+export async function getPrevDayScaleAmount(
+  userId: number,
+  adId: string,
+  date: string,
+): Promise<number | null> {
+  const db = await getDb();
+  if (!db) return null;
+  // Compute previous date string
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  const prev = d.toISOString().slice(0, 10);
+  const rows = await db
+    .select({ amt: adManualMetrics.scaleNextAmount })
+    .from(adManualMetrics)
+    .where(
+      and(
+        eq(adManualMetrics.userId, userId),
+        eq(adManualMetrics.adId, adId),
+        eq(adManualMetrics.date, prev),
+      ),
+    )
+    .limit(1);
+  return rows[0]?.amt ?? null;
+}
+
+export type DeepAdsFilters = {
+  search?: string;
+  accountId?: number;
+  groupId?: number;
+};
+
+/**
+ * Get deep ads rows joined with adAccounts + accountGroups + manual metrics.
+ * Returns flattened objects ready for the table UI.
+ */
+export async function getDeepAdsRows(
+  userId: number,
+  dateFrom: string,
+  dateTo: string,
+  filters: DeepAdsFilters = {},
+) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = [
+    eq(adInsightsDaily.userId, userId),
+    gte(adInsightsDaily.date, dateFrom),
+    lte(adInsightsDaily.date, dateTo),
+  ];
+  if (filters.accountId !== undefined) {
+    conditions.push(eq(adInsightsDaily.accountId, filters.accountId));
+  }
+  if (filters.groupId !== undefined) {
+    conditions.push(eq(adInsightsDaily.groupId, filters.groupId));
+  }
+  if (filters.search && filters.search.trim().length > 0) {
+    const q = `%${filters.search.trim()}%`;
+    conditions.push(
+      or(
+        like(adInsightsDaily.adName, q),
+        like(adInsightsDaily.adsetName, q),
+        like(adInsightsDaily.campaignName, q),
+        like(adInsightsDaily.pageName, q),
+      )!,
+    );
+  }
+  const rows = await db
+    .select({
+      // insights
+      id: adInsightsDaily.id,
+      adId: adInsightsDaily.adId,
+      adName: adInsightsDaily.adName,
+      adsetId: adInsightsDaily.adsetId,
+      adsetName: adInsightsDaily.adsetName,
+      campaignId: adInsightsDaily.campaignId,
+      campaignName: adInsightsDaily.campaignName,
+      date: adInsightsDaily.date,
+      spend: adInsightsDaily.spend,
+      impressions: adInsightsDaily.impressions,
+      clicks: adInsightsDaily.clicks,
+      ctr: adInsightsDaily.ctr,
+      messages: adInsightsDaily.messages,
+      dailyBudget: adInsightsDaily.dailyBudget,
+      budgetSource: adInsightsDaily.budgetSource,
+      previewCachedUrl: adInsightsDaily.previewCachedUrl,
+      pageName: adInsightsDaily.pageName,
+      syncedAt: adInsightsDaily.syncedAt,
+      // account
+      accountId: adInsightsDaily.accountId,
+      accountNickname: adAccounts.nickname,
+      accountMetaId: adAccounts.adAccountId,
+      // group
+      groupId: adInsightsDaily.groupId,
+      groupName: accountGroups.groupName,
+      groupColor: accountGroups.color,
+      // manual
+      manualOrders: adManualMetrics.orders,
+      manualSalesCount: adManualMetrics.salesCount,
+      manualSalesAmount: adManualMetrics.salesAmount,
+      manualScaleNextAmount: adManualMetrics.scaleNextAmount,
+      manualNote: adManualMetrics.note,
+    })
+    .from(adInsightsDaily)
+    .leftJoin(adAccounts, eq(adAccounts.id, adInsightsDaily.accountId))
+    .leftJoin(accountGroups, eq(accountGroups.id, adInsightsDaily.groupId))
+    .leftJoin(
+      adManualMetrics,
+      and(
+        eq(adManualMetrics.adId, adInsightsDaily.adId),
+        eq(adManualMetrics.date, adInsightsDaily.date),
+        eq(adManualMetrics.userId, userId),
+      ),
+    )
+    .where(and(...conditions))
+    .orderBy(desc(adInsightsDaily.date), desc(adInsightsDaily.spend));
+  return rows;
+}
+
+/**
+ * Get scaleNextAmount map for a list of (adId, date) — used to enrich
+ * each row with "ยอดเก่า" (prev day's scaleNextAmount).
+ * Returns Map<"adId|date", amount>.
+ */
+export async function getScaleAmountMap(
+  userId: number,
+  dateFrom: string,
+  dateTo: string,
+): Promise<Map<string, number>> {
+  const db = await getDb();
+  if (!db) return new Map();
+  // Expand range by 1 day back so we can lookup "previous day" for the earliest date
+  const d = new Date(`${dateFrom}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  const expandedFrom = d.toISOString().slice(0, 10);
+  const rows = await db
+    .select({
+      adId: adManualMetrics.adId,
+      date: adManualMetrics.date,
+      amt: adManualMetrics.scaleNextAmount,
+    })
+    .from(adManualMetrics)
+    .where(
+      and(
+        eq(adManualMetrics.userId, userId),
+        gte(adManualMetrics.date, expandedFrom),
+        lte(adManualMetrics.date, dateTo),
+      ),
+    );
+  const m = new Map<string, number>();
+  for (const r of rows) {
+    if (r.amt != null) m.set(`${r.adId}|${r.date}`, r.amt);
+  }
+  return m;
+}
+
+/**
+ * Helper: get accountId → groupId mapping for a tenant.
+ */
+export async function getAccountGroupMap(tenantId: number): Promise<Map<number, number>> {
+  const db = await getDb();
+  if (!db) return new Map();
+  const members = await getAllGroupMembersForUser(tenantId);
+  const m = new Map<number, number>();
+  for (const mem of members) {
+    if (!m.has(mem.accountId)) m.set(mem.accountId, mem.groupId);
+  }
+  return m;
+}

@@ -7,8 +7,13 @@ import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { runAlertCheckForTenant } from "../alertEngine";
-import { listAllWorkspaceTenantIds, listAllActiveBusinessManagers } from "../db";
+import {
+  listAllWorkspaceTenantIds,
+  listAllActiveBusinessManagers,
+  getAdAccountsByUser,
+} from "../db";
 import { syncOneBusinessManager, shouldNotifyOwner, summarizeOutcome } from "../bmSync";
+import { syncAdInsightsForAccounts, dateOffsetString } from "../deepAdsSync";
 import { notifyOwner } from "./notification";
 import { sdk } from "./sdk";
 import { createContext } from "./context";
@@ -90,6 +95,58 @@ async function startServer() {
       });
     } catch (e: any) {
       console.error("[syncBM] failed", e);
+      return res.status(500).json({
+        error: e?.message ?? String(e),
+        stack: e?.stack,
+        context: { url: req.url },
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Scheduled: Deep Ads Sync (Round 7.24) — sync ad-day grain ทุก 1 ชม.
+  // - ทุก 1 ชม.: sync today only (1 day)
+  // - เที่ยงคืน (UTC 00:xx): sync ย้อนหลัง 7 วัน
+  app.post("/api/scheduled/syncAdInsights", async (req, res) => {
+    try {
+      const user = await sdk.authenticateRequest(req as any);
+      if (!user?.isCron) {
+        return res.status(403).json({ error: "cron-only" });
+      }
+      const hourUtc = new Date().getUTCHours();
+      const days = hourUtc === 0 ? 7 : 1;
+      const since = dateOffsetString(days - 1);
+      const until = dateOffsetString(0);
+      const tenants = await listAllWorkspaceTenantIds();
+      let totalRows = 0;
+      let totalPreviews = 0;
+      let totalFailed = 0;
+      for (const tid of tenants) {
+        try {
+          const accounts = await getAdAccountsByUser(tid);
+          const active = accounts.filter((a) => a.isActive);
+          if (active.length === 0) continue;
+          const results = await syncAdInsightsForAccounts(active, since, until, tid);
+          totalRows += results.reduce((s, r) => s + r.rowsSynced, 0);
+          totalPreviews += results.reduce((s, r) => s + r.previewsRefreshed, 0);
+          totalFailed += results.filter((r) => !r.ok).length;
+        } catch (err) {
+          console.error(`[syncAdInsights] tenant=${tid} failed`, err);
+          totalFailed += 1;
+        }
+      }
+      return res.json({
+        ok: true,
+        tenants: tenants.length,
+        days,
+        since,
+        until,
+        rowsSynced: totalRows,
+        previewsRefreshed: totalPreviews,
+        failed: totalFailed,
+      });
+    } catch (e: any) {
+      console.error("[syncAdInsights] failed", e);
       return res.status(500).json({
         error: e?.message ?? String(e),
         stack: e?.stack,
