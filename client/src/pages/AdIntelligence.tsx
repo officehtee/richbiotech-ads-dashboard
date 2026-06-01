@@ -21,16 +21,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/_core/hooks/useAuth";
 import {
   exportCSV,
   formatCurrency,
-  formatDateShortTh,
+  formatDateNumeric,
   formatNumber,
   formatPercent,
   formatRoas,
@@ -47,7 +53,7 @@ import {
   RefreshCw,
   Search,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 type SortKey =
@@ -88,6 +94,10 @@ export default function AdIntelligence() {
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [sortBy, setSortBy] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  // Round 7.26: Preview click → popup zoom
+  const [previewModal, setPreviewModal] = useState<
+    { url: string; title: string } | null
+  >(null);
 
   const accountsQuery = trpc.accounts.list.useQuery();
   const groupsQuery = trpc.groups.list.useQuery();
@@ -215,7 +225,7 @@ export default function AdIntelligence() {
         "ยอดยิง",
       ],
       sorted.map((r) => [
-        r.date,
+        formatDateNumeric(r.date),
         r.accountNickname ?? "",
         r.groupName ?? "",
         r.pageName ?? "",
@@ -380,29 +390,57 @@ export default function AdIntelligence() {
       <Card className="p-0 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="text-sm border-separate border-spacing-0">
-            <thead className="bg-muted/50 sticky top-0 z-10">
+            <thead className="bg-muted/50 sticky top-0 z-20">
+              {/* Tier 1: column group headers */}
+              <tr className="text-center text-[11px] uppercase tracking-wider text-muted-foreground">
+                <th
+                  colSpan={6}
+                  className="px-3 py-2 bg-muted/80 border-b border-r border-border font-semibold"
+                >
+                  มิติ (Dimensions)
+                </th>
+                <th
+                  colSpan={11}
+                  className="px-3 py-2 bg-muted/80 border-b border-r border-border font-semibold"
+                >
+                  ตัวชี้วัด (Metrics)
+                </th>
+                <th
+                  colSpan={2}
+                  className="px-3 py-2 bg-cyan-50 dark:bg-cyan-950/30 border-b border-border font-semibold text-cyan-700 dark:text-cyan-300 scaling-zone-edge-left scaling-zone-edge-right"
+                >
+                  ต่อแอด (Scaling)
+                </th>
+                <th
+                  colSpan={2}
+                  className="px-3 py-2 bg-muted/80 border-b border-l border-border font-semibold"
+                >
+                  หมายเหตุ + งบ
+                </th>
+              </tr>
+              {/* Tier 2: individual columns */}
               <tr className="text-left">
-                <th className="px-4 py-3 sticky left-0 bg-muted/80 z-20 w-[100px] min-w-[100px] whitespace-nowrap">
+                <th className="px-4 py-3 sticky left-0 bg-muted/80 z-20 w-[120px] min-w-[120px] whitespace-nowrap">
                   <SortBtn k="date" label="วันที่" />
                 </th>
-                <th className="px-3 py-3 sticky left-[100px] bg-muted/80 z-20 w-[64px] min-w-[64px] whitespace-nowrap">Preview</th>
+                <th className="px-3 py-3 sticky left-[120px] bg-muted/80 z-20 w-[72px] min-w-[72px] whitespace-nowrap">Preview</th>
                 <th className="px-4 py-3 whitespace-nowrap min-w-[140px]">บัญชี</th>
                 <th className="px-4 py-3 whitespace-nowrap min-w-[120px]">Group</th>
                 <th className="px-4 py-3 whitespace-nowrap min-w-[140px]">Page</th>
-                <th className="px-4 py-3 whitespace-nowrap min-w-[320px]">Campaign</th>
-                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
+                <th className="px-4 py-3 whitespace-nowrap min-w-[320px] border-r border-border">Campaign</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px] text-orange-600 dark:text-orange-400">
                   <SortBtn k="spend" label="ค่า ADS" />
                 </th>
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[100px]">
                   <SortBtn k="ctr" label="CTR" />
                 </th>
-                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[100px]">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[100px] text-blue-600 dark:text-blue-400">
                   <SortBtn k="messages" label="ทัก" />
                 </th>
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
                   <SortBtn k="costPerClick" label="ค่าคลิก" />
                 </th>
-                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px] bg-amber-50 dark:bg-amber-950/30">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px] bg-amber-50 dark:bg-amber-950/30 text-emerald-700 dark:text-emerald-400">
                   <SortBtn k="manualOrders" label="Orders" />
                 </th>
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px]">
@@ -411,28 +449,28 @@ export default function AdIntelligence() {
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
                   <SortBtn k="chatToOrderRate" label="%ทัก/ลูก" />
                 </th>
-                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px] bg-amber-50 dark:bg-amber-950/30">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px] bg-amber-50 dark:bg-amber-950/30 text-emerald-700 dark:text-emerald-400">
                   <SortBtn k="manualSalesCount" label="จำนวนขาย" />
                 </th>
-                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px] bg-amber-50 dark:bg-amber-950/30">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px] bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400">
                   <SortBtn k="manualSalesAmount" label="ยอดขาย" />
                 </th>
-                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px] text-violet-600 dark:text-violet-400">
                   <SortBtn k="roas" label="ROAS" />
                 </th>
-                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px] border-r border-border">
                   <SortBtn k="adsSpendPct" label="%ค่า ADS" />
                 </th>
-                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px] scaling-zone-edge-left bg-cyan-50/40 dark:bg-cyan-950/15">
                   <SortBtn k="prevDayScale" label="ยอดเก่า" />
                 </th>
-                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px] bg-amber-50 dark:bg-amber-950/30">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px] scaling-zone-edge-right bg-cyan-50/40 dark:bg-cyan-950/15">
                   <SortBtn k="manualScaleNextAmount" label="ยอดใหม่" />
                 </th>
-                <th className="px-4 py-3 whitespace-nowrap min-w-[200px] bg-amber-50 dark:bg-amber-950/30">
+                <th className="px-4 py-3 whitespace-nowrap min-w-[260px] bg-amber-50 dark:bg-amber-950/30">
                   หมายเหตุ
                 </th>
-                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px] text-orange-600 dark:text-orange-400">
                   <SortBtn k="dailyBudget" label="ยอดยิง" />
                 </th>
               </tr>
@@ -478,42 +516,42 @@ export default function AdIntelligence() {
                         >
                           <td className="px-4 py-4 sticky left-0 bg-background z-10 whitespace-nowrap border-t">
                             <div className="flex items-center gap-1.5">
-                              <span className="font-medium">
-                                {formatDateShortTh(r.date)}
+                              <span className="font-medium tabular-nums">
+                                {formatDateNumeric(r.date)}
                               </span>
                               {newBadge && (
-                                <Badge
-                                  variant="default"
-                                  className="h-4 px-1 text-[9px]"
+                                <span
+                                  className="neon-blink inline-flex items-center rounded px-1.5 text-[10px] font-bold leading-4 tracking-wider"
+                                  title="อยู่ในช่วง NEW (3 วันล่าสุด)"
                                 >
                                   NEW
-                                </Badge>
+                                </span>
                               )}
                             </div>
                           </td>
-                          <td className="px-3 py-4 sticky left-[100px] bg-background z-10 border-t">
+                          <td className="px-3 py-4 sticky left-[120px] bg-background z-10 border-t">
                             {r.previewCachedUrl ? (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <img
-                                    src={r.previewCachedUrl}
-                                    alt=""
-                                    className="h-8 w-8 rounded object-cover border"
-                                    loading="lazy"
-                                  />
-                                </TooltipTrigger>
-                                <TooltipContent side="right" className="max-w-xs">
-                                  <p className="text-xs font-medium">{r.adName}</p>
-                                  <img
-                                    src={r.previewCachedUrl}
-                                    alt=""
-                                    className="mt-1 max-h-48 max-w-[16rem] rounded"
-                                  />
-                                </TooltipContent>
-                              </Tooltip>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPreviewModal({
+                                    url: r.previewCachedUrl!,
+                                    title: r.adName ?? r.campaignName ?? "Preview",
+                                  })
+                                }
+                                className="block h-[60px] w-[48px] rounded-md border bg-muted/30 overflow-hidden hover:ring-2 hover:ring-primary transition"
+                                title="คลิกเพื่อดูรูปเต็ม"
+                              >
+                                <img
+                                  src={r.previewCachedUrl}
+                                  alt={r.adName ?? ""}
+                                  className="h-full w-full object-contain"
+                                  loading="lazy"
+                                />
+                              </button>
                             ) : (
-                              <div className="h-8 w-8 rounded border bg-muted/40 flex items-center justify-center">
-                                <ImageIcon className="h-3 w-3 text-muted-foreground" />
+                              <div className="h-[60px] w-[48px] rounded-md border bg-muted/40 flex items-center justify-center">
+                                <ImageIcon className="h-4 w-4 text-muted-foreground" />
                               </div>
                             )}
                           </td>
@@ -543,7 +581,7 @@ export default function AdIntelligence() {
                           <td className="px-4 py-4 whitespace-nowrap border-t">
                             {r.pageName ?? "—"}
                           </td>
-                          <td className="px-4 py-4 border-t">
+                          <td className="px-4 py-4 border-t border-r border-border">
                             <Tooltip>
                               <TooltipTrigger className="text-left leading-snug">
                                 {r.campaignName ?? "—"}
@@ -561,13 +599,13 @@ export default function AdIntelligence() {
                               </TooltipContent>
                             </Tooltip>
                           </td>
-                          <td className="px-4 py-4 text-right tabular-nums border-t">
+                          <td className="px-4 py-4 text-right tabular-nums border-t text-orange-600 dark:text-orange-400 font-medium">
                             {formatCurrency(r.spend ?? 0, 0)}
                           </td>
                           <td className="px-4 py-4 text-right tabular-nums border-t">
                             {formatPercent(r.ctr ?? 0, 2)}
                           </td>
-                          <td className="px-4 py-4 text-right tabular-nums border-t">
+                          <td className="px-4 py-4 text-right tabular-nums border-t text-blue-600 dark:text-blue-400 font-medium">
                             {formatNumber(r.messages ?? 0)}
                           </td>
                           <td className="px-4 py-4 text-right tabular-nums border-t">
@@ -575,8 +613,10 @@ export default function AdIntelligence() {
                               ? formatCurrency(r.costPerClick, 2)
                               : "—"}
                           </td>
-                          <td className="px-4 py-4 text-right tabular-nums border-t bg-amber-50/30 dark:bg-amber-950/10">
+                          <td className="px-4 py-4 text-right tabular-nums border-t bg-amber-50/30 dark:bg-amber-950/10 text-emerald-700 dark:text-emerald-400 font-medium">
                             <InlineNumber
+                              dashedNeon
+                              accentClass="text-emerald-700 dark:text-emerald-400"
                               value={r.manualOrders}
                               onSave={(v) =>
                                 updateManual.mutate({
@@ -598,8 +638,10 @@ export default function AdIntelligence() {
                               ? formatPercent(r.chatToOrderRate, 1)
                               : "—"}
                           </td>
-                          <td className="px-4 py-4 text-right tabular-nums border-t bg-amber-50/30 dark:bg-amber-950/10">
+                          <td className="px-4 py-4 text-right tabular-nums border-t bg-amber-50/30 dark:bg-amber-950/10 text-emerald-700 dark:text-emerald-400 font-medium">
                             <InlineNumber
+                              dashedNeon
+                              accentClass="text-emerald-700 dark:text-emerald-400"
                               value={r.manualSalesCount}
                               onSave={(v) =>
                                 updateManual.mutate({
@@ -611,8 +653,10 @@ export default function AdIntelligence() {
                               }
                             />
                           </td>
-                          <td className="px-4 py-4 text-right tabular-nums border-t bg-amber-50/30 dark:bg-amber-950/10">
+                          <td className="px-4 py-4 text-right tabular-nums border-t bg-amber-50/30 dark:bg-amber-950/10 text-amber-700 dark:text-amber-400 font-medium">
                             <InlineNumber
+                              dashedNeon
+                              accentClass="text-amber-700 dark:text-amber-400"
                               value={r.manualSalesAmount}
                               onSave={(v) =>
                                 updateManual.mutate({
@@ -626,22 +670,28 @@ export default function AdIntelligence() {
                             />
                           </td>
                           <td
-                            className={`px-4 py-4 text-right tabular-nums border-t ${roasColor}`}
+                            className={`px-4 py-4 text-right tabular-nums border-t font-semibold ${
+                              r.roas == null
+                                ? "text-muted-foreground"
+                                : "text-violet-600 dark:text-violet-400"
+                            } ${roasColor}`}
                           >
                             {r.roas != null ? formatRoas(r.roas) : "—"}
                           </td>
-                          <td className="px-4 py-4 text-right tabular-nums border-t">
+                          <td className="px-4 py-4 text-right tabular-nums border-t border-r border-border">
                             {r.adsSpendPct != null
                               ? formatPercent(r.adsSpendPct, 1)
                               : "—"}
                           </td>
-                          <td className="px-4 py-4 text-right tabular-nums border-t text-muted-foreground">
+                          <td className="px-4 py-4 text-right tabular-nums border-t scaling-zone-edge-left scaling-zone-cell text-muted-foreground">
                             {r.prevDayScale != null
                               ? formatNumber(r.prevDayScale, 0)
                               : "—"}
                           </td>
-                          <td className="px-4 py-4 text-right tabular-nums border-t bg-amber-50/30 dark:bg-amber-950/10">
+                          <td className="px-4 py-4 text-right tabular-nums border-t scaling-zone-edge-right scaling-zone-cell">
                             <InlineNumber
+                              dashedNeon
+                              accentClass="text-cyan-700 dark:text-cyan-300"
                               value={r.manualScaleNextAmount}
                               onSave={(v) =>
                                 updateManual.mutate({
@@ -654,8 +704,8 @@ export default function AdIntelligence() {
                               fmt={(v) => formatNumber(v, 0)}
                             />
                           </td>
-                          <td className="px-4 py-4 border-t bg-amber-50/30 dark:bg-amber-950/10">
-                            <InlineText
+                          <td className="px-4 py-4 border-t bg-amber-50/30 dark:bg-amber-950/10 align-top">
+                            <NoteCell
                               value={r.manualNote}
                               onSave={(v) =>
                                 updateManual.mutate({
@@ -667,7 +717,7 @@ export default function AdIntelligence() {
                               }
                             />
                           </td>
-                          <td className="px-4 py-4 text-right tabular-nums border-t">
+                          <td className="px-4 py-4 text-right tabular-nums border-t text-orange-600 dark:text-orange-400 font-medium">
                             {r.dailyBudget != null ? (
                               <span>
                                 {formatCurrency(r.dailyBudget, 0)}
@@ -692,7 +742,7 @@ export default function AdIntelligence() {
                     className="px-4 py-3 sticky left-0 bg-muted/70 z-10 border-t-2"
                     colSpan={6}
                   >
-                    รวม ({sorted.length})
+                    รวม ({sorted.length}) — ตัวชี้วัดรวม
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums border-t-2">
                     {formatCurrency(summary.spend, 0)}
@@ -731,7 +781,92 @@ export default function AdIntelligence() {
           </table>
         </div>
       </Card>
+
+      {/* Round 7.26 — Legend + วิธีอ่านโซนต่อแอด */}
+      <Card className="p-4 space-y-3">
+        <div>
+          <div className="text-xs font-semibold text-muted-foreground mb-2">
+            อธิบายสี (Legend)
+          </div>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+            <LegendDot color="bg-orange-500" label="ค่า ADS / ยอดยิง" />
+            <LegendDot color="bg-blue-500" label="ทัก" />
+            <LegendDot color="bg-emerald-500" label="Orders / จำนวนขาย" />
+            <LegendDot color="bg-amber-500" label="ยอดขาย" />
+            <LegendDot color="bg-violet-500" label="ROAS" />
+            <span className="inline-flex items-center gap-2">
+              <span className="inline-block w-4 h-4 rounded border-2 border-dashed border-cyan-500" />
+              <span>ช่องที่ผู้สเกลแอดกรอก (กรอบเส้นประ)</span>
+            </span>
+          </div>
+        </div>
+
+        <div className="border-t border-border pt-3">
+          <div className="text-xs font-semibold text-muted-foreground mb-2">
+            วิธีอ่านโซน “ต่อแอด (Scaling)”
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+            <div>
+              <span className="font-semibold text-foreground">ยอดเก่า</span>
+              <span className="text-muted-foreground">
+                {" "}= ยอด “ยอดใหม่” ที่ผู้สเกลแอดกรอกไว้เมื่อวาน (ระบบเลื่อนให้เอง · ย้อนได้ 1 วัน · แก้ไม่ได้)
+              </span>
+            </div>
+            <div>
+              <span className="font-semibold text-foreground">ยอดใหม่</span>
+              <span className="text-muted-foreground">
+                {" "}= ผู้สเกลแอดกรอกหลังเที่ยงคืน สั่งงบสำหรับพรุ่งนี้
+              </span>
+            </div>
+            <div>
+              <span className="font-semibold text-foreground">หมายเหตุ</span>
+              <span className="text-muted-foreground">
+                {" "}= ผู้สเกลแอดเขียนเหตุผลที่สเกล
+              </span>
+            </div>
+            <div>
+              <span className="font-semibold text-foreground">ยอดยิง</span>
+              <span className="text-muted-foreground">
+                {" "}= งบจริงที่พนักงานยิงวันนี้ (ดึงจาก Meta)
+              </span>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Preview popup (Round 7.26) */}
+      <Dialog
+        open={!!previewModal}
+        onOpenChange={(open) => {
+          if (!open) setPreviewModal(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-3xl p-4">
+          <DialogTitle className="text-sm pr-6 truncate">
+            {previewModal?.title}
+          </DialogTitle>
+          {previewModal && (
+            <div className="mt-2 flex justify-center bg-muted/40 rounded-lg p-3">
+              <img
+                src={previewModal.url}
+                alt={previewModal.title}
+                className="max-h-[78vh] max-w-full rounded-md object-contain"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+/* Round 7.26 — Legend dot helper (kept local since only used in this file) */
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className={`inline-block w-3 h-3 rounded-sm ${color}`} />
+      <span>{label}</span>
+    </span>
   );
 }
 
@@ -743,10 +878,14 @@ function InlineNumber({
   value,
   onSave,
   fmt,
+  dashedNeon = false,
+  accentClass = "",
 }: {
   value: number | null | undefined;
   onSave: (v: number | null) => void;
   fmt?: (v: number) => string;
+  dashedNeon?: boolean;
+  accentClass?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(value == null ? "" : String(value));
@@ -755,7 +894,7 @@ function InlineNumber({
     return (
       <button
         type="button"
-        className="w-full text-right hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded px-1.5 py-1 -mx-1"
+        className={`w-full text-right hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded px-1.5 py-1 -mx-1 ${dashedNeon ? "editable-neon-dashed" : ""} ${accentClass}`}
         onClick={() => {
           setText(value == null ? "" : String(value));
           setEditing(true);
@@ -788,13 +927,19 @@ function InlineNumber({
           setEditing(false);
         }
       }}
-      className="h-8 text-right text-sm"
+      className={`h-8 text-right text-sm ${accentClass}`}
       inputMode="decimal"
     />
   );
 }
 
-function InlineText({
+/**
+ * NoteCell — Round 7.26
+ * - อยู่ในโหมดปกติ: clamp 2 บรรทัด + ... → ทุกแถวสูงเท่ากัน
+ * - hover ขึ้น tooltip popup ชี้ข้อความเต็ม + ขึ้นบรรทัดใหม่ได้
+ * - คลิก → เข้า edit mode (textarea พิมพ์ยาวได้) จนกว่าจะ blur/Ctrl+Enter จึงบันทึก
+ */
+function NoteCell({
   value,
   onSave,
 }: {
@@ -803,44 +948,80 @@ function InlineText({
 }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(value ?? "");
+  const ref = useRef<HTMLTextAreaElement | null>(null);
 
-  if (!editing) {
+  useEffect(() => {
+    if (editing) {
+      ref.current?.focus();
+      const el = ref.current;
+      if (el) {
+        // ขยาย textarea ตามเนื้อหา + cursor ไปท้าย
+        el.style.height = "auto";
+        el.style.height = `${Math.min(el.scrollHeight, 240)}px`;
+        el.setSelectionRange(el.value.length, el.value.length);
+      }
+    }
+  }, [editing]);
+
+  if (editing) {
     return (
-      <button
-        type="button"
-        className="w-full text-left hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded px-1.5 py-1 -mx-1 block"
-        onClick={() => {
-          setText(value ?? "");
-          setEditing(true);
+      <Textarea
+        ref={ref}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          const el = e.currentTarget;
+          el.style.height = "auto";
+          el.style.height = `${Math.min(el.scrollHeight, 240)}px`;
         }}
-        title={value ?? ""}
-      >
-        {value ? (
-          <span className="leading-snug">{value}</span>
-        ) : (
-          <span className="text-muted-foreground italic text-xs">+ กรอก</span>
-        )}
-      </button>
+        onBlur={() => {
+          setEditing(false);
+          const v = text.trim() === "" ? null : text;
+          if (v !== value) onSave(v);
+        }}
+        onKeyDown={(e) => {
+          // Ctrl/Cmd + Enter = save; Escape = cancel; พิมพ์ Enter ธรรมดาขึ้นบรรทัดใหม่ได้
+          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+            (e.target as HTMLTextAreaElement).blur();
+          }
+          if (e.key === "Escape") {
+            setText(value ?? "");
+            setEditing(false);
+          }
+        }}
+        placeholder="เหตุผลที่สเกล / สิ่งที่สังเกต..."
+        className="min-h-[64px] max-h-[240px] text-sm leading-snug"
+      />
     );
   }
+
+  const hasNote = !!(value && value.trim().length);
+  const trigger = (
+    <button
+      type="button"
+      onClick={() => {
+        setText(value ?? "");
+        setEditing(true);
+      }}
+      className="w-full text-left hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded px-1.5 py-1 -mx-1 block editable-neon-dashed"
+    >
+      {hasNote ? (
+        <span className="note-clamp text-sm">{value}</span>
+      ) : (
+        <span className="text-muted-foreground italic text-xs">+ กรอก</span>
+      )}
+    </button>
+  );
+
+  if (!hasNote) return trigger;
+
+  // hover ขึ้น tooltip popup แสดงข้อความเต็ม
   return (
-    <Input
-      autoFocus
-      value={text}
-      onChange={(e) => setText(e.target.value)}
-      onBlur={() => {
-        setEditing(false);
-        const v = text.trim() === "" ? null : text;
-        if (v !== value) onSave(v);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-        if (e.key === "Escape") {
-          setText(value ?? "");
-          setEditing(false);
-        }
-      }}
-      className="h-8 text-sm"
-    />
+    <Tooltip>
+      <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+      <TooltipContent side="top" className="max-w-sm whitespace-pre-wrap break-words text-sm">
+        {value}
+      </TooltipContent>
+    </Tooltip>
   );
 }

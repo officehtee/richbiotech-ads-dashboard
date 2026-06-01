@@ -106,3 +106,13 @@ export function formatDateShortTh(s: string): string {
   const month = months[parseInt(m[2], 10) - 1] ?? m[2];
   return `${parseInt(m[3], 10)} ${month}`;
 }
+
+/**
+ * Format a YYYY-MM-DD date string to numeric DD/MM/YYYY (Gregorian year).
+ * Example: "2026-06-01" -> "01/06/2026".
+ */
+export function formatDateNumeric(s: string): string {
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return s;
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}

@@ -273,3 +273,61 @@
   /* expand sticky panels */
   .lg\:sticky, .sticky { position: static !important; }
 }
+
+
+/* =========================================================
+   Round 7.26 — Deep Ads table polish
+   ========================================================= */
+
+/* NEW badge: blinking neon green */
+@keyframes neon-blink {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 4px #22ff88, 0 0 10px #22ff88, 0 0 16px rgba(34, 255, 136, 0.6);
+  }
+  50% {
+    opacity: 0.55;
+    box-shadow: 0 0 2px #22ff88, 0 0 4px rgba(34, 255, 136, 0.3);
+  }
+}
+.neon-blink {
+  animation: neon-blink 1.1s ease-in-out infinite;
+  background-color: #06f06b;
+  color: #052b15;
+  border: 1px solid #22ff88;
+  text-shadow: 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+/* Scaling zone neon border (left + right edges) */
+.scaling-zone-edge-left {
+  box-shadow: inset 3px 0 0 0 #22d3ee, inset 4px 0 8px -2px rgba(34, 211, 238, 0.55);
+}
+.scaling-zone-edge-right {
+  box-shadow: inset -3px 0 0 0 #22d3ee, inset -4px 0 8px -2px rgba(34, 211, 238, 0.55);
+}
+.scaling-zone-cell {
+  background-color: rgba(34, 211, 238, 0.04);
+}
+.dark .scaling-zone-cell {
+  background-color: rgba(34, 211, 238, 0.06);
+}
+
+/* Editable input zone (dashed neon border, matches scaling tone) */
+.editable-neon-dashed {
+  outline: 1.5px dashed rgba(34, 211, 238, 0.65);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+/* line-clamp helper (Tailwind 4 ships line-clamp utility, but a custom class is safer for cross-browser) */
+.note-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.35;
+  max-height: calc(1.35em * 2);
+}
