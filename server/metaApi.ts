@@ -995,31 +995,78 @@ export async function fetchPageName(
 }
 
 /**
- * Fetch daily_budget map per adset + campaign (for CBO fallback)
- * Returns: { [adsetId]: budget, [campaignId]: budget }
+ * Pure helper: pick a numeric budget value from a Meta adset/campaign object.
+ * Priority: daily_budget > lifetime_budget. Meta returns budgets in cents.
+ * Exported only for testing.
+ */
+export function extractBudgetFromMetaObject(obj: any): number | null {
+  const daily = parseNum(obj?.daily_budget);
+  if (daily > 0) return daily / 100;
+  const lifetime = parseNum(obj?.lifetime_budget);
+  if (lifetime > 0) return lifetime / 100;
+  return null;
+}
+
+/**
+ * Fetch budget map per adset + campaign for one ad account.
+ *
+ * - Returns numbers in baht (Meta stores in cents).
+ * - Falls back from daily_budget → lifetime_budget so accounts using
+ *   lifetime budgets are not all blank.
+ * - Walks Meta paging up to a sensible maxPages so accounts with hundreds
+ *   of adsets are not silently truncated.
+ * - Includes auth token in URL because metaFetch's auth path needs the same
+ *   token; this matches the pattern used elsewhere in this module.
+ *
+ * Returns: { adset: { [adsetId]: budgetBaht }, campaign: { [campaignId]: budgetBaht } }
  */
 export async function fetchAdsetDailyBudgetMap(
   adAccountId: string,
   accessToken: string,
 ): Promise<{ adset: Record<string, number>; campaign: Record<string, number> }> {
-  const result = { adset: {} as Record<string, number>, campaign: {} as Record<string, number> };
-  // adsets
-  const adsetUrl = `${META_BASE}/${adAccountId}/adsets?fields=id,daily_budget&limit=500`;
-  const adsetRes = await metaFetch<{ data: any[] }>(adsetUrl, accessToken);
-  if (adsetRes?.data) {
-    for (const a of adsetRes.data) {
-      const v = parseNum(a.daily_budget);
-      if (v > 0) result.adset[a.id] = v / 100; // Meta stores in cents
+  const result = {
+    adset: {} as Record<string, number>,
+    campaign: {} as Record<string, number>,
+  };
+  const fields = "id,daily_budget,lifetime_budget";
+
+  // adsets (paged)
+  try {
+    const adsetUrl =
+      `${META_BASE}/${adAccountId}/adsets?fields=${fields}` +
+      `&limit=200&access_token=${encodeURIComponent(accessToken)}`;
+    const adsetData = await fetchAllPages(adsetUrl, 25);
+    for (const a of adsetData) {
+      const v = extractBudgetFromMetaObject(a);
+      if (v != null && v > 0) result.adset[a.id] = v;
     }
+  } catch (err: any) {
+    console.warn(
+      `[MetaAPI] fetch adsets budget failed for ${adAccountId}: ${err?.message ?? err}`,
+    );
   }
-  // campaigns (CBO)
-  const campUrl = `${META_BASE}/${adAccountId}/campaigns?fields=id,daily_budget&limit=500`;
-  const campRes = await metaFetch<{ data: any[] }>(campUrl, accessToken);
-  if (campRes?.data) {
-    for (const c of campRes.data) {
-      const v = parseNum(c.daily_budget);
-      if (v > 0) result.campaign[c.id] = v / 100;
+
+  // campaigns (CBO + lifetime fallback)
+  try {
+    const campUrl =
+      `${META_BASE}/${adAccountId}/campaigns?fields=${fields}` +
+      `&limit=200&access_token=${encodeURIComponent(accessToken)}`;
+    const campData = await fetchAllPages(campUrl, 25);
+    for (const c of campData) {
+      const v = extractBudgetFromMetaObject(c);
+      if (v != null && v > 0) result.campaign[c.id] = v;
     }
+  } catch (err: any) {
+    console.warn(
+      `[MetaAPI] fetch campaigns budget failed for ${adAccountId}: ${err?.message ?? err}`,
+    );
   }
+
+  console.log(
+    `[MetaAPI] budget map for ${adAccountId}: ` +
+      `${Object.keys(result.adset).length} adsets, ` +
+      `${Object.keys(result.campaign).length} campaigns`,
+  );
+
   return result;
 }

@@ -798,7 +798,8 @@ export default function AdIntelligence() {
                   </td>
                   <td className="px-4 py-3 border-t-2"></td>
                   <td className="px-4 py-3 border-t-2"></td>
-                  <td className="px-4 py-3 border-t-2"></td>
+                  <td className="px-4 py-3 border-t-2 scaling-zone-edge-left scaling-zone-cell"></td>
+                  <td className="px-4 py-3 border-t-2 scaling-zone-edge-right scaling-zone-cell"></td>
                   <td className="px-4 py-3 border-t-2"></td>
                   <td className="px-4 py-3 border-t-2"></td>
                 </tr>

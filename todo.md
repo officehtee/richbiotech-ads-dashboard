@@ -463,3 +463,10 @@
 - [x] (2.1) ลบสี text-orange/blue/emerald/amber/violet ออกจาก thead th
 - [x] (2.2) คงสีไว้เฉพาะ tbody td
 - [x] checkpoint
+
+## Round 7.28 — Daily budget + Scaling zone border
+- [x] (1) ตรวจ fetchAdsetDailyBudgetMap: รองรับ lifetime_budget, paging, log debug
+- [x] (2) pickBudgetForInsight fallback: adset.daily → adset.lifetime → campaign.daily → campaign.lifetime
+- [x] (3) เพิ่ม vitest pickBudgetForInsight (4 fallback paths)
+- [x] (4) Scaling zone border: เส้นซ้าย/ขวาเข้มต่อเนื่องตั้งแต่ tier1 → tier2 → tbody → tfoot
+- [x] (5) Run vitest + checkpoint

@@ -298,13 +298,28 @@
   text-shadow: 0 0 2px rgba(255, 255, 255, 0.5);
 }
 
-/* Scaling zone neon border (left + right edges) */
-.scaling-zone-edge-left {
-  box-shadow: inset 3px 0 0 0 #22d3ee, inset 4px 0 8px -2px rgba(34, 211, 238, 0.55);
-}
+/* Scaling zone neon border (left + right edges)
+   Uses ::before/::after on each cell so the line renders OUTSIDE
+   any inner background/glow and therefore stays continuous from
+   tier-1 group header → tier-2 sort header → tbody rows → tfoot. */
+.scaling-zone-edge-left,
 .scaling-zone-edge-right {
-  box-shadow: inset -3px 0 0 0 #22d3ee, inset -4px 0 8px -2px rgba(34, 211, 238, 0.55);
+  position: relative;
 }
+.scaling-zone-edge-left::before,
+.scaling-zone-edge-right::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #22d3ee;
+  box-shadow: 0 0 8px 1px rgba(34, 211, 238, 0.55);
+  z-index: 1;
+  pointer-events: none;
+}
+.scaling-zone-edge-left::before { left: 0; }
+.scaling-zone-edge-right::after { right: 0; }
 .scaling-zone-cell {
   background-color: rgba(34, 211, 238, 0.04);
 }
