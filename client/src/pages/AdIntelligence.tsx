@@ -379,60 +379,60 @@ export default function AdIntelligence() {
       {/* Table */}
       <Card className="p-0 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="text-sm border-separate border-spacing-0">
             <thead className="bg-muted/50 sticky top-0 z-10">
               <tr className="text-left">
-                <th className="px-2 py-2 sticky left-0 bg-muted/80 z-20 w-20">
+                <th className="px-4 py-3 sticky left-0 bg-muted/80 z-20 w-[100px] min-w-[100px] whitespace-nowrap">
                   <SortBtn k="date" label="วันที่" />
                 </th>
-                <th className="px-2 py-2 sticky left-20 bg-muted/80 z-20 w-12">Preview</th>
-                <th className="px-2 py-2 whitespace-nowrap">บัญชี</th>
-                <th className="px-2 py-2 whitespace-nowrap">Group</th>
-                <th className="px-2 py-2 whitespace-nowrap">Page</th>
-                <th className="px-2 py-2 whitespace-nowrap min-w-32">Campaign</th>
-                <th className="px-2 py-2 text-right whitespace-nowrap">
+                <th className="px-3 py-3 sticky left-[100px] bg-muted/80 z-20 w-[64px] min-w-[64px] whitespace-nowrap">Preview</th>
+                <th className="px-4 py-3 whitespace-nowrap min-w-[140px]">บัญชี</th>
+                <th className="px-4 py-3 whitespace-nowrap min-w-[120px]">Group</th>
+                <th className="px-4 py-3 whitespace-nowrap min-w-[140px]">Page</th>
+                <th className="px-4 py-3 whitespace-nowrap min-w-[320px]">Campaign</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
                   <SortBtn k="spend" label="ค่า ADS" />
                 </th>
-                <th className="px-2 py-2 text-right whitespace-nowrap">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[100px]">
                   <SortBtn k="ctr" label="CTR" />
                 </th>
-                <th className="px-2 py-2 text-right whitespace-nowrap">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[100px]">
                   <SortBtn k="messages" label="ทัก" />
                 </th>
-                <th className="px-2 py-2 text-right whitespace-nowrap">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
                   <SortBtn k="costPerClick" label="ค่าคลิก" />
                 </th>
-                <th className="px-2 py-2 text-right whitespace-nowrap bg-amber-50 dark:bg-amber-950/30">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px] bg-amber-50 dark:bg-amber-950/30">
                   <SortBtn k="manualOrders" label="Orders" />
                 </th>
-                <th className="px-2 py-2 text-right whitespace-nowrap">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px]">
                   <SortBtn k="costPerOrder" label="ต้นทุน/ซื้อ" />
                 </th>
-                <th className="px-2 py-2 text-right whitespace-nowrap">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
                   <SortBtn k="chatToOrderRate" label="%ทัก/ลูก" />
                 </th>
-                <th className="px-2 py-2 text-right whitespace-nowrap bg-amber-50 dark:bg-amber-950/30">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px] bg-amber-50 dark:bg-amber-950/30">
                   <SortBtn k="manualSalesCount" label="จำนวนขาย" />
                 </th>
-                <th className="px-2 py-2 text-right whitespace-nowrap bg-amber-50 dark:bg-amber-950/30">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px] bg-amber-50 dark:bg-amber-950/30">
                   <SortBtn k="manualSalesAmount" label="ยอดขาย" />
                 </th>
-                <th className="px-2 py-2 text-right whitespace-nowrap">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
                   <SortBtn k="roas" label="ROAS" />
                 </th>
-                <th className="px-2 py-2 text-right whitespace-nowrap">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
                   <SortBtn k="adsSpendPct" label="%ค่า ADS" />
                 </th>
-                <th className="px-2 py-2 text-right whitespace-nowrap">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
                   <SortBtn k="prevDayScale" label="ยอดเก่า" />
                 </th>
-                <th className="px-2 py-2 text-right whitespace-nowrap bg-amber-50 dark:bg-amber-950/30">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px] bg-amber-50 dark:bg-amber-950/30">
                   <SortBtn k="manualScaleNextAmount" label="ยอดใหม่" />
                 </th>
-                <th className="px-2 py-2 whitespace-nowrap bg-amber-50 dark:bg-amber-950/30 min-w-40">
+                <th className="px-4 py-3 whitespace-nowrap min-w-[200px] bg-amber-50 dark:bg-amber-950/30">
                   หมายเหตุ
                 </th>
-                <th className="px-2 py-2 text-right whitespace-nowrap">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
                   <SortBtn k="dailyBudget" label="ยอดยิง" />
                 </th>
               </tr>
@@ -441,8 +441,8 @@ export default function AdIntelligence() {
               {listQuery.isLoading
                 ? Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i} className="border-t">
-                      <td colSpan={21} className="px-2 py-2">
-                        <Skeleton className="h-7 w-full" />
+                      <td colSpan={21} className="px-4 py-4">
+                        <Skeleton className="h-9 w-full" />
                       </td>
                     </tr>
                   ))
@@ -451,7 +451,7 @@ export default function AdIntelligence() {
                     <tr>
                       <td
                         colSpan={21}
-                        className="px-2 py-12 text-center text-sm text-muted-foreground"
+                        className="px-4 py-16 text-center text-sm text-muted-foreground"
                       >
                         ไม่มีข้อมูล — กดปุ่ม "Sync Now" เพื่อดึงจาก Meta หรือลองเลือกช่วงวันที่อื่น
                       </td>
@@ -476,8 +476,8 @@ export default function AdIntelligence() {
                           key={r.id}
                           className="border-t hover:bg-muted/40 transition-colors"
                         >
-                          <td className="px-2 py-1.5 sticky left-0 bg-background z-10 whitespace-nowrap">
-                            <div className="flex items-center gap-1">
+                          <td className="px-4 py-4 sticky left-0 bg-background z-10 whitespace-nowrap border-t">
+                            <div className="flex items-center gap-1.5">
                               <span className="font-medium">
                                 {formatDateShortTh(r.date)}
                               </span>
@@ -491,7 +491,7 @@ export default function AdIntelligence() {
                               )}
                             </div>
                           </td>
-                          <td className="px-2 py-1.5 sticky left-20 bg-background z-10">
+                          <td className="px-3 py-4 sticky left-[100px] bg-background z-10 border-t">
                             {r.previewCachedUrl ? (
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -517,17 +517,10 @@ export default function AdIntelligence() {
                               </div>
                             )}
                           </td>
-                          <td className="px-2 py-1.5 whitespace-nowrap max-w-32 truncate">
-                            <Tooltip>
-                              <TooltipTrigger className="truncate text-left">
-                                {r.accountNickname ?? r.accountMetaId ?? "—"}
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                {r.accountNickname ?? r.accountMetaId}
-                              </TooltipContent>
-                            </Tooltip>
+                          <td className="px-4 py-4 whitespace-nowrap border-t">
+                            {r.accountNickname ?? r.accountMetaId ?? "—"}
                           </td>
-                          <td className="px-2 py-1.5 whitespace-nowrap">
+                          <td className="px-4 py-4 whitespace-nowrap border-t">
                             {r.groupName ? (
                               <Badge
                                 variant="outline"
@@ -547,12 +540,12 @@ export default function AdIntelligence() {
                               <span className="text-muted-foreground">—</span>
                             )}
                           </td>
-                          <td className="px-2 py-1.5 whitespace-nowrap max-w-28 truncate">
+                          <td className="px-4 py-4 whitespace-nowrap border-t">
                             {r.pageName ?? "—"}
                           </td>
-                          <td className="px-2 py-1.5 max-w-40 truncate">
+                          <td className="px-4 py-4 border-t">
                             <Tooltip>
-                              <TooltipTrigger className="truncate text-left">
+                              <TooltipTrigger className="text-left leading-snug">
                                 {r.campaignName ?? "—"}
                               </TooltipTrigger>
                               <TooltipContent>
@@ -568,21 +561,21 @@ export default function AdIntelligence() {
                               </TooltipContent>
                             </Tooltip>
                           </td>
-                          <td className="px-2 py-1.5 text-right tabular-nums">
+                          <td className="px-4 py-4 text-right tabular-nums border-t">
                             {formatCurrency(r.spend ?? 0, 0)}
                           </td>
-                          <td className="px-2 py-1.5 text-right tabular-nums">
+                          <td className="px-4 py-4 text-right tabular-nums border-t">
                             {formatPercent(r.ctr ?? 0, 2)}
                           </td>
-                          <td className="px-2 py-1.5 text-right tabular-nums">
+                          <td className="px-4 py-4 text-right tabular-nums border-t">
                             {formatNumber(r.messages ?? 0)}
                           </td>
-                          <td className="px-2 py-1.5 text-right tabular-nums">
+                          <td className="px-4 py-4 text-right tabular-nums border-t">
                             {r.costPerClick != null
                               ? formatCurrency(r.costPerClick, 2)
                               : "—"}
                           </td>
-                          <td className="px-2 py-1.5 text-right tabular-nums bg-amber-50/30 dark:bg-amber-950/10">
+                          <td className="px-4 py-4 text-right tabular-nums border-t bg-amber-50/30 dark:bg-amber-950/10">
                             <InlineNumber
                               value={r.manualOrders}
                               onSave={(v) =>
@@ -595,17 +588,17 @@ export default function AdIntelligence() {
                               }
                             />
                           </td>
-                          <td className="px-2 py-1.5 text-right tabular-nums">
+                          <td className="px-4 py-4 text-right tabular-nums border-t">
                             {r.costPerOrder != null
                               ? formatCurrency(r.costPerOrder, 0)
                               : "—"}
                           </td>
-                          <td className="px-2 py-1.5 text-right tabular-nums">
+                          <td className="px-4 py-4 text-right tabular-nums border-t">
                             {r.chatToOrderRate != null
                               ? formatPercent(r.chatToOrderRate, 1)
                               : "—"}
                           </td>
-                          <td className="px-2 py-1.5 text-right tabular-nums bg-amber-50/30 dark:bg-amber-950/10">
+                          <td className="px-4 py-4 text-right tabular-nums border-t bg-amber-50/30 dark:bg-amber-950/10">
                             <InlineNumber
                               value={r.manualSalesCount}
                               onSave={(v) =>
@@ -618,7 +611,7 @@ export default function AdIntelligence() {
                               }
                             />
                           </td>
-                          <td className="px-2 py-1.5 text-right tabular-nums bg-amber-50/30 dark:bg-amber-950/10">
+                          <td className="px-4 py-4 text-right tabular-nums border-t bg-amber-50/30 dark:bg-amber-950/10">
                             <InlineNumber
                               value={r.manualSalesAmount}
                               onSave={(v) =>
@@ -633,21 +626,21 @@ export default function AdIntelligence() {
                             />
                           </td>
                           <td
-                            className={`px-2 py-1.5 text-right tabular-nums ${roasColor}`}
+                            className={`px-4 py-4 text-right tabular-nums border-t ${roasColor}`}
                           >
                             {r.roas != null ? formatRoas(r.roas) : "—"}
                           </td>
-                          <td className="px-2 py-1.5 text-right tabular-nums">
+                          <td className="px-4 py-4 text-right tabular-nums border-t">
                             {r.adsSpendPct != null
                               ? formatPercent(r.adsSpendPct, 1)
                               : "—"}
                           </td>
-                          <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">
+                          <td className="px-4 py-4 text-right tabular-nums border-t text-muted-foreground">
                             {r.prevDayScale != null
                               ? formatNumber(r.prevDayScale, 0)
                               : "—"}
                           </td>
-                          <td className="px-2 py-1.5 text-right tabular-nums bg-amber-50/30 dark:bg-amber-950/10">
+                          <td className="px-4 py-4 text-right tabular-nums border-t bg-amber-50/30 dark:bg-amber-950/10">
                             <InlineNumber
                               value={r.manualScaleNextAmount}
                               onSave={(v) =>
@@ -661,7 +654,7 @@ export default function AdIntelligence() {
                               fmt={(v) => formatNumber(v, 0)}
                             />
                           </td>
-                          <td className="px-2 py-1.5 bg-amber-50/30 dark:bg-amber-950/10 min-w-40">
+                          <td className="px-4 py-4 border-t bg-amber-50/30 dark:bg-amber-950/10">
                             <InlineText
                               value={r.manualNote}
                               onSave={(v) =>
@@ -674,7 +667,7 @@ export default function AdIntelligence() {
                               }
                             />
                           </td>
-                          <td className="px-2 py-1.5 text-right tabular-nums">
+                          <td className="px-4 py-4 text-right tabular-nums border-t">
                             {r.dailyBudget != null ? (
                               <span>
                                 {formatCurrency(r.dailyBudget, 0)}
@@ -696,42 +689,42 @@ export default function AdIntelligence() {
               <tfoot className="bg-muted/50 font-semibold sticky bottom-0">
                 <tr className="border-t-2">
                   <td
-                    className="px-2 py-2 sticky left-0 bg-muted/70 z-10"
+                    className="px-4 py-3 sticky left-0 bg-muted/70 z-10 border-t-2"
                     colSpan={6}
                   >
                     รวม ({sorted.length})
                   </td>
-                  <td className="px-2 py-2 text-right tabular-nums">
+                  <td className="px-4 py-3 text-right tabular-nums border-t-2">
                     {formatCurrency(summary.spend, 0)}
                   </td>
-                  <td className="px-2 py-2"></td>
-                  <td className="px-2 py-2 text-right tabular-nums">
+                  <td className="px-4 py-3 border-t-2"></td>
+                  <td className="px-4 py-3 text-right tabular-nums border-t-2">
                     {formatNumber(summary.messages)}
                   </td>
-                  <td className="px-2 py-2"></td>
-                  <td className="px-2 py-2 text-right tabular-nums">
+                  <td className="px-4 py-3 border-t-2"></td>
+                  <td className="px-4 py-3 text-right tabular-nums border-t-2">
                     {formatNumber(summary.orders)}
                   </td>
-                  <td className="px-2 py-2 text-right tabular-nums">
+                  <td className="px-4 py-3 text-right tabular-nums border-t-2">
                     {summary.costPerOrder != null
                       ? formatCurrency(summary.costPerOrder, 0)
                       : "—"}
                   </td>
-                  <td className="px-2 py-2"></td>
-                  <td className="px-2 py-2 text-right tabular-nums">
+                  <td className="px-4 py-3 border-t-2"></td>
+                  <td className="px-4 py-3 text-right tabular-nums border-t-2">
                     {formatNumber(summary.salesCount)}
                   </td>
-                  <td className="px-2 py-2 text-right tabular-nums">
+                  <td className="px-4 py-3 text-right tabular-nums border-t-2">
                     {formatNumber(summary.salesAmount)}
                   </td>
-                  <td className="px-2 py-2 text-right tabular-nums">
+                  <td className="px-4 py-3 text-right tabular-nums border-t-2">
                     {summary.roas != null ? formatRoas(summary.roas) : "—"}
                   </td>
-                  <td className="px-2 py-2"></td>
-                  <td className="px-2 py-2"></td>
-                  <td className="px-2 py-2"></td>
-                  <td className="px-2 py-2"></td>
-                  <td className="px-2 py-2"></td>
+                  <td className="px-4 py-3 border-t-2"></td>
+                  <td className="px-4 py-3 border-t-2"></td>
+                  <td className="px-4 py-3 border-t-2"></td>
+                  <td className="px-4 py-3 border-t-2"></td>
+                  <td className="px-4 py-3 border-t-2"></td>
                 </tr>
               </tfoot>
             )}
@@ -762,14 +755,14 @@ function InlineNumber({
     return (
       <button
         type="button"
-        className="w-full text-right hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded px-1 -mx-1"
+        className="w-full text-right hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded px-1.5 py-1 -mx-1"
         onClick={() => {
           setText(value == null ? "" : String(value));
           setEditing(true);
         }}
       >
         {value == null ? (
-          <span className="text-muted-foreground italic text-[10px]">+ กรอก</span>
+          <span className="text-muted-foreground italic text-xs">+ กรอก</span>
         ) : fmt ? (
           fmt(value)
         ) : (
@@ -795,7 +788,7 @@ function InlineNumber({
           setEditing(false);
         }
       }}
-      className="h-7 text-right text-xs"
+      className="h-8 text-right text-sm"
       inputMode="decimal"
     />
   );
@@ -815,7 +808,7 @@ function InlineText({
     return (
       <button
         type="button"
-        className="w-full text-left hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded px-1 -mx-1 truncate block max-w-40"
+        className="w-full text-left hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded px-1.5 py-1 -mx-1 block"
         onClick={() => {
           setText(value ?? "");
           setEditing(true);
@@ -823,9 +816,9 @@ function InlineText({
         title={value ?? ""}
       >
         {value ? (
-          value
+          <span className="leading-snug">{value}</span>
         ) : (
-          <span className="text-muted-foreground italic text-[10px]">+ กรอก</span>
+          <span className="text-muted-foreground italic text-xs">+ กรอก</span>
         )}
       </button>
     );
@@ -847,7 +840,7 @@ function InlineText({
           setEditing(false);
         }
       }}
-      className="h-7 text-xs"
+      className="h-8 text-sm"
     />
   );
 }

@@ -430,3 +430,13 @@
 ### Phase 5 — ส่งมอบ
 - [x] vitest 232/232 + TypeScript clean
 - [x] ส่งมอบ checkpoint ให้ user ทดสอบ
+
+## Round 7.25 — UX redesign ตาราง "วิเคราะห์แอดเชิงลึก"
+- [x] กำหนด min-width แต่ละคอลัมน์ตามเนื้อหา (Campaign 320px, ตัวเลข 100-130px, ข้อความ 140-180px)
+- [x] ปล่อยตารางกว้างเกินจอ — overflow-x-auto + scroll แนวนอน
+- [x] เพิ่ม font-size จาก text-xs → text-sm
+- [x] เพิ่ม row padding py-2 → py-4 (สูง ~56px)
+- [x] เพิ่ม cell padding px-2 → px-4
+- [x] Campaign + Adset + Page อ่านชื่อเต็มได้ ไม่ตัด ...
+- [x] header sticky คงเดิม + ปรับ height ตาม row
+- [x] checkpoint
