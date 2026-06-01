@@ -453,3 +453,13 @@
 - [x] vitest + TypeScript clean
 - [x] checkpoint
 - [x] (9) คอลัมน์หมายเหตุ: line-clamp 2 บรรทัดในตาราง + tooltip popup เต็มเมื่อ hover + พิมพ์ตอนแก้ไขได้ยาวปกติ
+
+## Round 7.27 — Fix NEW logic + clean header colors
+- [x] (1.1) Backend: เพิ่ม field campaignFirstDate ในผลลัพธ์ deepAds.list (MIN(date) per campaign_id ใช้ทั้ง dataset)
+- [x] (1.2) Frontend: helper isCampaignNew(firstDate, today) — เทียบกับ new Date() จริง
+- [x] (1.3) ลบ isNew(rowDate, todayStr) เก่าออก / quickFilter "new" ใช้ logic ใหม่
+- [x] (1.4) ย้ายป้าย NEW จากคอลัมน์วันที่ → ติดข้างชื่อ Campaign
+- [x] (1.5) vitest: เคส 1มิ.ย./5มิ.ย. ไม่ NEW, 4มิ.ย./5มิ.ย. NEW, filter ไม่กระทบ
+- [x] (2.1) ลบสี text-orange/blue/emerald/amber/violet ออกจาก thead th
+- [x] (2.2) คงสีไว้เฉพาะ tbody td
+- [x] checkpoint

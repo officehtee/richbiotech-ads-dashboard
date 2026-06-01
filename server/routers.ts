@@ -116,6 +116,7 @@ import {
   ensureAccountGroupMember,
   getDeepAdsRows,
   getScaleAmountMap,
+  getCampaignFirstDates,
   upsertAdManualMetric,
 } from "./db";
 import {
@@ -923,15 +924,16 @@ export const appRouter = router({
       )
       .query(async ({ ctx, input }) => {
         const tid = await tenantId(ctx);
-        const [rows, scaleMap] = await Promise.all([
+        const [rows, scaleMap, campaignFirstDates] = await Promise.all([
           getDeepAdsRows(tid, input.dateFrom, input.dateTo, {
             search: input.search,
             accountId: input.accountId,
             groupId: input.groupId,
           }),
           getScaleAmountMap(tid, input.dateFrom, input.dateTo),
+          getCampaignFirstDates(tid),
         ]);
-        // enrich each row with derived fields + prevDay scaleNextAmount
+        // enrich each row with derived fields + prevDay scaleNextAmount + campaignFirstDate
         return rows.map((r) => {
           const spend = r.spend ?? 0;
           const messages = r.messages ?? 0;
@@ -944,6 +946,9 @@ export const appRouter = router({
           d.setUTCDate(d.getUTCDate() - 1);
           const prevDate = d.toISOString().slice(0, 10);
           const prevDayScale = scaleMap.get(`${r.adId}|${prevDate}`) ?? null;
+          const campaignFirstDate = r.campaignId
+            ? campaignFirstDates.get(String(r.campaignId)) ?? null
+            : null;
           return {
             ...r,
             costPerOrder: orders > 0 ? spend / orders : null,
@@ -953,6 +958,7 @@ export const appRouter = router({
             roas: spend > 0 && salesAmount > 0 ? salesAmount / spend : null,
             adsSpendPct: salesAmount > 0 ? (spend / salesAmount) * 100 : null,
             prevDayScale,
+            campaignFirstDate,
           };
         });
       }),

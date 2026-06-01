@@ -75,12 +75,35 @@ type SortKey =
 
 type QuickFilter = "all" | "high-roas" | "low-roas" | "no-orders" | "new";
 
-// "NEW" if the row's syncedAt - createdAt < 3 days — we approximate using earliest date in range
-function isNew(rowDate: string, todayStr: string): boolean {
-  const d1 = new Date(`${rowDate}T00:00:00Z`).getTime();
-  const d2 = new Date(`${todayStr}T00:00:00Z`).getTime();
-  const days = (d2 - d1) / (24 * 60 * 60 * 1000);
-  return days <= 2; // within last 3 days (0, 1, 2)
+/**
+ * "NEW" if the campaign's first-ever ad run is within the last 3 days
+ * (compared with the actual current date — NOT the dateTo filter).
+ *
+ * - campaignFirstDate: MIN(date) of the campaign across the entire dataset
+ *   (already provided by the backend, not constrained by the date filter)
+ * - today: actual current date (Date object); fall back to new Date() when omitted
+ * - returns true when (today - firstDate) <= 3 days
+ *
+ * The function is exported only for testing purposes.
+ */
+export function isCampaignNew(
+  campaignFirstDate: string | null | undefined,
+  today: Date = new Date(),
+): boolean {
+  if (!campaignFirstDate) return false;
+  const m = campaignFirstDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return false;
+  const first = new Date(
+    Date.UTC(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10)),
+  ).getTime();
+  // Normalize "today" to UTC midnight to avoid local-time drift.
+  const todayUtc = Date.UTC(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
+  const days = (todayUtc - first) / (24 * 60 * 60 * 1000);
+  return days >= 0 && days <= 3;
 }
 
 export default function AdIntelligence() {
@@ -133,7 +156,8 @@ export default function AdIntelligence() {
 
   const sorted = useMemo(() => {
     const list = listQuery.data ?? [];
-    const todayStr = dateTo;
+    // Use real "today" (system clock) for NEW detection, never dateTo.
+    const todayObj = new Date();
     const filtered = list.filter((r) => {
       if (quickFilter === "high-roas") {
         const t = r.groupId ? groupTargetById.get(r.groupId) ?? 2 : 2;
@@ -146,7 +170,7 @@ export default function AdIntelligence() {
       if (quickFilter === "no-orders") {
         return (r.manualOrders ?? 0) === 0 && (r.spend ?? 0) > 0;
       }
-      if (quickFilter === "new") return isNew(r.date, todayStr);
+      if (quickFilter === "new") return isCampaignNew((r as any).campaignFirstDate, todayObj);
       return true;
     });
     return [...filtered].sort((a, b) => {
@@ -368,7 +392,7 @@ export default function AdIntelligence() {
               { k: "high-roas", label: "ROAS ดี" },
               { k: "low-roas", label: "ROAS ต่ำ" },
               { k: "no-orders", label: "ใช้แล้วยังไม่มี Order" },
-              { k: "new", label: "NEW (3 วันล่าสุด)" },
+              { k: "new", label: "NEW (แคมเปญใหม่ไม่เกิน 3 วัน)" },
             ] as { k: QuickFilter; label: string }[]
           ).map((f) => (
             <Button
@@ -428,19 +452,19 @@ export default function AdIntelligence() {
                 <th className="px-4 py-3 whitespace-nowrap min-w-[120px]">Group</th>
                 <th className="px-4 py-3 whitespace-nowrap min-w-[140px]">Page</th>
                 <th className="px-4 py-3 whitespace-nowrap min-w-[320px] border-r border-border">Campaign</th>
-                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px] text-orange-600 dark:text-orange-400">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
                   <SortBtn k="spend" label="ค่า ADS" />
                 </th>
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[100px]">
                   <SortBtn k="ctr" label="CTR" />
                 </th>
-                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[100px] text-blue-600 dark:text-blue-400">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[100px]">
                   <SortBtn k="messages" label="ทัก" />
                 </th>
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
                   <SortBtn k="costPerClick" label="ค่าคลิก" />
                 </th>
-                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px] bg-amber-50 dark:bg-amber-950/30 text-emerald-700 dark:text-emerald-400">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px] bg-amber-50 dark:bg-amber-950/30">
                   <SortBtn k="manualOrders" label="Orders" />
                 </th>
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px]">
@@ -449,13 +473,13 @@ export default function AdIntelligence() {
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
                   <SortBtn k="chatToOrderRate" label="%ทัก/ลูก" />
                 </th>
-                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px] bg-amber-50 dark:bg-amber-950/30 text-emerald-700 dark:text-emerald-400">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px] bg-amber-50 dark:bg-amber-950/30">
                   <SortBtn k="manualSalesCount" label="จำนวนขาย" />
                 </th>
-                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px] bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px] bg-amber-50 dark:bg-amber-950/30">
                   <SortBtn k="manualSalesAmount" label="ยอดขาย" />
                 </th>
-                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px] text-violet-600 dark:text-violet-400">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
                   <SortBtn k="roas" label="ROAS" />
                 </th>
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px] border-r border-border">
@@ -470,7 +494,7 @@ export default function AdIntelligence() {
                 <th className="px-4 py-3 whitespace-nowrap min-w-[260px] bg-amber-50 dark:bg-amber-950/30">
                   หมายเหตุ
                 </th>
-                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px] text-orange-600 dark:text-orange-400">
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
                   <SortBtn k="dailyBudget" label="ยอดยิง" />
                 </th>
               </tr>
@@ -507,27 +531,19 @@ export default function AdIntelligence() {
                             : r.roas >= target * 0.75
                               ? "text-amber-600 dark:text-amber-400"
                               : "text-rose-600 dark:text-rose-400";
-                      const todayStr = dateTo;
-                      const newBadge = isNew(r.date, todayStr);
+                      const newBadge = isCampaignNew(
+                        (r as any).campaignFirstDate,
+                        new Date(),
+                      );
                       return (
                         <tr
                           key={r.id}
                           className="border-t hover:bg-muted/40 transition-colors"
                         >
                           <td className="px-4 py-4 sticky left-0 bg-background z-10 whitespace-nowrap border-t">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-medium tabular-nums">
-                                {formatDateNumeric(r.date)}
-                              </span>
-                              {newBadge && (
-                                <span
-                                  className="neon-blink inline-flex items-center rounded px-1.5 text-[10px] font-bold leading-4 tracking-wider"
-                                  title="อยู่ในช่วง NEW (3 วันล่าสุด)"
-                                >
-                                  NEW
-                                </span>
-                              )}
-                            </div>
+                            <span className="font-medium tabular-nums">
+                              {formatDateNumeric(r.date)}
+                            </span>
                           </td>
                           <td className="px-3 py-4 sticky left-[120px] bg-background z-10 border-t">
                             {r.previewCachedUrl ? (
@@ -582,22 +598,32 @@ export default function AdIntelligence() {
                             {r.pageName ?? "—"}
                           </td>
                           <td className="px-4 py-4 border-t border-r border-border">
-                            <Tooltip>
-                              <TooltipTrigger className="text-left leading-snug">
-                                {r.campaignName ?? "—"}
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="text-xs font-medium">
-                                  Ad: {r.adName ?? "—"}
-                                </p>
-                                <p className="text-[10px] text-muted-foreground">
-                                  Adset: {r.adsetName ?? "—"}
-                                </p>
-                                <p className="text-[10px] text-muted-foreground">
-                                  Campaign: {r.campaignName ?? "—"}
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
+                            <div className="flex items-start gap-2">
+                              <Tooltip>
+                                <TooltipTrigger className="text-left leading-snug flex-1 min-w-0">
+                                  {r.campaignName ?? "—"}
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="text-xs font-medium">
+                                    Ad: {r.adName ?? "—"}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    Adset: {r.adsetName ?? "—"}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    Campaign: {r.campaignName ?? "—"}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                              {newBadge && (
+                                <span
+                                  className="neon-blink inline-flex items-center rounded px-1.5 text-[10px] font-bold leading-4 tracking-wider shrink-0 mt-0.5"
+                                  title="แคมเปญใหม่ — เริ่มยิงไม่เกิน 3 วัน"
+                                >
+                                  NEW
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-4 py-4 text-right tabular-nums border-t text-orange-600 dark:text-orange-400 font-medium">
                             {formatCurrency(r.spend ?? 0, 0)}

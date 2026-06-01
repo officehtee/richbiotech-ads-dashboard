@@ -1272,6 +1272,34 @@ export async function getDeepAdsRows(
 }
 
 /**
+ * Get the earliest (MIN) date per campaign across the FULL dataset for a tenant.
+ * NOT filtered by dateFrom/dateTo — used to compute the "NEW" badge
+ * (a campaign is NEW if its first ever ad run is within the last 3 days).
+ * Returns Map<campaignId, firstDateString "YYYY-MM-DD">.
+ */
+export async function getCampaignFirstDates(
+  userId: number,
+): Promise<Map<string, string>> {
+  const db = await getDb();
+  const map = new Map<string, string>();
+  if (!db) return map;
+  const rows = await db
+    .select({
+      campaignId: adInsightsDaily.campaignId,
+      firstDate: sql<string>`MIN(${adInsightsDaily.date})`,
+    })
+    .from(adInsightsDaily)
+    .where(eq(adInsightsDaily.userId, userId))
+    .groupBy(adInsightsDaily.campaignId);
+  for (const r of rows) {
+    if (r.campaignId && r.firstDate) {
+      map.set(String(r.campaignId), String(r.firstDate));
+    }
+  }
+  return map;
+}
+
+/**
  * Get scaleNextAmount map for a list of (adId, date) — used to enrich
  * each row with "ยอดเก่า" (prev day's scaleNextAmount).
  * Returns Map<"adId|date", amount>.
