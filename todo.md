@@ -397,13 +397,36 @@
 - [x] checkpoint Phase 1
 
 ### Phase 2 — ตาราง 21 คอลัมน์ + freeze + sort + Export CSV
-- [ ] (จะขยายตอนเริ่ม)
+- [x] DateRangePicker (1d/3d/7d/14d/30d/custom) + presetToDateRange client helper
+- [x] Account + Group filter Select + Search input
+- [x] ตาราง 21 คอลัมน์ครบ (วันที่, Preview, บัญชี, Group, Page, Campaign, ค่า ADS, CTR, ทัก, ค่าคลิก, Orders, ต้นทุน/ซื้อ, %ทัก→ลูก, จำนวนขาย, ยอดขาย, ROAS, %ค่า ADS, ยอดเก่า, ยอดใหม่, หมายเหตุ, ยอดยิง)
+- [x] freeze: sticky คอลัมน์ "วันที่" + "Preview" (left-0 / left-20)
+- [x] sticky header + footer (สรุปยอดรวม)
+- [x] sortable columns (12 keys) — toggle asc/desc + ลูกศร
+- [x] Export CSV (BOM UTF-8 พร้อม Excel) + filename มี dateFrom_to_dateTo
+- [x] Preview thumbnail (img จาก previewCachedUrl) + Tooltip ขยาย
+- [x] Tooltip รายละเอียด Ad/Adset/Campaign
+- [x] Group Badge สี (จาก groupColor)
+- [x] checkpoint Phase 2 (รวมกับ Phase 3+4)
 
 ### Phase 3 — Inline edit 5 ช่อง + auto-save + ยอดเก่า rolling
-- [ ] (จะขยายตอนเริ่ม)
+- [x] InlineNumber component (Orders/SalesCount/SalesAmount/ScaleNextAmount) — click → edit, Enter/blur save, Esc cancel
+- [x] InlineText component (Note) — same UX, ใช้ hover bg amber
+- [x] auto-save ผ่าน trpc deepAds.updateManual + invalidate list
+- [x] ยอดเก่า (prevDayScale) — ดึงผ่าน getScaleAmountMap + map ใน routers.ts
+- [x] 5 คอลัมน์ที่กรอกได้มี bg-amber tint แตกต่างจากคอลัมน์ data
+- [x] checkpoint Phase 3 (รวมกับ Phase 2+4)
 
 ### Phase 4 — Enhancements (conditional fmt + summary + NEW badge + quick filter)
-- [ ] (จะขยายตอนเริ่ม)
+- [x] ROAS conditional color (>=target=green, >=75%=amber, <75%=rose)
+- [x] Footer summary row (รวม spend/messages/orders/salesCount/salesAmount/ROAS/costPerOrder)
+- [x] NEW badge (ภายใน 3 วันล่าสุดของช่วงที่เลือก)
+- [x] Quick filters 5 chips (ทั้งหมด / ROAS ดี / ROAS ต่ำ / ใช้แล้วยังไม่มี Order / NEW)
+- [x] CBO badge (แสดง "(CBO)" ถ้า budgetSource=campaign)
+- [x] Sync Now button (owner-only) + toast result
+- [x] Empty state + skeleton loading
+- [x] checkpoint รวม Phase 2+3+4
 
 ### Phase 5 — ส่งมอบ
-- [ ] (จะขยายตอนเริ่ม)
+- [x] vitest 232/232 + TypeScript clean
+- [x] ส่งมอบ checkpoint ให้ user ทดสอบ

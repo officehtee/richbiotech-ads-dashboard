@@ -71,3 +71,38 @@ export function periodKeyToLabel(key: string): string {
   const monthIdx = parseInt(m, 10) - 1;
   return `${months[monthIdx] ?? m} ${y}`;
 }
+
+/**
+ * Convert a date preset / custom range to { dateFrom, dateTo } YYYY-MM-DD pair (local timezone).
+ * Used by Deep Ads Analysis (and any page where backend needs string dates).
+ */
+export function presetToDateRange(
+  preset: string,
+  since?: string,
+  until?: string,
+): { dateFrom: string; dateTo: string } {
+  if (preset === "custom" && since && until) return { dateFrom: since, dateTo: until };
+  const map: Record<string, number> = { "1d": 1, "3d": 3, "7d": 7, "14d": 14, "30d": 30 };
+  const days = map[preset] ?? 7;
+  const fmt = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+  const today = new Date();
+  const from = new Date(today);
+  from.setDate(today.getDate() - days + 1);
+  return { dateFrom: fmt(from), dateTo: fmt(today) };
+}
+
+/**
+ * Format a YYYY-MM-DD date string to Thai short label (e.g., "31 พ.ค.")
+ */
+export function formatDateShortTh(s: string): string {
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return s;
+  const months = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+  const month = months[parseInt(m[2], 10) - 1] ?? m[2];
+  return `${parseInt(m[3], 10)} ${month}`;
+}
