@@ -2,7 +2,7 @@
  * Shared types between frontend and backend
  */
 
-export type DatePreset = "1d" | "3d" | "7d" | "14d" | "30d" | "custom";
+export type DatePreset = "today" | "yesterday" | "3d" | "7d" | "14d" | "30d" | "custom";
 
 export type DateRangeInput = {
   preset: DatePreset;
@@ -136,7 +136,8 @@ export type CommissionSnapshot = {
 
 // Re-export from shared/const for convenience
 export const DATE_PRESETS: { key: DatePreset; label: string }[] = [
-  { key: "1d", label: "1 วัน" },
+  { key: "today", label: "วันนี้" },
+  { key: "yesterday", label: "เมื่อวาน" },
   { key: "3d", label: "3 วันล่าสุด" },
   { key: "7d", label: "7 วันล่าสุด" },
   { key: "14d", label: "14 วันล่าสุด" },

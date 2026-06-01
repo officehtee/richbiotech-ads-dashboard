@@ -1231,7 +1231,7 @@ function AIInsightCard() {
  * Page
  * ============================================================ */
 export default function HubDashboard() {
-  const [dateRange, setDateRange] = useState<DateRangeInput>({ preset: "1d" });
+  const [dateRange, setDateRange] = useState<DateRangeInput>({ preset: "today" });
   const [persona, setPersona] = useState<Persona>(
     () => (localStorage.getItem("hub.persona") as Persona) || "buyer",
   );

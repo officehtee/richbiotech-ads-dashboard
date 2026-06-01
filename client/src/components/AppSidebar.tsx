@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { ChevronLeft, PanelLeft } from "lucide-react";
 import type React from "react";
+import { Link } from "wouter";
 
 export type SidebarMenuItem = {
   icon: React.ComponentType<{ className?: string }>;
@@ -77,7 +78,11 @@ export function AppSidebar({
           )}
         </button>
         {!collapsed && (
-          <div className="flex items-center gap-2 min-w-0 flex-1">
+          <Link
+            href="/"
+            aria-label="กลับหน้าหลัก"
+            className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer rounded-md px-1 py-1 -mx-1 hover:opacity-80 hover:bg-white/5 transition-opacity duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+          >
             <img
               src={LOGO_URL}
               alt={brandName}
@@ -91,7 +96,7 @@ export function AppSidebar({
                 {brandTagline}
               </span>
             </div>
-          </div>
+          </Link>
         )}
       </div>
 

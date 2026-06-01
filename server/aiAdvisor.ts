@@ -176,7 +176,7 @@ type ScopeInput =
   | { type: "group"; groupId: number };
 
 const dateRangeInput = z.object({
-  preset: z.enum(["1d", "3d", "7d", "14d", "30d", "custom"]),
+  preset: z.enum(["today", "yesterday", "3d", "7d", "14d", "30d", "custom"]),
   since: z.string().optional(),
   until: z.string().optional(),
 });
@@ -250,5 +250,7 @@ export const aiRouter = router({
 
 function describeRange(r: DateRangeInput): string {
   if (r.preset === "custom" && r.since && r.until) return `${r.since} → ${r.until}`;
+  if (r.preset === "today") return "วันนี้";
+  if (r.preset === "yesterday") return "เมื่อวาน";
   return `${r.preset} ล่าสุด`;
 }

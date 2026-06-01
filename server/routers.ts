@@ -139,7 +139,7 @@ const generateToken = customAlphabet(tokenAlphabet, 24);
 const generateCompanyCode = customAlphabet(tokenAlphabet, 8);
 
 const dateRangeInput = z.object({
-  preset: z.enum(["1d", "3d", "7d", "14d", "30d", "custom"]),
+  preset: z.enum(["today", "yesterday", "3d", "7d", "14d", "30d", "custom"]),
   since: z.string().optional(),
   until: z.string().optional(),
 });
@@ -1267,7 +1267,7 @@ export const appRouter = router({
       .input(
         z.object({
           dateRange: z.object({
-            preset: z.enum(["1d", "3d", "7d", "14d", "30d", "custom"]),
+            preset: z.enum(["today", "yesterday", "3d", "7d", "14d", "30d", "custom"]),
             since: z.string().optional(),
             until: z.string().optional(),
           }),
@@ -1284,7 +1284,7 @@ export const appRouter = router({
       .input(
         z.object({
           dateRange: z.object({
-            preset: z.enum(["1d", "3d", "7d", "14d", "30d", "custom"]),
+            preset: z.enum(["today", "yesterday", "3d", "7d", "14d", "30d", "custom"]),
             since: z.string().optional(),
             until: z.string().optional(),
           }),

@@ -470,3 +470,12 @@
 - [x] (3) เพิ่ม vitest pickBudgetForInsight (4 fallback paths)
 - [x] (4) Scaling zone border: เส้นซ้าย/ขวาเข้มต่อเนื่องตั้งแต่ tier1 → tier2 → tbody → tfoot
 - [x] (5) Run vitest + checkpoint
+
+## Round 7.30 — DateRangePicker preset overhaul + ปฏิทินไทย + โลโก้คลิกได้
+- [x] DateRangePicker: ลบปุ่ม "1 วัน" + เพิ่ม "วันนี้" และ "เมื่อวาน"
+- [x] ลำดับใหม่: วันนี้ | เมื่อวาน | 3 วัน | 7 วัน | 14 วัน | 30 วัน | กำหนดเอง
+- [x] เพิ่ม preset "today", "yesterday" + map ใน presetToDateRange + dateRangeFromPreset (server)
+- [x] ปฏิทิน "กำหนดเอง" — locale ไทย (มกราคม/อา. จ. อ.) + ปี ค.ศ.
+- [x] AppSidebar: ครอบโลโก้ + ชื่อ Richbiotech ด้วย Link → "/" + cursor-pointer + hover opacity
+- [x] รองรับหน้าที่ default = "1d" เดิม → fallback ให้ผู้ใช้เห็นช่วงเดิม (อาจ map "1d" → "today")
+- [x] vitest + checkpoint

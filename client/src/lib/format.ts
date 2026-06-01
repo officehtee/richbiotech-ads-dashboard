@@ -82,8 +82,6 @@ export function presetToDateRange(
   until?: string,
 ): { dateFrom: string; dateTo: string } {
   if (preset === "custom" && since && until) return { dateFrom: since, dateTo: until };
-  const map: Record<string, number> = { "1d": 1, "3d": 3, "7d": 7, "14d": 14, "30d": 30 };
-  const days = map[preset] ?? 7;
   const fmt = (d: Date) => {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -91,6 +89,26 @@ export function presetToDateRange(
     return `${y}-${m}-${day}`;
   };
   const today = new Date();
+
+  if (preset === "today") {
+    const t = fmt(today);
+    return { dateFrom: t, dateTo: t };
+  }
+  if (preset === "yesterday") {
+    const y = new Date(today);
+    y.setDate(today.getDate() - 1);
+    const ys = fmt(y);
+    return { dateFrom: ys, dateTo: ys };
+  }
+
+  // Legacy: "1d" → ตีความหมายเป็น "today" เพื่อไม่ไห้ข้อมูลเก่าพัง
+  if (preset === "1d") {
+    const t = fmt(today);
+    return { dateFrom: t, dateTo: t };
+  }
+
+  const map: Record<string, number> = { "3d": 3, "7d": 7, "14d": 14, "30d": 30 };
+  const days = map[preset] ?? 7;
   const from = new Date(today);
   from.setDate(today.getDate() - days + 1);
   return { dateFrom: fmt(from), dateTo: fmt(today) };

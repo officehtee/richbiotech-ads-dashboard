@@ -31,10 +31,10 @@ export function resolveDateRange(input: DateRangeInput): MetaDateRange {
   if (input.preset === "custom" && input.since && input.until) {
     return { since: input.since, until: input.until };
   }
-  const preset = (["1d", "3d", "7d", "14d", "30d"] as const).includes(
-    input.preset as any,
-  )
-    ? (input.preset as "1d" | "3d" | "7d" | "14d" | "30d")
+  const valid = ["today", "yesterday", "3d", "7d", "14d", "30d"] as const;
+  type PresetKey = (typeof valid)[number];
+  const preset: PresetKey = valid.includes(input.preset as PresetKey)
+    ? (input.preset as PresetKey)
     : "7d";
   return dateRangeFromPreset(preset);
 }

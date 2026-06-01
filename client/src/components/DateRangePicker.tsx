@@ -4,14 +4,15 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import type { DateRangeInput, DatePreset } from "@shared/types";
 import { CalendarIcon } from "lucide-react";
 import { useState } from "react";
+import { th } from "date-fns/locale";
 
 const PRESETS: { key: DatePreset; label: string }[] = [
-  { key: "1d", label: "1 วัน" },
+  { key: "today", label: "วันนี้" },
+  { key: "yesterday", label: "เมื่อวาน" },
   { key: "3d", label: "3 วัน" },
   { key: "7d", label: "7 วัน" },
   { key: "14d", label: "14 วัน" },
   { key: "30d", label: "30 วัน" },
-  { key: "custom", label: "กำหนดเอง" },
 ];
 
 export type DateRangePickerProps = {
@@ -51,13 +52,7 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
             variant={active ? "default" : "outline"}
             size="sm"
             className={active ? "" : "bg-background"}
-            onClick={() => {
-              if (p.key === "custom") {
-                setCustomOpen(true);
-              } else {
-                onChange({ preset: p.key });
-              }
-            }}
+            onClick={() => onChange({ preset: p.key })}
           >
             {p.label}
           </Button>
@@ -66,27 +61,29 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
       <Popover open={customOpen} onOpenChange={setCustomOpen}>
         <PopoverTrigger asChild>
           <Button
-            variant={value.preset === "custom" ? "default" : "ghost"}
+            variant={value.preset === "custom" ? "default" : "outline"}
             size="sm"
-            className="gap-1"
+            className={value.preset === "custom" ? "gap-1" : "gap-1 bg-background"}
           >
             <CalendarIcon className="h-3.5 w-3.5" />
             {value.preset === "custom" && value.since && value.until ? (
               <span className="text-xs">
                 {value.since} → {value.until}
               </span>
-            ) : null}
+            ) : (
+              <span>กำหนดเอง</span>
+            )}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-3" align="end">
           <div className="flex gap-3 flex-wrap">
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1">เริ่มต้น</p>
-              <Calendar mode="single" selected={from} onSelect={setFrom} />
+              <Calendar mode="single" selected={from} onSelect={setFrom} locale={th} />
             </div>
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1">สิ้นสุด</p>
-              <Calendar mode="single" selected={to} onSelect={setTo} />
+              <Calendar mode="single" selected={to} onSelect={setTo} locale={th} />
             </div>
           </div>
           <div className="flex justify-end gap-2 mt-3">
