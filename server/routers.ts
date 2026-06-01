@@ -117,6 +117,7 @@ import {
   getDeepAdsRows,
   getScaleAmountMap,
   getCampaignFirstDates,
+  getLatestSyncedAt,
   upsertAdManualMetric,
 } from "./db";
 import {
@@ -1011,6 +1012,12 @@ export const appRouter = router({
           errors: results.filter((r) => !r.ok).map((r) => ({ accountId: r.accountId, message: r.errorMessage })),
         };
       }),
+    /** Round 7.32: Lightweight status endpoint for Ad Intelligence auto-sync UI. */
+    syncStatus: protectedProcedure.query(async ({ ctx }) => {
+      const tid = await tenantId(ctx);
+      const at = await getLatestSyncedAt(tid);
+      return { latestSyncedAt: at };
+    }),
   }),
 
   /* ----- Smart Scaling ----- */

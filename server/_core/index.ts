@@ -104,17 +104,22 @@ async function startServer() {
     }
   });
 
-  // Scheduled: Deep Ads Sync (Round 7.24) — sync ad-day grain ทุก 1 ชม.
-  // - ทุก 1 ชม.: sync today only (1 day)
-  // - เที่ยงคืน (UTC 00:xx): sync ย้อนหลัง 7 วัน
+  // Scheduled: Deep Ads Sync — sync ad-day grain.
+  // Round 7.32: รองรับการตั้ง cron ทุก 15 นาที (ค่า min interval ของ Heartbeat = 60s)
+  // - ทุก trigger ปกติ: sync today only (1 day) — ครอบคลุมทั้ง 15 นาที / 1 ชม.
+  // - เที่ยงคืน UTC (hourUtc === 0 และ minuteUtc < 15): sync ย้อนหลัง 7 วัน เพื่อ backfill
+  // กัน Meta API rate limit: deepAdsSync ใช้ concurrency 5 + 300ms delay ต่อบัญชี อยู่แล้ว
   app.post("/api/scheduled/syncAdInsights", async (req, res) => {
     try {
       const user = await sdk.authenticateRequest(req as any);
       if (!user?.isCron) {
         return res.status(403).json({ error: "cron-only" });
       }
-      const hourUtc = new Date().getUTCHours();
-      const days = hourUtc === 0 ? 7 : 1;
+      const now = new Date();
+      const hourUtc = now.getUTCHours();
+      const minuteUtc = now.getUTCMinutes();
+      // Backfill 7 วัน เฉพาะรอบเที่ยงคืน UTC ช่วง 00:00–00:14 เท่านั้น (ครั้งเดียวต่อวัน)
+      const days = hourUtc === 0 && minuteUtc < 15 ? 7 : 1;
       const since = dateOffsetString(days - 1);
       const until = dateOffsetString(0);
       const tenants = await listAllWorkspaceTenantIds();

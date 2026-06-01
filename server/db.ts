@@ -1387,3 +1387,23 @@ export async function getAccountGroupMap(tenantId: number): Promise<Map<number, 
   }
   return m;
 }
+
+
+/**
+ * Get the most recent syncedAt timestamp across all adInsightsDaily rows
+ * for a tenant. Used by Ad Intelligence page to display "อัปเดตล่าสุด: HH:MM".
+ * Returns null when there are no rows yet.
+ */
+export async function getLatestSyncedAt(
+  userId: number,
+): Promise<Date | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select({ at: adInsightsDaily.syncedAt })
+    .from(adInsightsDaily)
+    .where(eq(adInsightsDaily.userId, userId))
+    .orderBy(desc(adInsightsDaily.syncedAt))
+    .limit(1);
+  return rows[0]?.at ?? null;
+}

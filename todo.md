@@ -485,3 +485,13 @@
 - [x] เรียก backfillPageName ใน deepAdsSync.ts หลังจบ sync — ส่ง pageNameMap ที่เก็บ page_id → pageName
 - [x] เขียน vitest สำหรับ backfillPageName (6 tests)
 - [x] checkpoint
+
+
+## Round 7.32 — Auto-sync ทุก 15 นาที + Default "เมื่อวาน" สำหรับ Ad Intelligence
+- [x] Frontend: เปลี่ยน default DateRange ของ AdIntelligence จาก "7d" → "yesterday"
+- [x] Frontend: เพิ่ม useEffect auto-refetch ทุก 15 นาทีในหน้า AdIntelligence (silent — server cron ยิง syncNow ไม่ยิงซ้ำจาก client)
+- [x] Frontend: แสดง "อัปเดตล่าสุด: HH:MM" ใต้ปุ่ม Sync Now (ผ่าน deepAds.syncStatus + green pulse dot)
+- [x] Backend: เพิ่ม deepAds.syncStatus query + getLatestSyncedAt helper
+- [x] Backend: ปรับ /api/scheduled/syncAdInsights รองรับ 15-min cron (UTC 00:00–00:14 → 7d backfill, อื่น → 1d) + คอมเมนต์อธิบาย batch/delay
+- [x] vitest 11 case (round732.test.ts) — 283/283 ผ่าน, TS clean
+- [x] checkpoint

@@ -86,6 +86,26 @@ type QuickFilter = "all" | "high-roas" | "low-roas" | "no-orders" | "new";
  *
  * The function is exported only for testing purposes.
  */
+/**
+ * Format Date → "HH:MM" (24h, local timezone) — ใช้ข้างปุ่ม Sync Now
+ * ถ้า sync ช่วง ± 24 ชม. ให้แสดงเฉพาะเวลา (HH:MM); ถ้าเกินกว่านั้นให้แสดง DD/MM HH:MM
+ */
+export function formatLastSync(input: Date | string | number): string {
+  const d = input instanceof Date ? input : new Date(input);
+  if (Number.isNaN(d.getTime())) return "—";
+  const now = new Date();
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  if (sameDay) return `${hh}:${mm}`;
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mon = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mon} ${hh}:${mm}`;
+}
+
 export function isCampaignNew(
   campaignFirstDate: string | null | undefined,
   today: Date = new Date(),
@@ -110,7 +130,8 @@ export default function AdIntelligence() {
   const { user } = useAuth();
   const isOwner = user?.role === "owner";
 
-  const [dateRange, setDateRange] = useState<DateRangeInput>({ preset: "7d" });
+  // Round 7.32: default "เมื่อวาน" — flow พนักงานลงข้อมูลย้อนหลัง 1 วัน
+  const [dateRange, setDateRange] = useState<DateRangeInput>({ preset: "yesterday" });
   const [search, setSearch] = useState("");
   const [accountFilter, setAccountFilter] = useState<string>("all");
   const [groupFilter, setGroupFilter] = useState<string>("all");
@@ -138,15 +159,36 @@ export default function AdIntelligence() {
     groupId: groupFilter === "all" ? undefined : parseInt(groupFilter, 10),
   });
 
+  // Round 7.32: silent auto-sync ทุก 15 นาที + show "อัปเดตล่าสุด: HH:MM"
+  const statusQuery = trpc.deepAds.syncStatus.useQuery(undefined, {
+    refetchInterval: 60_000, // ทุก 1 นาที ตรวจเวลา sync ล่าสุดของ server (cron ยิงทุก 15 นาที)
+    refetchOnWindowFocus: true,
+  });
+  const lastSyncedAt = statusQuery.data?.latestSyncedAt ?? null;
+
   const syncMutation = trpc.deepAds.syncNow.useMutation({
     onSuccess: (r) => {
       toast.success(
         `Sync เสร็จ: ${r.rowsSynced} แถว · พรีวิว ${r.previewsRefreshed} · ${r.accountsProcessed} บัญชี${r.failed ? ` · ล้มเหลว ${r.failed}` : ""}`,
       );
       listQuery.refetch();
+      statusQuery.refetch();
     },
     onError: (e) => toast.error(`Sync ล้มเหลว: ${e.message}`),
   });
+
+  // Round 7.32: silent refresh ทุก 15 นาที เพื่อดึงข้อมูลล่าสุดจาก server
+  // (server มี cron sync ทุก 15 นาที เขียนข้อมูลสดลง DB — client แค่ refetch)
+  // ไม่ยิง syncNow เองเพื่อป้องกันชน Meta API rate limit จากหลาย client พร้อมกัน
+  useEffect(() => {
+    const id = setInterval(() => {
+      // refetch ทั้งข้อมูลและเวลาสดล่าสุด — silent (ไม่มี toast)
+      listQuery.refetch();
+      statusQuery.refetch();
+    }, 15 * 60 * 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const groupTargetById = useMemo(() => {
     const m = new Map<number, number>();
@@ -378,33 +420,48 @@ export default function AdIntelligence() {
             1 แถว = 1 โฆษณา × 1 วัน · ดึงข้อมูลรายวันจาก Meta + กรอก Orders/Sales เพิ่ม
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {isOwner && (
+        <div className="flex flex-col items-end gap-1.5">
+          <div className="flex items-center gap-2">
+            {isOwner && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onSync}
+                disabled={syncMutation.isPending}
+                className="bg-background"
+              >
+                {syncMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                <span className="ml-1.5">Sync Now</span>
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
-              onClick={onSync}
-              disabled={syncMutation.isPending}
+              onClick={onExport}
+              disabled={sorted.length === 0}
               className="bg-background"
             >
-              {syncMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4" />
-              )}
-              <span className="ml-1.5">Sync Now</span>
+              <Download className="h-4 w-4 mr-1.5" />
+              Export CSV
             </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onExport}
-            disabled={sorted.length === 0}
-            className="bg-background"
-          >
-            <Download className="h-4 w-4 mr-1.5" />
-            Export CSV
-          </Button>
+          </div>
+          {/* Round 7.32: แสดงเวลาสิงค์ล่าสุด (auto-sync ทุก 15 นาที) */}
+          <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+            <span
+              className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"
+              aria-hidden="true"
+            />
+            <span>
+              {lastSyncedAt
+                ? `อัปเดตล่าสุด: ${formatLastSync(lastSyncedAt)}`
+                : "ยังไม่มีข้อมูล sync"}
+            </span>
+            <span className="text-muted-foreground/70">· sync อัตโนมัติทุก 15 นาที</span>
+          </div>
         </div>
       </div>
 
