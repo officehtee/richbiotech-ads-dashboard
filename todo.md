@@ -495,3 +495,15 @@
 - [x] Backend: ปรับ /api/scheduled/syncAdInsights รองรับ 15-min cron (UTC 00:00–00:14 → 7d backfill, อื่น → 1d) + คอมเมนต์อธิบาย batch/delay
 - [x] vitest 11 case (round732.test.ts) — 283/283 ผ่าน, TS clean
 - [x] checkpoint
+
+
+## Round 7.33 — Donut "สัดส่วน Spend ของ Top 10" UX rewrite
+- [x] Layout 2-column: donut ซ้าย (sm:col-span-2) + legend ขวา (sm:col-span-3) + responsive stack ใน mobile
+- [x] ลบ Recharts `<Legend>` ของ donut — ใช้ custom legend list แทน
+- [x] Custom legend: dot สี + truncateLabel(50) + % (`title` attr = ชื่อเต็ม) + click → select slice
+- [x] Default Top 5 + ปุ่ม "ดูเพิ่มเติม (N อัน) / ย่อกลับ" + ChevronUp/Down
+- [x] Donut center label: Spend รวม Top 10 / หรือชิ้นที่เลือก (Spend + %)
+- [x] Click slice → ExplodedSlice custom shape ผลักออก 10px ตามมุม (computeExplodeOffset) + transition 180ms
+- [x] Click slice ซ้ำ หรือ click พื้นหลังของ donut → reset (setActiveIdx(null))
+- [x] vitest 11 case (donutExplode.test.ts) — 294/294 ผ่าน, TS clean
+- [x] checkpoint
