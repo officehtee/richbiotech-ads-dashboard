@@ -479,3 +479,9 @@
 - [x] AppSidebar: ครอบโลโก้ + ชื่อ Richbiotech ด้วย Link → "/" + cursor-pointer + hover opacity
 - [x] รองรับหน้าที่ default = "1d" เดิม → fallback ให้ผู้ใช้เห็นช่วงเดิม (อาจ map "1d" → "today")
 - [x] vitest + checkpoint
+
+## Round 7.31 — Backfill pageName adAccounts
+- [x] เพิ่ม helper `backfillPageName(adAccountId, pageNameMap)` ใน db.ts — update adAccounts.pageName ถ้า NULL
+- [x] เรียก backfillPageName ใน deepAdsSync.ts หลังจบ sync — ส่ง pageNameMap ที่เก็บ page_id → pageName
+- [x] เขียน vitest สำหรับ backfillPageName (6 tests)
+- [x] checkpoint

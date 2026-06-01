@@ -23,6 +23,7 @@ import {
   getAccountGroupMap,
   getLatestPreviewCachedAt,
   updateAdPreviewCache,
+  backfillPageName,
 } from "./db";
 import { cacheAdPreview, isPreviewFresh } from "./previewCache";
 
@@ -146,6 +147,13 @@ export async function syncAdInsightsForAccount(
       }
     };
     await Promise.all(Array.from({ length: concurrency }, () => worker()));
+
+    // Backfill pageName to adAccounts if currently NULL
+    try {
+      await backfillPageName(account.adAccountId, pageNameCache);
+    } catch (e) {
+      console.warn(`[deepAdsSync] backfillPageName fail:`, (e as Error).message);
+    }
 
     return {
       accountId: account.id,

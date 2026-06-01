@@ -1030,6 +1030,44 @@ import {
 import { gte, lte, lt, sql, or, like } from "drizzle-orm";
 
 /**
+ * Backfill pageName in adAccounts if currently NULL.
+ * Called after sync completes to denormalize page names from preview cache.
+ * Pure function: only updates if pageName is NULL and map has a value.
+ */
+export async function backfillPageName(
+  adAccountId: string,
+  pageNameMap: Map<string, string | null>,
+): Promise<void> {
+  const db = await getDb();
+  if (!db || pageNameMap.size === 0) return;
+
+  // Find the account by adAccountId
+  const account = await db
+    .select({ id: adAccounts.id, pageName: adAccounts.pageName })
+    .from(adAccounts)
+    .where(eq(adAccounts.adAccountId, adAccountId))
+    .limit(1);
+
+  if (account.length === 0 || account[0].pageName !== null) return; // Already has pageName
+
+  // Pick the first non-null pageName from the map
+  let selectedPageName: string | null = null;
+  pageNameMap.forEach((name) => {
+    if (!selectedPageName && name) {
+      selectedPageName = name;
+    }
+  });
+
+  if (!selectedPageName) return; // No valid page name found
+
+  // Update the account
+  await db
+    .update(adAccounts)
+    .set({ pageName: selectedPageName })
+    .where(eq(adAccounts.id, account[0].id));
+}
+
+/**
  * Upsert one row into adInsightsDaily (UNIQUE on adId+date).
  * On conflict, overwrites all sync-managed fields (NOT manual metrics).
  */
