@@ -278,11 +278,76 @@ export default function AdIntelligence() {
     syncMutation.mutate({ days: 7 });
   };
 
-  // Inline edit mutation
+  // Inline edit mutation — Optimistic Update (Round 7.29)
+  // อัพ UI ทันทีโดยไม่รอ server; ถ้า server error ให้ revert กลับ
   const utils = trpc.useUtils();
   const updateManual = trpc.deepAds.updateManual.useMutation({
-    onSuccess: () => utils.deepAds.list.invalidate(),
-    onError: (e) => toast.error(`บันทึกล้มเหลว: ${e.message}`),
+    onMutate: async (input) => {
+      // ยกเลิก query ที่กำลัง in-flight เพื่อไม่ให้ overwrite optimistic
+      await utils.deepAds.list.cancel();
+      // snapshot ค่าเดิมไว้ rollback
+      const prev = utils.deepAds.list.getData({
+        dateFrom,
+        dateTo,
+        search: search.trim() || undefined,
+        accountId: accountFilter === "all" ? undefined : parseInt(accountFilter, 10),
+        groupId: groupFilter === "all" ? undefined : parseInt(groupFilter, 10),
+      });
+      // อัพ cache ทันที
+      utils.deepAds.list.setData(
+        {
+          dateFrom,
+          dateTo,
+          search: search.trim() || undefined,
+          accountId: accountFilter === "all" ? undefined : parseInt(accountFilter, 10),
+          groupId: groupFilter === "all" ? undefined : parseInt(groupFilter, 10),
+        },
+        (old) => {
+          if (!old) return old;
+          return old.map((row) => {
+            if (row.adId !== input.adId || row.date !== input.date) return row;
+            const numVal =
+              input.value == null || input.value === ""
+                ? null
+                : typeof input.value === "number"
+                  ? input.value
+                  : Number(input.value);
+            if (input.field === "orders") return { ...row, manualOrders: numVal };
+            if (input.field === "salesCount") return { ...row, manualSalesCount: numVal };
+            if (input.field === "salesAmount") return { ...row, manualSalesAmount: numVal };
+            if (input.field === "scaleNextAmount") return { ...row, manualScaleNextAmount: numVal };
+            if (input.field === "note")
+              return {
+                ...row,
+                manualNote:
+                  input.value == null ? null : String(input.value),
+              };
+            return row;
+          });
+        },
+      );
+      return { prev };
+    },
+    onError: (e, _input, ctx) => {
+      // revert กลับค่าเดิม
+      if (ctx?.prev !== undefined) {
+        utils.deepAds.list.setData(
+          {
+            dateFrom,
+            dateTo,
+            search: search.trim() || undefined,
+            accountId: accountFilter === "all" ? undefined : parseInt(accountFilter, 10),
+            groupId: groupFilter === "all" ? undefined : parseInt(groupFilter, 10),
+          },
+          ctx.prev,
+        );
+      }
+      toast.error(`บันทึกล้มเหลว: ${e.message}`);
+    },
+    onSettled: () => {
+      // sync กับ server เสมอหลัง mutation เสร็จ (ทั้ง success + error)
+      utils.deepAds.list.invalidate();
+    },
   });
 
   const SortBtn = ({ k, label }: { k: SortKey; label: string }) => (
