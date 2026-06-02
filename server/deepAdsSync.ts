@@ -107,6 +107,8 @@ export async function syncAdInsightsForAccount(
         messages: row.messages,
         dailyBudget: budget.value,
         budgetSource: budget.source,
+        metaOrders: row.purchases,
+        metaSalesAmount: row.purchase_value,
       });
       rowsSynced += 1;
       adIdsToCachePreview.add(row.ad_id);

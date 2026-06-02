@@ -43,6 +43,13 @@
       "when": 1780282657833,
       "tag": "0005_good_xavin",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1780437888201,
+      "tag": "0006_acoustic_catseye",
+      "breakpoints": true
     }
   ]
 }

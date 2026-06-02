@@ -62,11 +62,11 @@ type SortKey =
   | "ctr"
   | "messages"
   | "costPerClick"
-  | "manualOrders"
+  | "metaOrders"
   | "costPerOrder"
   | "chatToOrderRate"
   | "manualSalesCount"
-  | "manualSalesAmount"
+  | "metaSalesAmount"
   | "roas"
   | "adsSpendPct"
   | "prevDayScale"
@@ -210,7 +210,7 @@ export default function AdIntelligence() {
         return (r.roas ?? 0) > 0 && (r.roas ?? 0) < t * 0.75;
       }
       if (quickFilter === "no-orders") {
-        return (r.manualOrders ?? 0) === 0 && (r.spend ?? 0) > 0;
+        return (r.metaOrders ?? 0) === 0 && (r.spend ?? 0) > 0;
       }
       if (quickFilter === "new") return isCampaignNew((r as any).campaignFirstDate, todayObj);
       return true;
@@ -240,9 +240,9 @@ export default function AdIntelligence() {
       spend += r.spend ?? 0;
       clicks += r.clicks ?? 0;
       messages += r.messages ?? 0;
-      orders += r.manualOrders ?? 0;
+      orders += r.metaOrders ?? 0;
       salesCount += r.manualSalesCount ?? 0;
-      salesAmount += r.manualSalesAmount ?? 0;
+      salesAmount += r.metaSalesAmount ?? 0;
     }
     return {
       spend,
@@ -301,11 +301,11 @@ export default function AdIntelligence() {
         r.ctr ?? 0,
         r.messages ?? 0,
         r.costPerClick ?? 0,
-        r.manualOrders ?? 0,
+        r.metaOrders ?? 0,
         r.costPerOrder ?? 0,
         r.chatToOrderRate ?? 0,
         r.manualSalesCount ?? 0,
-        r.manualSalesAmount ?? 0,
+        r.metaSalesAmount ?? 0,
         r.roas ?? 0,
         r.adsSpendPct ?? 0,
         r.prevDayScale ?? 0,
@@ -354,9 +354,7 @@ export default function AdIntelligence() {
                 : typeof input.value === "number"
                   ? input.value
                   : Number(input.value);
-            if (input.field === "orders") return { ...row, manualOrders: numVal };
             if (input.field === "salesCount") return { ...row, manualSalesCount: numVal };
-            if (input.field === "salesAmount") return { ...row, manualSalesAmount: numVal };
             if (input.field === "scaleNextAmount") return { ...row, manualScaleNextAmount: numVal };
             if (input.field === "note")
               return {
@@ -586,8 +584,8 @@ export default function AdIntelligence() {
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
                   <SortBtn k="costPerClick" label="ค่าคลิก" />
                 </th>
-                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px] bg-amber-50 dark:bg-amber-950/30">
-                  <SortBtn k="manualOrders" label="Orders" />
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
+                  <SortBtn k="metaOrders" label="Orders" />
                 </th>
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px]">
                   <SortBtn k="costPerOrder" label="ต้นทุน/ซื้อ" />
@@ -598,8 +596,8 @@ export default function AdIntelligence() {
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px] bg-amber-50 dark:bg-amber-950/30">
                   <SortBtn k="manualSalesCount" label="จำนวนขาย" />
                 </th>
-                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px] bg-amber-50 dark:bg-amber-950/30">
-                  <SortBtn k="manualSalesAmount" label="ยอดขาย" />
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px]">
+                  <SortBtn k="metaSalesAmount" label="ยอดขาย" />
                 </th>
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
                   <SortBtn k="roas" label="ROAS" />
@@ -761,20 +759,8 @@ export default function AdIntelligence() {
                               ? formatCurrency(r.costPerClick, 2)
                               : "—"}
                           </td>
-                          <td className="px-4 py-4 text-right tabular-nums border-t bg-amber-50/30 dark:bg-amber-950/10 text-emerald-700 dark:text-emerald-400 font-medium">
-                            <InlineNumber
-                              dashedNeon
-                              accentClass="text-emerald-700 dark:text-emerald-400"
-                              value={r.manualOrders}
-                              onSave={(v) =>
-                                updateManual.mutate({
-                                  adId: r.adId,
-                                  date: r.date,
-                                  field: "orders",
-                                  value: v,
-                                })
-                              }
-                            />
+                          <td className="px-4 py-4 text-right tabular-nums border-t text-emerald-700 dark:text-emerald-400 font-medium">
+                            {formatNumber(r.metaOrders ?? 0)}
                           </td>
                           <td className="px-4 py-4 text-right tabular-nums border-t">
                             {r.costPerOrder != null
@@ -801,21 +787,8 @@ export default function AdIntelligence() {
                               }
                             />
                           </td>
-                          <td className="px-4 py-4 text-right tabular-nums border-t bg-amber-50/30 dark:bg-amber-950/10 text-amber-700 dark:text-amber-400 font-medium">
-                            <InlineNumber
-                              dashedNeon
-                              accentClass="text-amber-700 dark:text-amber-400"
-                              value={r.manualSalesAmount}
-                              onSave={(v) =>
-                                updateManual.mutate({
-                                  adId: r.adId,
-                                  date: r.date,
-                                  field: "salesAmount",
-                                  value: v,
-                                })
-                              }
-                              fmt={(v) => formatNumber(v, 0)}
-                            />
+                          <td className="px-4 py-4 text-right tabular-nums border-t text-amber-700 dark:text-amber-400 font-medium">
+                            {formatNumber(r.metaSalesAmount ?? 0, 0)}
                           </td>
                           <td
                             className={`px-4 py-4 text-right tabular-nums border-t font-semibold ${
@@ -945,8 +918,15 @@ export default function AdIntelligence() {
             <LegendDot color="bg-violet-500" label="ROAS" />
             <span className="inline-flex items-center gap-2">
               <span className="inline-block w-4 h-4 rounded border-2 border-dashed border-cyan-500" />
-              <span>ช่องที่ผู้สเกลแอดกรอก (กรอบเส้นประ)</span>
+              <span>ช่องกรอกมือ — ยังไม่ได้กรอก (เส้นประ)</span>
             </span>
+            <span className="inline-flex items-center gap-2">
+              <span className="inline-block w-4 h-4 rounded border-2 border-solid border-cyan-500" />
+              <span>ช่องกรอกมือ — กรอกแล้ว (เส้นทึบ)</span>
+            </span>
+          </div>
+          <div className="mt-2 text-xs text-muted-foreground">
+            Orders · ยอดขาย · ROAS · ยอดยิง — ดึงจาก Meta อัตโนมัติ (ไม่ต้องกรอกมือ)
           </div>
         </div>
 
@@ -1043,7 +1023,7 @@ function InlineNumber({
     return (
       <button
         type="button"
-        className={`w-full text-right hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded px-1.5 py-1 -mx-1 ${dashedNeon ? "editable-neon-dashed" : ""} ${accentClass}`}
+        className={`w-full text-right hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded px-1.5 py-1 -mx-1 ${dashedNeon ? (value == null ? "editable-neon-dashed" : "editable-neon-solid") : ""} ${accentClass}`}
         onClick={() => {
           setText(value == null ? "" : String(value));
           setEditing(true);
@@ -1152,7 +1132,7 @@ function NoteCell({
         setText(value ?? "");
         setEditing(true);
       }}
-      className="w-full text-left hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded px-1.5 py-1 -mx-1 block editable-neon-dashed"
+      className={`w-full text-left hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded px-1.5 py-1 -mx-1 block ${hasNote ? "editable-neon-solid" : "editable-neon-dashed"}`}
     >
       {hasNote ? (
         <span className="note-clamp text-sm">{value}</span>

@@ -919,6 +919,8 @@ export type AdDailyInsight = {
   clicks: number;
   ctr: number;
   messages: number;
+  purchases: number; // จำนวนการซื้อ (purchase) จาก Meta
+  purchase_value: number; // ค่าคอนเวอร์ชั่นการซื้อ (purchase conversion value) จาก Meta
 };
 
 /**
@@ -943,6 +945,7 @@ export async function fetchAdInsightsDaily(
     "clicks",
     "ctr",
     "actions",
+    "action_values",
     "date_start",
   ].join(",");
   const params = new URLSearchParams({
@@ -968,6 +971,8 @@ export async function fetchAdInsightsDaily(
     clicks: parseNum(r.clicks),
     ctr: parseNum(r.ctr),
     messages: extractMessaging(r.actions),
+    purchases: extractPurchases(r.actions),
+    purchase_value: extractPurchaseValue(r.action_values),
   }));
 }
 

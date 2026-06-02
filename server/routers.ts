@@ -130,6 +130,7 @@ import {
 } from "./metaApi";
 import { encrypt as encryptToken, decrypt as decryptToken, maskToken } from "./encryption";
 import { syncOneBusinessManager } from "./bmSync";
+import { computeDeepAdsDerived } from "./deepAdsMetrics";
 import {
   syncAdInsightsForAccounts,
   dateOffsetString,
@@ -936,12 +937,8 @@ export const appRouter = router({
         ]);
         // enrich each row with derived fields + prevDay scaleNextAmount + campaignFirstDate
         return rows.map((r) => {
-          const spend = r.spend ?? 0;
-          const messages = r.messages ?? 0;
-          const clicks = r.clicks ?? 0;
-          const orders = r.manualOrders ?? 0;
-          const salesCount = r.manualSalesCount ?? 0;
-          const salesAmount = r.manualSalesAmount ?? 0;
+          // Orders / ยอดขาย / ROAS ดึงจาก Meta อัตโนมัติ (purchase / purchase value)
+          const derived = computeDeepAdsDerived(r);
           // prev day key
           const d = new Date(`${r.date}T00:00:00Z`);
           d.setUTCDate(d.getUTCDate() - 1);
@@ -952,12 +949,12 @@ export const appRouter = router({
             : null;
           return {
             ...r,
-            costPerOrder: orders > 0 ? spend / orders : null,
-            costPerClick: clicks > 0 ? spend / clicks : null,
-            costPerMessage: messages > 0 ? spend / messages : null,
-            chatToOrderRate: messages > 0 ? (orders / messages) * 100 : null,
-            roas: spend > 0 && salesAmount > 0 ? salesAmount / spend : null,
-            adsSpendPct: salesAmount > 0 ? (spend / salesAmount) * 100 : null,
+            costPerOrder: derived.costPerOrder,
+            costPerClick: derived.costPerClick,
+            costPerMessage: derived.costPerMessage,
+            chatToOrderRate: derived.chatToOrderRate,
+            roas: derived.roas,
+            adsSpendPct: derived.adsSpendPct,
             prevDayScale,
             campaignFirstDate,
           };
@@ -968,7 +965,9 @@ export const appRouter = router({
         z.object({
           adId: z.string().min(1),
           date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-          field: z.enum(["orders", "salesCount", "salesAmount", "scaleNextAmount", "note"]),
+          // orders/salesAmount/roas/budget ดึงจาก Meta อัตโนมัติแล้ว
+          // เหลือกรอกมือ: salesCount (จำนวนขาย), scaleNextAmount (ยอดใหม่), note (หมายเหตุ)
+          field: z.enum(["salesCount", "scaleNextAmount", "note"]),
           value: z.union([z.number(), z.string(), z.null()]),
         }),
       )

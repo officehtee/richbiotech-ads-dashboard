@@ -507,3 +507,20 @@
 - [x] Click slice ซ้ำ หรือ click พื้นหลังของ donut → reset (setActiveIdx(null))
 - [x] vitest 11 case (donutExplode.test.ts) — 294/294 ผ่าน, TS clean
 - [x] checkpoint
+
+
+## Round 7.34 — Ad Intelligence: 4 คอลัมน์ดึงจาก Meta อัตโนมัติ + ช่องกรอกมือเส้นประ/เส้นทึบ
+- [x] metaApi: เพิ่ม purchases + purchase_value ใน fetchAdInsightsDaily
+- [x] schema: เพิ่ม metaOrders (int), metaSalesAmount (double) ใน adInsightsDaily + migration 0006
+- [x] migration: drizzle-kit generate + webdev_execute_sql
+- [x] db.ts: upsertAdInsightsDaily เขียน metaOrders/metaSalesAmount
+- [x] deepAdsSync: ส่ง purchases/purchase_value ลง upsert
+- [x] db.ts getDeepAdsRows: คืน metaOrders/metaSalesAmount
+- [x] routers deepAds.list: orders/salesAmount/roas ใช้ Meta จริง (computeDeepAdsDerived)
+- [x] routers updateManual: จำกัด scaleNextAmount + salesCount + note
+- [x] Frontend: Orders/ยอดขาย/ROAS/ยอดยิง เป็น read-only (ลบ InlineNumber ออก)
+- [x] Frontend: summary + export ใช้ metaOrders/metaSalesAmount
+- [x] Frontend: InlineNumber/NoteCell — เส้นประเมื่อว่าง, เส้นทึบเมื่อมีข้อมูล (.editable-neon-solid)
+- [x] Frontend: legend อัปเดต (เส้นประ/เส้นทึบ + Meta auto note)
+- [x] vitest 9 case (deepAdsMetrics.test.ts) — 303/303 ผ่าน, TS clean
+- [x] checkpoint
