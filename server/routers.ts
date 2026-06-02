@@ -117,6 +117,8 @@ import {
   getDeepAdsRows,
   getScaleAmountMap,
   getCampaignFirstDates,
+  getCampaignStatusMap,
+  getAccountGroupMap,
   getLatestSyncedAt,
   upsertAdManualMetric,
 } from "./db";
@@ -131,6 +133,12 @@ import {
 import { encrypt as encryptToken, decrypt as decryptToken, maskToken } from "./encryption";
 import { syncOneBusinessManager } from "./bmSync";
 import { computeDeepAdsDerived } from "./deepAdsMetrics";
+import {
+  computeBadge,
+  classifyMetaStatus,
+  shouldShowRejectRow,
+  todayString,
+} from "./campaignStatus";
 import {
   syncAdInsightsForAccounts,
   dateOffsetString,
@@ -926,17 +934,25 @@ export const appRouter = router({
       )
       .query(async ({ ctx, input }) => {
         const tid = await tenantId(ctx);
-        const [rows, scaleMap, campaignFirstDates] = await Promise.all([
-          getDeepAdsRows(tid, input.dateFrom, input.dateTo, {
-            search: input.search,
-            accountId: input.accountId,
-            groupId: input.groupId,
-          }),
-          getScaleAmountMap(tid, input.dateFrom, input.dateTo),
-          getCampaignFirstDates(tid),
-        ]);
-        // enrich each row with derived fields + prevDay scaleNextAmount + campaignFirstDate
-        return rows.map((r) => {
+        const [rows, scaleMap, campaignFirstDates, statusMap, accounts, groups, groupMap] =
+          await Promise.all([
+            getDeepAdsRows(tid, input.dateFrom, input.dateTo, {
+              search: input.search,
+              accountId: input.accountId,
+              groupId: input.groupId,
+            }),
+            getScaleAmountMap(tid, input.dateFrom, input.dateTo),
+            getCampaignFirstDates(tid),
+            getCampaignStatusMap(tid),
+            getAdAccountsByUser(tid),
+            getAccountGroupsByUser(tid),
+            getAccountGroupMap(tid),
+          ]);
+        const todayObj = new Date();
+        const today = todayString(todayObj);
+
+        // enrich each real (spend>0) row with derived fields + status badge
+        const enriched = rows.map((r) => {
           // Orders / ยอดขาย / ROAS ดึงจาก Meta อัตโนมัติ (purchase / purchase value)
           const derived = computeDeepAdsDerived(r);
           // prev day key
@@ -947,6 +963,11 @@ export const appRouter = router({
           const campaignFirstDate = r.campaignId
             ? campaignFirstDates.get(String(r.campaignId)) ?? null
             : null;
+          // Round 7.35: ป้ายสถานะจาก campaignStatus (ถ้ามี)
+          const cs = r.campaignId ? statusMap.get(String(r.campaignId)) : undefined;
+          const statusBadge = cs
+            ? computeBadge(cs.effectiveStatus, cs.approvedAt, cs.rejectedAt, todayObj)
+            : "NORMAL";
           return {
             ...r,
             costPerOrder: derived.costPerOrder,
@@ -957,8 +978,116 @@ export const appRouter = router({
             adsSpendPct: derived.adsSpendPct,
             prevDayScale,
             campaignFirstDate,
+            statusBadge,
+            effectiveStatus: cs?.effectiveStatus ?? null,
+            approvedAt: cs?.approvedAt ?? null,
+            rejectedAt: cs?.rejectedAt ?? null,
+            isNoSpendRow: false as const,
           };
         });
+
+        // ----- Round 7.35: synthetic rows สำหรับแคมเปญ WAIT/REJECT (spend=0) -----
+        // แคมเปญพวกนี้ไม่อยู่ใน insights (ไม่มี spend) → สร้างแถววันที่ปัจจุบัน
+        // เงื่อนไขโชว์: WAIT (รออนุมัติ) หรือ REJECT ที่ยังไม่ครบ 5 วัน และไม่ rejected_expired
+        // โชว์เฉพาะเมื่อช่วงวันที่ที่ดูครอบคลุม "วันนี้" (today อยู่ใน [dateFrom,dateTo])
+        const showToday =
+          input.dateFrom <= today && today <= input.dateTo;
+        const accountById = new Map(accounts.map((a) => [a.id, a]));
+        const groupById = new Map(groups.map((g) => [g.id, g]));
+        // campaignId → accountId (จาก campaignStatus.accountId)
+        // campaignId ที่มีแถว spend>0 อยู่แล้วในช่วงนี้ → ไม่ต้องสร้าง synthetic
+        const realCampaignIds = new Set(
+          rows.map((r) => String(r.campaignId)).filter(Boolean),
+        );
+        const syntheticRows: typeof enriched = [];
+        if (showToday) {
+          let synthId = -1;
+          for (const cs of Array.from(statusMap.values())) {
+            if (cs.rejectedExpired) continue; // ถูกลบแล้ว + ยัง reject → ไม่ดึงกลับ
+            const kind = classifyMetaStatus(cs.effectiveStatus);
+            const isWait = kind === "wait";
+            const isReject = shouldShowRejectRow(
+              cs.effectiveStatus,
+              cs.rejectedAt,
+              todayObj,
+            );
+            if (!isWait && !isReject) continue;
+            // ถ้ามีแถว spend>0 ของแคมเปญนี้แล้วในช่วงวันที่ → ข้าม (เลี่ยงซ้ำ)
+            if (realCampaignIds.has(String(cs.campaignId))) continue;
+            // filter: account / group
+            if (input.accountId !== undefined && cs.accountId !== input.accountId)
+              continue;
+            const gId = groupMap.get(cs.accountId) ?? null;
+            if (input.groupId !== undefined && gId !== input.groupId) continue;
+            // filter: search (เทียบกับชื่อแคมเปญ)
+            if (
+              input.search &&
+              input.search.trim() &&
+              !(cs.campaignName ?? "")
+                .toLowerCase()
+                .includes(input.search.trim().toLowerCase())
+            )
+              continue;
+            const acc = accountById.get(cs.accountId);
+            const grp = gId != null ? groupById.get(gId) : undefined;
+            const statusBadge = computeBadge(
+              cs.effectiveStatus,
+              cs.approvedAt,
+              cs.rejectedAt,
+              todayObj,
+            );
+            syntheticRows.push({
+              id: synthId--,
+              adId: `__campaign__${cs.campaignId}`,
+              adName: null,
+              adsetId: null,
+              adsetName: null,
+              campaignId: cs.campaignId,
+              campaignName: cs.campaignName,
+              date: today,
+              spend: null as any,
+              impressions: null as any,
+              clicks: null as any,
+              ctr: null as any,
+              messages: null as any,
+              dailyBudget: null,
+              budgetSource: "none" as any,
+              metaOrders: null as any,
+              metaSalesAmount: null as any,
+              previewCachedUrl: null,
+              pageName: acc?.pageName ?? null,
+              syncedAt: cs.syncedAt,
+              accountId: cs.accountId,
+              accountNickname: acc?.nickname ?? null,
+              accountMetaId: acc?.adAccountId ?? null,
+              groupId: gId,
+              groupName: grp?.groupName ?? null,
+              groupColor: grp?.color ?? null,
+              manualOrders: null,
+              manualSalesCount: null,
+              manualSalesAmount: null,
+              manualScaleNextAmount: null,
+              manualNote: null,
+              costPerOrder: null,
+              costPerClick: null,
+              costPerMessage: null,
+              chatToOrderRate: null,
+              roas: null,
+              adsSpendPct: null,
+              prevDayScale: null,
+              campaignFirstDate: cs.campaignId
+                ? campaignFirstDates.get(String(cs.campaignId)) ?? null
+                : null,
+              statusBadge,
+              effectiveStatus: cs.effectiveStatus ?? null,
+              approvedAt: cs.approvedAt ?? null,
+              rejectedAt: cs.rejectedAt ?? null,
+              isNoSpendRow: true as any,
+            });
+          }
+        }
+
+        return [...enriched, ...syntheticRows];
       }),
     updateManual: protectedProcedure
       .input(

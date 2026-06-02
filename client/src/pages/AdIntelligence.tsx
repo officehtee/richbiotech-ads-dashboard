@@ -73,7 +73,14 @@ type SortKey =
   | "manualScaleNextAmount"
   | "dailyBudget";
 
-type QuickFilter = "all" | "high-roas" | "low-roas" | "no-orders" | "new";
+type QuickFilter =
+  | "all"
+  | "high-roas"
+  | "low-roas"
+  | "no-orders"
+  | "new"
+  | "wait"
+  | "reject";
 
 /**
  * "NEW" if the campaign's first-ever ad run is within the last 3 days
@@ -212,7 +219,13 @@ export default function AdIntelligence() {
       if (quickFilter === "no-orders") {
         return (r.metaOrders ?? 0) === 0 && (r.spend ?? 0) > 0;
       }
-      if (quickFilter === "new") return isCampaignNew((r as any).campaignFirstDate, todayObj);
+      if (quickFilter === "new")
+        return (
+          (r as any).statusBadge === "NEW" ||
+          isCampaignNew((r as any).campaignFirstDate, todayObj)
+        );
+      if (quickFilter === "wait") return (r as any).statusBadge === "WAIT";
+      if (quickFilter === "reject") return (r as any).statusBadge === "REJECT";
       return true;
     });
     return [...filtered].sort((a, b) => {
@@ -513,6 +526,8 @@ export default function AdIntelligence() {
               { k: "low-roas", label: "ROAS ต่ำ" },
               { k: "no-orders", label: "ใช้แล้วยังไม่มี Order" },
               { k: "new", label: "NEW (แคมเปญใหม่ไม่เกิน 3 วัน)" },
+              { k: "wait", label: "WAIT (รออนุมัติ)" },
+              { k: "reject", label: "REJECT (ถูกปฏิเสธ)" },
             ] as { k: QuickFilter; label: string }[]
           ).map((f) => (
             <Button
@@ -651,10 +666,26 @@ export default function AdIntelligence() {
                             : r.roas >= target * 0.75
                               ? "text-amber-600 dark:text-amber-400"
                               : "text-rose-600 dark:text-rose-400";
-                      const newBadge = isCampaignNew(
+                      const newBadgeLegacy = isCampaignNew(
                         (r as any).campaignFirstDate,
                         new Date(),
                       );
+                      // Round 7.35: ป้ายสถานะจาก backend (WAIT/NEW/REJECT) มาก่อน
+                      // NEW เดิม (legacy by first-run date) ใช้เป็น fallback ถ้า backend ไม่มี badge
+                      const backendBadge = (r as any).statusBadge as
+                        | "WAIT"
+                        | "NEW"
+                        | "REJECT"
+                        | "NORMAL"
+                        | undefined;
+                      const statusKind: "WAIT" | "NEW" | "REJECT" | "NORMAL" =
+                        backendBadge && backendBadge !== "NORMAL"
+                          ? backendBadge
+                          : newBadgeLegacy
+                            ? "NEW"
+                            : "NORMAL";
+                      const isReject = statusKind === "REJECT";
+                      const isNoSpend = (r as any).isNoSpendRow === true;
                       return (
                         <tr
                           key={r.id}
@@ -720,7 +751,13 @@ export default function AdIntelligence() {
                           <td className="px-4 py-4 border-t border-r border-border">
                             <div className="flex items-start gap-2">
                               <Tooltip>
-                                <TooltipTrigger className="text-left leading-snug flex-1 min-w-0">
+                                <TooltipTrigger
+                                  className={`text-left leading-snug flex-1 min-w-0 ${
+                                    isReject
+                                      ? "text-red-600 dark:text-red-400 font-semibold"
+                                      : ""
+                                  }`}
+                                >
                                   {r.campaignName ?? "—"}
                                 </TooltipTrigger>
                                 <TooltipContent>
@@ -733,26 +770,59 @@ export default function AdIntelligence() {
                                   <p className="text-[10px] text-muted-foreground">
                                     Campaign: {r.campaignName ?? "—"}
                                   </p>
+                                  {(r as any).effectiveStatus && (
+                                    <p className="text-[10px] text-muted-foreground mt-1">
+                                      Meta status: {(r as any).effectiveStatus}
+                                    </p>
+                                  )}
                                 </TooltipContent>
                               </Tooltip>
-                              {newBadge && (
+                              {statusKind === "WAIT" && (
+                                <span
+                                  className="neon-blink-wait inline-flex items-center rounded px-1.5 text-[10px] font-bold leading-4 tracking-wider shrink-0 mt-0.5"
+                                  title="รอ Meta อนุมัติ"
+                                >
+                                  WAIT
+                                </span>
+                              )}
+                              {statusKind === "NEW" && (
                                 <span
                                   className="neon-blink inline-flex items-center rounded px-1.5 text-[10px] font-bold leading-4 tracking-wider shrink-0 mt-0.5"
-                                  title="แคมเปญใหม่ — เริ่มยิงไม่เกิน 3 วัน"
+                                  title="แคมเปญใหม่ — อนุมัติไม่เกิน 3 วัน"
                                 >
                                   NEW
+                                </span>
+                              )}
+                              {statusKind === "REJECT" && (
+                                <span
+                                  className="neon-blink-reject inline-flex items-center rounded px-1.5 text-[10px] font-bold leading-4 tracking-wider shrink-0 mt-0.5"
+                                  title="ถูก Meta ปฏิเสธ — จะแสดงค้าง 5 วันแล้วลบออก"
+                                >
+                                  REJECT
                                 </span>
                               )}
                             </div>
                           </td>
                           <td className="px-4 py-4 text-right tabular-nums border-t text-orange-600 dark:text-orange-400 font-medium">
-                            {formatCurrency(r.spend ?? 0, 0)}
+                            {isNoSpend ? (
+                              <span className="text-muted-foreground font-normal">—</span>
+                            ) : (
+                              formatCurrency(r.spend ?? 0, 0)
+                            )}
                           </td>
                           <td className="px-4 py-4 text-right tabular-nums border-t">
-                            {formatPercent(r.ctr ?? 0, 2)}
+                            {isNoSpend ? (
+                              <span className="text-muted-foreground">—</span>
+                            ) : (
+                              formatPercent(r.ctr ?? 0, 2)
+                            )}
                           </td>
                           <td className="px-4 py-4 text-right tabular-nums border-t text-blue-600 dark:text-blue-400 font-medium">
-                            {formatNumber(r.messages ?? 0)}
+                            {isNoSpend ? (
+                              <span className="text-muted-foreground font-normal">—</span>
+                            ) : (
+                              formatNumber(r.messages ?? 0)
+                            )}
                           </td>
                           <td className="px-4 py-4 text-right tabular-nums border-t">
                             {r.costPerClick != null
@@ -760,7 +830,11 @@ export default function AdIntelligence() {
                               : "—"}
                           </td>
                           <td className="px-4 py-4 text-right tabular-nums border-t text-emerald-700 dark:text-emerald-400 font-medium">
-                            {formatNumber(r.metaOrders ?? 0)}
+                            {isNoSpend ? (
+                              <span className="text-muted-foreground font-normal">—</span>
+                            ) : (
+                              formatNumber(r.metaOrders ?? 0)
+                            )}
                           </td>
                           <td className="px-4 py-4 text-right tabular-nums border-t">
                             {r.costPerOrder != null
@@ -788,7 +862,11 @@ export default function AdIntelligence() {
                             />
                           </td>
                           <td className="px-4 py-4 text-right tabular-nums border-t text-amber-700 dark:text-amber-400 font-medium">
-                            {formatNumber(r.metaSalesAmount ?? 0, 0)}
+                            {isNoSpend ? (
+                              <span className="text-muted-foreground font-normal">—</span>
+                            ) : (
+                              formatNumber(r.metaSalesAmount ?? 0, 0)
+                            )}
                           </td>
                           <td
                             className={`px-4 py-4 text-right tabular-nums border-t font-semibold ${

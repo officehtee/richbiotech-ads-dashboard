@@ -17,6 +17,7 @@ import {
   fetchAdsetDailyBudgetMap,
   fetchAdPreviewThumb,
   fetchPageName,
+  fetchCampaignStatuses,
 } from "./metaApi";
 import {
   upsertAdInsightsDaily,
@@ -24,14 +25,20 @@ import {
   getLatestPreviewCachedAt,
   updateAdPreviewCache,
   backfillPageName,
+  getCampaignStatusMap,
+  upsertCampaignStatus,
+  hardDeleteCampaignData,
 } from "./db";
 import { cacheAdPreview, isPreviewFresh } from "./previewCache";
+import { reconcileStatus, todayString } from "./campaignStatus";
 
 export type DeepSyncResult = {
   accountId: number;
   ok: boolean;
   rowsSynced: number;
   previewsRefreshed: number;
+  campaignsReconciled?: number;
+  campaignsDeleted?: number;
   errorMessage?: string;
 };
 
@@ -71,15 +78,57 @@ export async function syncAdInsightsForAccount(
 ): Promise<DeepSyncResult> {
   try {
     const token = account.accessToken;
-    const [insights, budgets, groupMap] = await Promise.all([
-      fetchAdInsightsDaily(account.adAccountId, token, { since, until }),
-      fetchAdsetDailyBudgetMap(account.adAccountId, token),
-      getAccountGroupMap(tenantId),
-    ]);
+    const [insights, budgets, groupMap, campaignStatuses, statusMap] =
+      await Promise.all([
+        fetchAdInsightsDaily(account.adAccountId, token, { since, until }),
+        fetchAdsetDailyBudgetMap(account.adAccountId, token),
+        getAccountGroupMap(tenantId),
+        fetchCampaignStatuses(account.adAccountId, token),
+        getCampaignStatusMap(tenantId),
+      ]);
 
     const groupId = groupMap.get(account.id) ?? null;
     let rowsSynced = 0;
     let previewsRefreshed = 0;
+    let campaignsReconciled = 0;
+    let campaignsDeleted = 0;
+
+    // ----- Round 7.35: reconcile campaign statuses (WAIT/NEW/REJECT) -----
+    // ทำก่อน upsert insights เพื่อให้ hard-delete ที่ครบ 5 วันถูกลบ
+    // (insights รอบนี้ของแคมเปญที่ลบจะไม่ถูกเขียนกลับ เพราะ spend=0 ไม่อยู่ใน insights)
+    const today = todayString();
+    for (const cs of campaignStatuses) {
+      const prev = statusMap.get(cs.campaign_id);
+      const result = reconcileStatus({
+        effectiveStatus: cs.effective_status,
+        approvedAt: prev?.approvedAt ?? null,
+        rejectedAt: prev?.rejectedAt ?? null,
+        rejectedExpired: prev?.rejectedExpired ?? false,
+        today,
+      });
+      await upsertCampaignStatus({
+        userId: tenantId,
+        accountId: account.id,
+        campaignId: cs.campaign_id,
+        campaignName: cs.campaign_name || prev?.campaignName || null,
+        effectiveStatus: cs.effective_status,
+        approvedAt: result.approvedAt,
+        rejectedAt: result.rejectedAt,
+        rejectedExpired: result.rejectedExpired,
+      });
+      campaignsReconciled += 1;
+      if (result.action === "hard_delete") {
+        try {
+          await hardDeleteCampaignData(tenantId, cs.campaign_id);
+          campaignsDeleted += 1;
+        } catch (e) {
+          console.warn(
+            `[deepAdsSync] hardDelete fail campaign=${cs.campaign_id}:`,
+            (e as Error).message,
+          );
+        }
+      }
+    }
 
     // pageName cache (per page_id) to avoid duplicate lookups
     const pageNameCache = new Map<string, string | null>();
@@ -162,6 +211,8 @@ export async function syncAdInsightsForAccount(
       ok: true,
       rowsSynced,
       previewsRefreshed,
+      campaignsReconciled,
+      campaignsDeleted,
     };
   } catch (e) {
     return {

@@ -453,3 +453,32 @@ export const adManualMetrics = mysqlTable("adManualMetrics", {
 
 export type AdManualMetric = typeof adManualMetrics.$inferSelect;
 export type InsertAdManualMetric = typeof adManualMetrics.$inferInsert;
+
+/**
+ * Campaign Status (Round 7.35) — 1 row per campaignId × tenant
+ * ติดตามสถานะแคมเปญ WAIT/NEW/REJECT จาก Meta Ad Management API
+ * - effectiveStatus: สถานะปัจจุบันจาก Meta (ACTIVE / PENDING_REVIEW / DISAPPROVED ...)
+ * - approvedAt: วันที่ตรวจเจอ ACTIVE ครั้งแรก (ระบบจดเอง, ใช้นับ NEW 3 วัน) — YYYY-MM-DD
+ * - rejectedAt: วันที่ตรวจเจอถูกปฏิเสธครั้งแรก (ระบบจดเอง, ใช้นับ REJECT 5 วัน) — YYYY-MM-DD
+ * - rejectedExpired: true เมื่อ REJECT ครบ 5 วันและถูก hard-delete แล้ว
+ *   (กันไม่ให้ดึงกลับมาแสดงซ้ำตราบใดที่ยัง REJECT อยู่)
+ */
+export const campaignStatus = mysqlTable("campaignStatus", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(), // workspace owner (tenant)
+  accountId: int("accountId").notNull(), // FK → adAccounts.id
+  campaignId: varchar("campaignId", { length: 64 }).notNull(),
+  campaignName: varchar("campaignName", { length: 512 }),
+  effectiveStatus: varchar("effectiveStatus", { length: 64 }),
+  approvedAt: varchar("approvedAt", { length: 10 }), // YYYY-MM-DD
+  rejectedAt: varchar("rejectedAt", { length: 10 }), // YYYY-MM-DD
+  rejectedExpired: boolean("rejectedExpired").default(false).notNull(),
+  syncedAt: timestamp("syncedAt").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("campaignStatus_userId_campaignId_unique").on(t.userId, t.campaignId),
+  index("campaignStatus_userId_idx").on(t.userId),
+  index("campaignStatus_accountId_idx").on(t.accountId),
+]);
+
+export type CampaignStatus = typeof campaignStatus.$inferSelect;
+export type InsertCampaignStatus = typeof campaignStatus.$inferInsert;

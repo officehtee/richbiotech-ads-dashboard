@@ -1087,3 +1087,48 @@ export async function fetchAdsetDailyBudgetMap(
 
   return result;
 }
+
+
+/* ============================================================
+ * Round 7.35 — Campaign Status (WAIT / NEW / REJECT)
+ * ============================================================ */
+
+export type MetaCampaignStatus = {
+  campaign_id: string;
+  campaign_name: string;
+  effective_status: string; // ACTIVE / PENDING_REVIEW / DISAPPROVED / WITH_ISSUES / PAUSED ...
+};
+
+/**
+ * Fetch ALL campaigns (incl. spend=0) with their effective_status from the
+ * Ad Management API (NOT insights — insights only returns ads that spent).
+ *
+ * - level=campaign on /{adAccountId}/campaigns
+ * - effective_status reflects review/approval state from Meta
+ * - paged (up to 25 pages) so big accounts are not truncated
+ * - returns [] on error so caller never crashes
+ */
+export async function fetchCampaignStatuses(
+  adAccountId: string,
+  accessToken: string,
+): Promise<MetaCampaignStatus[]> {
+  const fields = "id,name,effective_status";
+  const url =
+    `${META_BASE}/${adAccountId}/campaigns?fields=${fields}` +
+    `&limit=200&access_token=${encodeURIComponent(accessToken)}`;
+  try {
+    const rows = await fetchAllPages(url, 25);
+    return rows
+      .filter((r: any) => r && r.id)
+      .map((r: any) => ({
+        campaign_id: String(r.id),
+        campaign_name: r.name ?? "",
+        effective_status: String(r.effective_status ?? "UNKNOWN"),
+      }));
+  } catch (err: any) {
+    console.warn(
+      `[MetaAPI] fetchCampaignStatuses failed for ${adAccountId}: ${err?.message ?? err}`,
+    );
+    return [];
+  }
+}

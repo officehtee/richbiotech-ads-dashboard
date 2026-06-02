@@ -524,3 +524,18 @@
 - [x] Frontend: legend อัปเดต (เส้นประ/เส้นทึบ + Meta auto note)
 - [x] vitest 9 case (deepAdsMetrics.test.ts) — 303/303 ผ่าน, TS clean
 - [x] checkpoint
+
+
+## Round 7.35: ระบบสถานะแคมเปญ (WAIT / NEW / REJECT)
+- [x] Schema: ตาราง campaignStatus (campaignId/tenant, effectiveStatus, approvedAt, rejectedAt, rejectedExpired) + migration 0007
+- [x] Meta API: fetchCampaignStatuses (Ad Management API) ดึงแคมเปญ+effective_status ทั้งหมด รวม spend=0
+- [x] Pure helpers: server/campaignStatus.ts (classifyMetaStatus / isNewBadge / shouldShowRejectRow / shouldHardDelete / reconcileStatus)
+- [x] DB helpers: upsertCampaignStatus, getCampaignStatusMap, getCampaignStatusOne, hardDeleteCampaignData
+- [x] reconcile ตอน sync (deepAdsSync): จด approvedAt/rejectedAt อัตโนมัติ, clear เมื่อสถานะเปลี่ยน, rejected_expired guard
+- [x] hard-delete REJECT ครบ 5 วัน (ลบ adInsightsDaily + adManualMetrics ของแคมเปญนั้น) + mark rejected_expired
+- [x] routers deepAds.list: รวมแถว WAIT/REJECT (spend=0) วันที่ปัจจุบัน + คืน effectiveStatus/approvedAt/rejectedAt
+- [x] Frontend: ป้าย WAIT(เหลือง)/NEW(เขียว)/REJECT(แดง) นีออนกระพริบข้างชื่อแคมเปญ + ชื่อแดงเมื่อ REJECT + ตัวเลข "—"
+- [x] CSS: neon-blink-wait (เหลือง) / neon-blink-reject (แดง) เพิ่มจาก neon-blink เดิม (เขียว)
+- [x] Quick filter chips: WAIT / REJECT
+- [x] Tests: campaignStatus.test.ts 13 tests (classify/isNew/shouldDelete/reconcile/rejectedExpired/3 เคสสเปค) + tsc clean (316 tests passed)
+- [x] Checkpoint

@@ -126,6 +126,8 @@ async function startServer() {
       let totalRows = 0;
       let totalPreviews = 0;
       let totalFailed = 0;
+      let totalReconciled = 0;
+      let totalDeleted = 0;
       for (const tid of tenants) {
         try {
           const accounts = await getAdAccountsByUser(tid);
@@ -134,6 +136,8 @@ async function startServer() {
           const results = await syncAdInsightsForAccounts(active, since, until, tid);
           totalRows += results.reduce((s, r) => s + r.rowsSynced, 0);
           totalPreviews += results.reduce((s, r) => s + r.previewsRefreshed, 0);
+          totalReconciled += results.reduce((s, r) => s + (r.campaignsReconciled ?? 0), 0);
+          totalDeleted += results.reduce((s, r) => s + (r.campaignsDeleted ?? 0), 0);
           totalFailed += results.filter((r) => !r.ok).length;
         } catch (err) {
           console.error(`[syncAdInsights] tenant=${tid} failed`, err);
@@ -148,6 +152,8 @@ async function startServer() {
         until,
         rowsSynced: totalRows,
         previewsRefreshed: totalPreviews,
+        campaignsReconciled: totalReconciled,
+        campaignsDeleted: totalDeleted,
         failed: totalFailed,
       });
     } catch (e: any) {

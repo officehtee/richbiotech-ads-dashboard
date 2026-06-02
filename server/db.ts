@@ -1411,3 +1411,128 @@ export async function getLatestSyncedAt(
     .limit(1);
   return rows[0]?.at ?? null;
 }
+
+
+/* ============================================================
+ * Round 7.35 — Campaign Status (WAIT / NEW / REJECT) DB helpers
+ * ============================================================ */
+import {
+  campaignStatus,
+  type CampaignStatus,
+  type InsertCampaignStatus,
+} from "../drizzle/schema";
+
+/**
+ * Upsert one campaignStatus row (UNIQUE on userId+campaignId).
+ * On conflict overwrites status-managed fields.
+ */
+export async function upsertCampaignStatus(
+  row: InsertCampaignStatus,
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .insert(campaignStatus)
+    .values(row)
+    .onDuplicateKeyUpdate({
+      set: {
+        accountId: row.accountId,
+        campaignName: row.campaignName ?? null,
+        effectiveStatus: row.effectiveStatus ?? null,
+        approvedAt: row.approvedAt ?? null,
+        rejectedAt: row.rejectedAt ?? null,
+        rejectedExpired: row.rejectedExpired ?? false,
+        syncedAt: new Date(),
+      },
+    });
+}
+
+/**
+ * Get all campaignStatus rows for a tenant as a Map<campaignId, CampaignStatus>.
+ */
+export async function getCampaignStatusMap(
+  userId: number,
+): Promise<Map<string, CampaignStatus>> {
+  const db = await getDb();
+  const map = new Map<string, CampaignStatus>();
+  if (!db) return map;
+  const rows = await db
+    .select()
+    .from(campaignStatus)
+    .where(eq(campaignStatus.userId, userId));
+  for (const r of rows) map.set(String(r.campaignId), r);
+  return map;
+}
+
+/**
+ * Get a single campaignStatus row by (userId, campaignId).
+ */
+export async function getCampaignStatusOne(
+  userId: number,
+  campaignId: string,
+): Promise<CampaignStatus | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(campaignStatus)
+    .where(
+      and(
+        eq(campaignStatus.userId, userId),
+        eq(campaignStatus.campaignId, campaignId),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/**
+ * Hard-delete all data for one campaign of a tenant:
+ *   - adInsightsDaily rows of that campaign
+ *   - adManualMetrics rows of the ads belonging to that campaign
+ * Keeps the campaignStatus row (so rejectedExpired guard still works).
+ *
+ * Returns number of insight rows deleted.
+ */
+export async function hardDeleteCampaignData(
+  userId: number,
+  campaignId: string,
+): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+
+  // หา adId ทั้งหมดของแคมเปญนี้ก่อน (เพื่อลบ manual metrics ที่ผูกกับ adId)
+  const adRows = await db
+    .select({ adId: adInsightsDaily.adId })
+    .from(adInsightsDaily)
+    .where(
+      and(
+        eq(adInsightsDaily.userId, userId),
+        eq(adInsightsDaily.campaignId, campaignId),
+      ),
+    );
+  const adIds = Array.from(new Set(adRows.map((r) => String(r.adId))));
+
+  // ลบ manual metrics ของ adIds เหล่านั้น
+  if (adIds.length > 0) {
+    await db
+      .delete(adManualMetrics)
+      .where(
+        and(
+          eq(adManualMetrics.userId, userId),
+          inArray(adManualMetrics.adId, adIds),
+        ),
+      );
+  }
+
+  // ลบ insights ของแคมเปญ
+  const res: any = await db
+    .delete(adInsightsDaily)
+    .where(
+      and(
+        eq(adInsightsDaily.userId, userId),
+        eq(adInsightsDaily.campaignId, campaignId),
+      ),
+    );
+  return Number(res?.[0]?.affectedRows ?? adRows.length ?? 0);
+}
