@@ -66,7 +66,6 @@ type SortKey =
   | "metaOrders"
   | "costPerOrder"
   | "chatToOrderRate"
-  | "manualSalesCount"
   | "metaSalesAmount"
   | "roas"
   | "adsSpendPct"
@@ -248,14 +247,12 @@ export default function AdIntelligence() {
       clicks = 0,
       messages = 0,
       orders = 0,
-      salesCount = 0,
       salesAmount = 0;
     for (const r of sorted) {
       spend += r.spend ?? 0;
       clicks += r.clicks ?? 0;
       messages += r.messages ?? 0;
       orders += r.metaOrders ?? 0;
-      salesCount += r.manualSalesCount ?? 0;
       salesAmount += r.metaSalesAmount ?? 0;
     }
     return {
@@ -263,7 +260,6 @@ export default function AdIntelligence() {
       clicks,
       messages,
       orders,
-      salesCount,
       salesAmount,
       roas: spend > 0 && salesAmount > 0 ? salesAmount / spend : null,
       costPerOrder: orders > 0 ? spend / orders : null,
@@ -296,7 +292,6 @@ export default function AdIntelligence() {
         "Orders",
         "ต้นทุน/ซื้อ",
         "%ทัก/ลูกค้า",
-        "จำนวนขาย",
         "ยอดขาย",
         "ROAS",
         "%ค่า ADS",
@@ -320,7 +315,6 @@ export default function AdIntelligence() {
         r.metaOrders ?? 0,
         r.costPerOrder ?? 0,
         r.chatToOrderRate ?? 0,
-        r.manualSalesCount ?? 0,
         r.metaSalesAmount ?? 0,
         r.roas ?? 0,
         r.adsSpendPct ?? 0,
@@ -370,7 +364,6 @@ export default function AdIntelligence() {
                 : typeof input.value === "number"
                   ? input.value
                   : Number(input.value);
-            if (input.field === "salesCount") return { ...row, manualSalesCount: numVal };
             if (input.field === "scaleNextAmount") return { ...row, manualScaleNextAmount: numVal };
             if (input.field === "note")
               return {
@@ -614,9 +607,6 @@ export default function AdIntelligence() {
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
                   <SortBtn k="chatToOrderRate" label="%ทัก/ลูก" />
                 </th>
-                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px] bg-amber-50 dark:bg-amber-950/30">
-                  <SortBtn k="manualSalesCount" label="จำนวนขาย" />
-                </th>
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px]">
                   <SortBtn k="metaSalesAmount" label="ยอดขาย" />
                 </th>
@@ -644,7 +634,7 @@ export default function AdIntelligence() {
               {listQuery.isLoading
                 ? Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i} className="border-t">
-                      <td colSpan={22} className="px-4 py-4">
+                      <td colSpan={21} className="px-4 py-4">
                         <Skeleton className="h-9 w-full" />
                       </td>
                     </tr>
@@ -653,7 +643,7 @@ export default function AdIntelligence() {
                   ? (
                     <tr>
                       <td
-                        colSpan={22}
+                        colSpan={21}
                         className="px-4 py-16 text-center text-sm text-muted-foreground"
                       >
                         ไม่มีข้อมูล — กดปุ่ม "Sync Now" เพื่อดึงจาก Meta หรือลองเลือกช่วงวันที่อื่น
@@ -859,21 +849,6 @@ export default function AdIntelligence() {
                               ? formatPercent(r.chatToOrderRate, 1)
                               : "—"}
                           </td>
-                          <td className="px-4 py-4 text-right tabular-nums border-t bg-amber-50/30 dark:bg-amber-950/10 text-emerald-700 dark:text-emerald-400 font-medium">
-                            <InlineNumber
-                              dashedNeon
-                              accentClass="text-emerald-700 dark:text-emerald-400"
-                              value={r.manualSalesCount}
-                              onSave={(v) =>
-                                updateManual.mutate({
-                                  adId: r.adId,
-                                  date: r.date,
-                                  field: "salesCount",
-                                  value: v,
-                                })
-                              }
-                            />
-                          </td>
                           <td className="px-4 py-4 text-right tabular-nums border-t text-amber-700 dark:text-amber-400 font-medium">
                             {isNoSpend ? (
                               <span className="text-muted-foreground font-normal">—</span>
@@ -956,38 +931,49 @@ export default function AdIntelligence() {
                   >
                     รวม ({sorted.length}) — ตัวชี้วัดรวม
                   </td>
+                  {/* spend */}
                   <td className="px-4 py-3 text-right tabular-nums border-t-2">
                     {formatCurrency(summary.spend, 0)}
                   </td>
+                  {/* ctr */}
                   <td className="px-4 py-3 border-t-2"></td>
+                  {/* reach */}
                   <td className="px-4 py-3 border-t-2"></td>
+                  {/* messages */}
                   <td className="px-4 py-3 text-right tabular-nums border-t-2">
                     {formatNumber(summary.messages)}
                   </td>
+                  {/* costPerMessage */}
                   <td className="px-4 py-3 border-t-2"></td>
+                  {/* orders */}
                   <td className="px-4 py-3 text-right tabular-nums border-t-2">
                     {formatNumber(summary.orders)}
                   </td>
+                  {/* costPerOrder */}
                   <td className="px-4 py-3 text-right tabular-nums border-t-2">
                     {summary.costPerOrder != null
                       ? formatCurrency(summary.costPerOrder, 0)
                       : "—"}
                   </td>
+                  {/* chatToOrderRate */}
                   <td className="px-4 py-3 border-t-2"></td>
-                  <td className="px-4 py-3 text-right tabular-nums border-t-2">
-                    {formatNumber(summary.salesCount)}
-                  </td>
+                  {/* salesAmount */}
                   <td className="px-4 py-3 text-right tabular-nums border-t-2">
                     {formatNumber(summary.salesAmount)}
                   </td>
+                  {/* roas */}
                   <td className="px-4 py-3 text-right tabular-nums border-t-2">
                     {summary.roas != null ? formatRoas(summary.roas) : "—"}
                   </td>
-                  <td className="px-4 py-3 border-t-2"></td>
-                  <td className="px-4 py-3 border-t-2"></td>
+                  {/* adsSpendPct (border-r) */}
+                  <td className="px-4 py-3 border-t-2 border-r border-border"></td>
+                  {/* prevDayScale (scaling left) */}
                   <td className="px-4 py-3 border-t-2 scaling-zone-edge-left scaling-zone-cell"></td>
+                  {/* scaleNew (scaling right) */}
                   <td className="px-4 py-3 border-t-2 scaling-zone-edge-right scaling-zone-cell"></td>
+                  {/* note */}
                   <td className="px-4 py-3 border-t-2"></td>
+                  {/* dailyBudget */}
                   <td className="px-4 py-3 border-t-2"></td>
                 </tr>
               </tfoot>
@@ -1005,7 +991,7 @@ export default function AdIntelligence() {
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
             <LegendDot color="bg-orange-500" label="ค่า ADS / ยอดยิง" />
             <LegendDot color="bg-blue-500" label="ทัก" />
-            <LegendDot color="bg-emerald-500" label="Orders / จำนวนขาย" />
+            <LegendDot color="bg-emerald-500" label="Orders" />
             <LegendDot color="bg-amber-500" label="ยอดขาย" />
             <LegendDot color="bg-violet-500" label="ROAS" />
             <span className="inline-flex items-center gap-2">

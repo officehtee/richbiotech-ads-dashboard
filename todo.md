@@ -554,3 +554,10 @@
 - [x] frontend: เพิ่มคอลัมน์ "การเข้าถึง" (reach) วางก่อน "ทัก" (CTR → การเข้าถึง → ทัก → ค่าคลิก) + CSV + footer + colSpan
 - [x] tests: เคส omni_purchase เดี่ยว + cost_per_action_type + purchase_roas (328 tests passed) + tsc clean
 - [x] checkpoint
+
+
+## Round 7.37: ลบคอลัมน์จำนวนขาย + ยืนยัน mapping ตรง Meta
+- [x] frontend: ลบคอลัมน์ "จำนวนขาย" (manualSalesCount) ออกจากตาราง — SortKey, header, body editable cell, footer, CSV, legend, colSpan (22→21)
+- [x] ยืนยัน mapping ทุกคอลัมน์ตรง Meta (spend/ctr/messages/costPerMessage/orders/costPerOrder/chatToOrderRate%/salesValue/roas/adsSpendPct%/budget/reach) — ตรวจแล้วถูกต้อง ไม่ต้องแก้
+- [x] tests + tsc clean (328 passed, tsc 0 errors)
+- [x] checkpoint
