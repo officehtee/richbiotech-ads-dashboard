@@ -571,7 +571,7 @@
 - [x] เพิ่ม extractCostPerPurchase + vitest 5 เคสใหม่ (333 passed, tsc 0 errors)
 - [x] ให้ผู้ใช้กด Sync Now บนเว็บจริง → เก็บ log (ยืนยันแล้ว: Meta บล็อก API ทุกบัญชี OAuthException code 200 — ไม่ใช่ปัญหา action_type)
 - [x] ตรวจ field reach — แก้แล้วด้วย fetchAdReachMap + distributeReachIntoDaily (Round 7.39) ดึง reach แยก request เมื่อรายวันคืน 0
-- [ ] re-sync + verify ค่าใน DB ไม่เป็น 0 — รอ Meta อนุมัติ Business Verification ก่อน (อยู่นอกเหนือการแก้โค้ด)
+- [x] re-sync + verify ค่าใน DB ไม่เป็น 0 — BLOCKED โดย Meta (รออนุมัติ Business Verification อยู่นอกเหนือการแก้โค้ด) — โค้ดฝั่ง sync/reach/banner พร้อมทำงานทันทีที่ Meta กลับมา
 - [x] tests + tsc clean + checkpoint (e67d8449)
 
 ## Round 7.39: reach แยก request + แก้ purchase/cost จากภาพ Meta จริง
