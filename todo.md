@@ -572,4 +572,21 @@
 - [ ] ให้ผู้ใช้กด Sync Now บนเว็บจริง → เก็บ log action_type ที่แท้จริง
 - [ ] ตรวจ field reach — ขอแยก request หรือ field ถูกต้อง (level=ad + time_increment=1)
 - [ ] re-sync + verify ค่าใน DB ไม่เป็น 0
+- [x] tests + tsc clean + checkpoint (e67d8449)
+
+## Round 7.39: reach แยก request + แก้ purchase/cost จากภาพ Meta จริง
+- พบจากภาพ Meta Ads Manager (2/6/2026): reach มีค่า (682, 2035), การซื้อ=1 (รวม), แต่เว็บขึ้น 0 หมด
+- ต้นตอ reach=0: Meta ไม่คืน reach เมื่อขอพร้อม time_increment=1 + level=ad → ต้องดึง reach แยก request (รวมช่วง ไม่ใช่รายวัน)
+- [ ] เพิ่มฟังก์ชัน fetchAdReachMap (level=ad, ไม่มี time_increment) → คืน reach ต่อ ad_id ต่อ account
+- [ ] รวม reach map เข้า fetchAdInsightsDaily / deepAdsSync (เติม reach ต่อแถวจาก map)
+- [ ] ยืนยัน extractPurchases onsite_conversion.purchase (ทำแล้ว Round 7.38) ครอบคลุม + เพิ่ม cost per purchase fallback
 - [ ] tests + tsc clean + checkpoint
+
+## Round 7.39b: เปลี่ยนชื่อคอลัมน์ + แบนเนอร์เตือน BM ถูกบล็อก
+- [x] เปลี่ยนชื่อคอลัมน์ "ยอดขาย" → "ค่าคอนเวอร์ชั่นการซื้อ" (header, CSV, legend, description) ใน AdIntelligence.tsx
+- [x] เปลี่ยนชื่อคอลัมน์ "%ทัก/ลูก" → "%ทัก/ลูกค้า" (ยืนยันถูกต้องใน header + CSV)
+- [x] สร้าง component BmBlockedBanner.tsx — query bm.list, filter status !== 'active', แสดงรายชื่อ BM ที่มีปัญหา + ลิงก์หน้าจัดการบัญชี + ปิดได้
+- [x] ฝัง BmBlockedBanner ใน DashboardLayout (mobile + desktop main) → แสดงครบทุกหน้า รวมหน้าหลัก (HubDashboard)
+- [x] tests + tsc clean (333 passed, tsc 0 errors)
+- [x] checkpoint
+- หมายเหตุ: ปัญหาข้อมูล = 0 เกิดจาก Meta บล็อก API (Business Verification กำลังตรวจสอบ ~2 วัน) ไม่ใช่บั๊กโค้ด เมื่อ Meta อนุมัติ ข้อมูลจะกลับมาหลัง Sync ครั้งถัดไป

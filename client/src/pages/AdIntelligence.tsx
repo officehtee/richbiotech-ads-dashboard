@@ -292,7 +292,7 @@ export default function AdIntelligence() {
         "Orders",
         "ต้นทุน/ซื้อ",
         "%ทัก/ลูกค้า",
-        "ยอดขาย",
+        "ค่าคอนเวอร์ชั่นการซื้อ",
         "ROAS",
         "%ค่า ADS",
         "ยอดเก่า",
@@ -605,10 +605,10 @@ export default function AdIntelligence() {
                   <SortBtn k="costPerOrder" label="ต้นทุน/ซื้อ" />
                 </th>
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
-                  <SortBtn k="chatToOrderRate" label="%ทัก/ลูก" />
+                  <SortBtn k="chatToOrderRate" label="%ทัก/ลูกค้า" />
                 </th>
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px]">
-                  <SortBtn k="metaSalesAmount" label="ยอดขาย" />
+                  <SortBtn k="metaSalesAmount" label="ค่าคอนเวอร์ชั่นการซื้อ" />
                 </th>
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
                   <SortBtn k="roas" label="ROAS" />
@@ -992,7 +992,7 @@ export default function AdIntelligence() {
             <LegendDot color="bg-orange-500" label="ค่า ADS / ยอดยิง" />
             <LegendDot color="bg-blue-500" label="ทัก" />
             <LegendDot color="bg-emerald-500" label="Orders" />
-            <LegendDot color="bg-amber-500" label="ยอดขาย" />
+            <LegendDot color="bg-amber-500" label="ค่าคอนเวอร์ชั่นการซื้อ" />
             <LegendDot color="bg-violet-500" label="ROAS" />
             <span className="inline-flex items-center gap-2">
               <span className="inline-block w-4 h-4 rounded border-2 border-dashed border-cyan-500" />
@@ -1004,7 +1004,7 @@ export default function AdIntelligence() {
             </span>
           </div>
           <div className="mt-2 text-xs text-muted-foreground">
-            Orders · ยอดขาย · ROAS · ยอดยิง — ดึงจาก Meta อัตโนมัติ (ไม่ต้องกรอกมือ)
+            Orders · ค่าคอนเวอร์ชั่นการซื้อ · ROAS · ยอดยิง — ดึงจาก Meta อัตโนมัติ (ไม่ต้องกรอกมือ)
           </div>
         </div>
 

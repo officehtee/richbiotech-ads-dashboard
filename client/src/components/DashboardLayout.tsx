@@ -45,6 +45,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import AlertBell from "./AlertBell";
+import BmBlockedBanner from "./BmBlockedBanner";
 import { AppSidebar, type SidebarSection } from "./AppSidebar";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
@@ -376,7 +377,10 @@ export default function DashboardLayout({
           </>
         )}
 
-        <main className="flex-1 p-4">{children}</main>
+        <main className="flex-1 p-4">
+          <BmBlockedBanner />
+          {children}
+        </main>
       </div>
     );
   }
@@ -429,7 +433,10 @@ export default function DashboardLayout({
             )}
           </Button>
         </div>
-        <main className="flex-1 p-4 md:p-6 overflow-x-auto">{children}</main>
+        <main className="flex-1 p-4 md:p-6 overflow-x-auto">
+          <BmBlockedBanner />
+          {children}
+        </main>
       </div>
     </div>
   );
