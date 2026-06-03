@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BMSection } from "@/components/BMSection";
+import { AutoSyncSection } from "@/components/AutoSyncSection";
 import {
   Dialog,
   DialogContent,
@@ -117,6 +118,9 @@ export default function AccountsSettings() {
           เพิ่มบัญชี
         </Button>
       </header>
+
+      {/* Round 7.40 — Auto-sync (Heartbeat cron) */}
+      <AutoSyncSection />
 
       {/* Round 7.23 — BM Auto-Discovery */}
       <BMSection />

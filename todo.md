@@ -590,3 +590,13 @@
 - [x] tests + tsc clean (333 passed, tsc 0 errors)
 - [x] checkpoint
 - หมายเหตุ: ปัญหาข้อมูล = 0 เกิดจาก Meta บล็อก API (Business Verification กำลังตรวจสอบ ~2 วัน) ไม่ใช่บั๊กโค้ด เมื่อ Meta อนุมัติ ข้อมูลจะกลับมาหลัง Sync ครั้งถัดไป
+
+## Round 7.40: ระบบ Auto-sync อัตโนมัติทุก 1 ชม. (Heartbeat Cron Jobs)
+- [x] เพิ่ม schedule tRPC router (ownerProcedure): setup, list, toggle
+- [x] createHeartbeatJob สำหรับ syncAdInsights (ทุก 1 ชม.)
+- [x] createHeartbeatJob สำหรับ syncBM (ทุก 1 ชม.)
+- [x] createHeartbeatJob สำหรับ checkAlerts (ทุก 1 ชม.)
+- [x] เพิ่ม UI หน้า Settings: เปิด/ปิด Auto-sync + ดูสถานะ cron (last run, next run)
+- [x] เพิ่ม vitest สำหรับ schedule logic
+- [x] tsc 0 errors + vitest ผ่าน
+- [ ] checkpoint + แนะนำ deploy

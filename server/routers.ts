@@ -4,6 +4,7 @@ import { z } from "zod";
 import { customAlphabet } from "nanoid";
 import { aiRouter } from "./aiAdvisor";
 import { alertsRouter } from "./alertsRouter";
+import { scheduleRouter } from "./scheduleRouter";
 import {
   CommissionSnapshot,
   ScalingScoreData,
@@ -160,6 +161,7 @@ async function tenantId(ctx: { user: { id: number; role: string; ownerId: number
 
 export const appRouter = router({
   system: systemRouter,
+  schedule: scheduleRouter,
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
