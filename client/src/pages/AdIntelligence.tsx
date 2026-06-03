@@ -4,7 +4,7 @@
  * 21-column table: 1 row = 1 ad × 1 date.
  * Phase 2/3/4 features:
  *   - Inline editing of 5 manual fields (Orders / SalesCount / SalesAmount / ScaleNew / Note)
- *   - Sortable columns, NEW badge, quick filter chips, freeze first 2 cols
+ *   - Sortable columns, NEW badge, quick filter chips, freeze first 3 cols (วันที่, Preview, บัญชี)
  *   - Export CSV, summary row, conditional formatting (ROAS vs group target)
  *   - Sync Now button (owner) + auto via heartbeat
  */
@@ -579,7 +579,7 @@ export default function AdIntelligence() {
                   <SortBtn k="date" label="วันที่" />
                 </th>
                 <th className="px-3 py-3 sticky left-[120px] bg-muted/80 z-20 w-[72px] min-w-[72px] whitespace-nowrap">Preview</th>
-                <th className="px-4 py-3 whitespace-nowrap min-w-[140px]">บัญชี</th>
+                <th className="px-4 py-3 sticky left-[192px] bg-muted/80 z-20 min-w-[140px] whitespace-nowrap">บัญชี</th>
                 <th className="px-4 py-3 whitespace-nowrap min-w-[120px]">Group</th>
                 <th className="px-4 py-3 whitespace-nowrap min-w-[140px]">Page</th>
                 <th className="px-4 py-3 whitespace-nowrap min-w-[320px] border-r border-border">Campaign</th>
@@ -718,7 +718,7 @@ export default function AdIntelligence() {
                               </div>
                             )}
                           </td>
-                          <td className="px-4 py-4 whitespace-nowrap border-t">
+                          <td className="px-4 py-4 sticky left-[192px] bg-background z-10 whitespace-nowrap border-t">
                             {r.accountNickname ?? r.accountMetaId ?? "—"}
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap border-t">
