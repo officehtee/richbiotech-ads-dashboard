@@ -178,9 +178,9 @@ export function AutoSyncSection() {
       {/* หมายเหตุเชิงเทคนิค (expand) */}
       {showNote && (
         <div className="mt-3 rounded-lg bg-muted/40 px-4 py-3 text-xs text-muted-foreground leading-relaxed">
-          <strong className="text-foreground">หมายเหตุ:</strong> ข้อมูลจาก Meta Ads API มีความล่าช้าในตัวเอง
-          15–30 นาที ดังนั้นการซิงค์ทุก 1 ชั่วโมงจึงเป็นจุดสมดุลที่เหมาะสมระหว่างความสดของข้อมูลกับการป้องกัน
-          Meta จำกัดอัตราการเรียก API (rate limit) รอบเที่ยงคืน (เวลา UTC) ระบบจะดึงข้อมูลย้อนหลัง 7 วันให้อัตโนมัติ
+          <strong className="text-foreground">หมายเหตุ:</strong> ข้อมูลจะอัปเดตอัตโนมัติทุก 1 ชั่วโมง ไม่ต้องกดรีเฟรชเอง
+          ครั้งแรกที่เปิดใช้งาน ระบบจะดึงข้อมูลย้อนหลัง <strong className="text-foreground">90 วัน</strong> ให้อัตโนมัติ เพื่อให้ดูข้อมูลย้อนหลังได้ทันที
+          หลังจากนั้นจะดึงเฉพาะ 7 วันล่าสุดในแต่ละรอบ เพื่อครอบคลุมการปรับปรุงข้อมูลย้อนหลังของ Meta
           <br />
           การตั้งเวลาจะเริ่มทำงานหลังเผยแพร่เว็บ (Publish) แล้วเท่านั้น
         </div>

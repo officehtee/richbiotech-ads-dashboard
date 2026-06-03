@@ -625,3 +625,11 @@
 - [x] AutoSyncSection.tsx: รายละเอียด 3 jobs ยุบเป็น expand/collapse "ดูรายละเอียด"
 - [x] AutoSyncSection.tsx: หมายเหตุยุบเป็น expand/collapse "ดูหมายเหตุ"
 - [x] รัน tsc + vitest ยืนยัน 0 errors / ทุก test ผ่าน (352 tests, tsc 0 errors)
+
+## Round 7.42: Initial sync 90 วัน + cron ปกติ 7 วัน
+- [x] db.ts: เพิ่ม helper hasAdInsightsData(userId) — คืน true ถ้ามีข้อมูลใน DB แล้ว
+- [x] server/_core/index.ts: ปรับ syncAdInsights handler — initial sync 90 วัน / normal sync 7 วัน
+- [x] ลบ logic เที่ยงคืน UTC (hourUtc === 0) ออก แทนด้วย initial sync 90 วัน
+- [x] AutoSyncSection.tsx: อัปเดตข้อความหมายเหตุให้ตรงกับ logic ใหม่
+- [x] เพิ่ม vitest 5 tests ครอบ initial vs normal sync days logic (initialSync.test.ts)
+- [x] tsc 0 errors + vitest 358 tests ผ่าน, checkpoint

@@ -1419,6 +1419,21 @@ export async function getLatestSyncedAt(
 }
 
 
+/**
+ * Round 7.42: ตรวจว่า tenant นี้มีข้อมูล adInsightsDaily ใน DB แล้วหรือยัง
+ * ใช้ใน syncAdInsights handler เพื่อตัดสินใจ initial sync (90 วัน) vs normal sync (7 วัน)
+ */
+export async function hasAdInsightsData(userId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db
+    .select({ id: adInsightsDaily.id })
+    .from(adInsightsDaily)
+    .where(eq(adInsightsDaily.userId, userId))
+    .limit(1);
+  return rows.length > 0;
+}
+
 /* ============================================================
  * Round 7.35 — Campaign Status (WAIT / NEW / REJECT) DB helpers
  * ============================================================ */
