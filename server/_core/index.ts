@@ -12,6 +12,7 @@ import {
   listAllActiveBusinessManagers,
   getAdAccountsByUser,
   hasAdInsightsData,
+  hasAdInsightsDataForAccount,
 } from "../db";
 import { syncOneBusinessManager, shouldNotifyOwner, summarizeOutcome } from "../bmSync";
 import { syncAdInsightsForAccounts, dateOffsetString } from "../deepAdsSync";
@@ -123,23 +124,38 @@ async function startServer() {
       let totalFailed = 0;
       let totalReconciled = 0;
       let totalDeleted = 0;
+      const until = dateOffsetString(0);
       for (const tid of tenants) {
         try {
           const accounts = await getAdAccountsByUser(tid);
           const active = accounts.filter((a) => a.isActive);
           if (active.length === 0) continue;
-          // ตรวจว่ามีข้อมูลใน DB แล้วหรือยัง
-          const hasData = await hasAdInsightsData(tid);
-          // initial sync: 90 วัน / normal sync: 7 วัน (ครอบคลุม Meta data revision window)
-          const days = hasData ? 7 : 90;
-          const since = dateOffsetString(days - 1);
-          const until = dateOffsetString(0);
-          const results = await syncAdInsightsForAccounts(active, since, until, tid);
-          totalRows += results.reduce((s, r) => s + r.rowsSynced, 0);
-          totalPreviews += results.reduce((s, r) => s + r.previewsRefreshed, 0);
-          totalReconciled += results.reduce((s, r) => s + (r.campaignsReconciled ?? 0), 0);
-          totalDeleted += results.reduce((s, r) => s + (r.campaignsDeleted ?? 0), 0);
-          totalFailed += results.filter((r) => !r.ok).length;
+          // Round 7.43: ตรวจรายบัญชี — แยกบัญชีใหม่ (90 วัน) ออกจากบัญชีเก่า (7 วัน)
+          const flags = await Promise.all(
+            active.map((a) => hasAdInsightsDataForAccount(tid, a.id)),
+          );
+          const newAccounts = active.filter((_, i) => !flags[i]); // initial: 90 วัน
+          const existingAccounts = active.filter((_, i) => flags[i]); // normal: 7 วัน
+
+          const batches: { accounts: typeof active; since: string }[] = [];
+          if (newAccounts.length > 0)
+            batches.push({ accounts: newAccounts, since: dateOffsetString(89) });
+          if (existingAccounts.length > 0)
+            batches.push({ accounts: existingAccounts, since: dateOffsetString(6) });
+
+          for (const batch of batches) {
+            const results = await syncAdInsightsForAccounts(
+              batch.accounts,
+              batch.since,
+              until,
+              tid,
+            );
+            totalRows += results.reduce((s, r) => s + r.rowsSynced, 0);
+            totalPreviews += results.reduce((s, r) => s + r.previewsRefreshed, 0);
+            totalReconciled += results.reduce((s, r) => s + (r.campaignsReconciled ?? 0), 0);
+            totalDeleted += results.reduce((s, r) => s + (r.campaignsDeleted ?? 0), 0);
+            totalFailed += results.filter((r) => !r.ok).length;
+          }
         } catch (err) {
           console.error(`[syncAdInsights] tenant=${tid} failed`, err);
           totalFailed += 1;

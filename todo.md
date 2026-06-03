@@ -633,3 +633,9 @@
 - [x] AutoSyncSection.tsx: อัปเดตข้อความหมายเหตุให้ตรงกับ logic ใหม่
 - [x] เพิ่ม vitest 5 tests ครอบ initial vs normal sync days logic (initialSync.test.ts)
 - [x] tsc 0 errors + vitest 358 tests ผ่าน, checkpoint
+
+## Round 7.43: Initial sync รายบัญชี (per-account) แทนระดับ workspace
+- [x] db.ts: เพิ่ม hasAdInsightsDataForAccount(userId, accountId) — ตรวจว่าบัญชีนี้มีข้อมูลใน DB แล้วหรือยัง
+- [x] index.ts syncAdInsights: แบ่งบัญชีเป็น 2 กลุ่ม — บัญชีใหม่ (ไม่มีข้อมูล) ดึง 90 วัน / บัญชีเก่า ดึง 7 วัน
+- [x] เพิ่ม vitest 5 tests ครอบ per-account split logic (splitAccountsByData)
+- [x] tsc 0 errors + vitest 363 tests ผ่าน, checkpoint

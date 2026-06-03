@@ -1434,6 +1434,24 @@ export async function hasAdInsightsData(userId: number): Promise<boolean> {
   return rows.length > 0;
 }
 
+/**
+ * Round 7.43: ตรวจรายบัญชี — บัญชีนี้มีข้อมูล adInsightsDaily ใน DB แล้วหรือยัง
+ * ใช้แยกบัญชีใหม่ (initial 90 วัน) ออกจากบัญชีเก่า (normal 7 วัน)
+ */
+export async function hasAdInsightsDataForAccount(
+  userId: number,
+  accountId: number,
+): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db
+    .select({ id: adInsightsDaily.id })
+    .from(adInsightsDaily)
+    .where(and(eq(adInsightsDaily.userId, userId), eq(adInsightsDaily.accountId, accountId)))
+    .limit(1);
+  return rows.length > 0;
+}
+
 /* ============================================================
  * Round 7.35 — Campaign Status (WAIT / NEW / REJECT) DB helpers
  * ============================================================ */

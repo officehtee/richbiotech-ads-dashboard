@@ -55,3 +55,62 @@ describe("decideSyncDays — initial vs normal sync", () => {
     expect(diffDays).toBe(89); // 90 วัน = 89 วันระหว่าง since และ until
   });
 });
+
+/**
+ * Round 7.43 — Per-account split logic
+ *
+ * แยกบัญชี active เป็น 2 กลุ่มจาก flags (hasData รายบัญชี):
+ *  - บัญชีใหม่ (flag = false) → initial sync 90 วัน
+ *  - บัญชีเก่า (flag = true)  → normal sync 7 วัน
+ *
+ * extract logic เดียวกับใน handler ออกมาเป็น pure function เพื่อทดสอบ
+ */
+type Acct = { id: number };
+
+export function splitAccountsByData<T extends Acct>(
+  accounts: T[],
+  flags: boolean[],
+): { newAccounts: T[]; existingAccounts: T[] } {
+  const newAccounts = accounts.filter((_, i) => !flags[i]);
+  const existingAccounts = accounts.filter((_, i) => flags[i]);
+  return { newAccounts, existingAccounts };
+}
+
+describe("splitAccountsByData — per-account initial vs normal", () => {
+  it("บัญชีใหม่ทั้งหมด → อยู่ใน newAccounts (90 วัน)", () => {
+    const accts = [{ id: 1 }, { id: 2 }];
+    const { newAccounts, existingAccounts } = splitAccountsByData(accts, [false, false]);
+    expect(newAccounts.map((a) => a.id)).toEqual([1, 2]);
+    expect(existingAccounts).toEqual([]);
+  });
+
+  it("บัญชีเก่าทั้งหมด → อยู่ใน existingAccounts (7 วัน)", () => {
+    const accts = [{ id: 1 }, { id: 2 }];
+    const { newAccounts, existingAccounts } = splitAccountsByData(accts, [true, true]);
+    expect(newAccounts).toEqual([]);
+    expect(existingAccounts.map((a) => a.id)).toEqual([1, 2]);
+  });
+
+  it("ผสม: บัญชีเก่า 2 + บัญชีใหม่ 1 → แยกถูกกลุ่ม", () => {
+    // workspace มีบัญชี A,B (เก่า) อยู่แล้ว และเพิ่งเพิ่ม C (ใหม่)
+    const accts = [{ id: 10 }, { id: 11 }, { id: 99 }];
+    const flags = [true, true, false]; // A,B มีข้อมูล / C ยังไม่มี
+    const { newAccounts, existingAccounts } = splitAccountsByData(accts, flags);
+    expect(newAccounts.map((a) => a.id)).toEqual([99]); // C → 90 วัน
+    expect(existingAccounts.map((a) => a.id)).toEqual([10, 11]); // A,B → 7 วัน
+  });
+
+  it("บัญชีใหม่ใช้ since ของ 90 วัน, บัญชีเก่าใช้ 7 วัน", () => {
+    const base = new Date("2025-06-04T00:00:00Z");
+    const sinceNew = dateOffsetString(89, base);
+    const sinceOld = dateOffsetString(6, base);
+    expect(sinceNew).toBe("2025-03-07");
+    expect(sinceOld).toBe("2025-05-29");
+  });
+
+  it("ไม่มีบัญชี → ทั้งสองกลุ่มว่าง", () => {
+    const { newAccounts, existingAccounts } = splitAccountsByData([], []);
+    expect(newAccounts).toEqual([]);
+    expect(existingAccounts).toEqual([]);
+  });
+});
