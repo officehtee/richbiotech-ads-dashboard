@@ -166,9 +166,9 @@ export default function AdIntelligence() {
     groupId: groupFilter === "all" ? undefined : parseInt(groupFilter, 10),
   });
 
-  // Round 7.32: silent auto-sync ทุก 15 นาที + show "อัปเดตล่าสุด: HH:MM"
+  // Round 7.32 / 7.41: แสดง "อัปเดตล่าสุด: HH:MM" (server cron sync ทุก 1 ชั่วโมง)
   const statusQuery = trpc.deepAds.syncStatus.useQuery(undefined, {
-    refetchInterval: 60_000, // ทุก 1 นาที ตรวจเวลา sync ล่าสุดของ server (cron ยิงทุก 15 นาที)
+    refetchInterval: 60_000, // ทุก 1 นาที ตรวจเวลา sync ล่าสุดของ server (cron จริงยิงทุก 1 ชั่วโมง)
     refetchOnWindowFocus: true,
   });
   const lastSyncedAt = statusQuery.data?.latestSyncedAt ?? null;
@@ -184,8 +184,8 @@ export default function AdIntelligence() {
     onError: (e) => toast.error(`Sync ล้มเหลว: ${e.message}`),
   });
 
-  // Round 7.32: silent refresh ทุก 15 นาที เพื่อดึงข้อมูลล่าสุดจาก server
-  // (server มี cron sync ทุก 15 นาที เขียนข้อมูลสดลง DB — client แค่ refetch)
+  // Round 7.32 / 7.41: silent refresh หน้าจอทุก 15 นาที เพื่อดึงข้อมูลล่าสุดจาก DB มาแสดง
+  // (server มี cron sync ทุก 1 ชั่วโมง เขียนข้อมูลสดลง DB — client แค่ refetch อ่านจาก DB เรา ไม่ยิง Meta)
   // ไม่ยิง syncNow เองเพื่อป้องกันชน Meta API rate limit จากหลาย client พร้อมกัน
   useEffect(() => {
     const id = setInterval(() => {
@@ -456,7 +456,7 @@ export default function AdIntelligence() {
               Export CSV
             </Button>
           </div>
-          {/* Round 7.32: แสดงเวลาสิงค์ล่าสุด (auto-sync ทุก 15 นาที) */}
+          {/* Round 7.32 / 7.41: แสดงเวลาสิงค์ล่าสุด (auto-sync ทุก 1 ชั่วโมง) */}
           <div className="text-xs text-muted-foreground flex items-center gap-1.5">
             <span
               className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"
@@ -467,7 +467,7 @@ export default function AdIntelligence() {
                 ? `อัปเดตล่าสุด: ${formatLastSync(lastSyncedAt)}`
                 : "ยังไม่มีข้อมูล sync"}
             </span>
-            <span className="text-muted-foreground/70">· sync อัตโนมัติทุก 15 นาที</span>
+            <span className="text-muted-foreground/70">· sync อัตโนมัติทุก 1 ชั่วโมง</span>
           </div>
         </div>
       </div>

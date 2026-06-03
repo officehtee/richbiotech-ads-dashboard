@@ -1,9 +1,17 @@
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
-import { CheckCircle2, Clock, Loader2, RefreshCw, Zap } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  Info,
+  Loader2,
+  RefreshCw,
+  Zap,
+} from "lucide-react";
 import { toast } from "sonner";
 
 function formatTime(ts: string | null): string {
@@ -19,11 +27,15 @@ function formatTime(ts: string | null): string {
 }
 
 /**
- * Round 7.40: Auto-sync control panel.
- * แสดงสถานะ + เปิด/ปิด Heartbeat cron jobs (sync ทุก 1 ชม.)
+ * Round 7.41: Auto-sync control panel (compact).
+ * - สวิตช์ใหญ่ตัวเดียวคุมทั้งหมด (เปิด/ปิด 3 jobs พร้อมกันผ่าน enableAll/disableAll)
+ * - รายละเอียดแต่ละ job + หมายเหตุยุบเป็น expand/collapse เพื่อไม่ให้รกหน้าจอ
  */
 export function AutoSyncSection() {
   const utils = trpc.useUtils();
+  const [showDetails, setShowDetails] = useState(false);
+  const [showNote, setShowNote] = useState(false);
+
   const statusQuery = trpc.schedule.status.useQuery(undefined, {
     refetchInterval: 60 * 1000, // refresh สถานะทุก 1 นาที
   });
@@ -44,20 +56,15 @@ export function AutoSyncSection() {
     onError: (e) => toast.error(e.message),
   });
 
-  const toggleJob = trpc.schedule.toggleJob.useMutation({
-    onSuccess: async () => {
-      await utils.schedule.status.invalidate();
-    },
-    onError: (e) => toast.error(e.message),
-  });
-
   const data = statusQuery.data;
   const loading = statusQuery.isLoading;
   const busy = enableAll.isPending || disableAll.isPending;
   const masterOn = data?.autoSyncEnabled ?? false;
+  const jobs = data?.jobs ?? [];
 
   return (
     <Card className="p-5">
+      {/* แถวหลัก: ไอคอน + หัวข้อ + สวิตช์ใหญ่ตัวเดียว */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-start gap-3">
           <div className="rounded-lg bg-primary/10 p-2.5">
@@ -65,7 +72,7 @@ export function AutoSyncSection() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold tracking-tight">การซิงค์ข้อมูลอัตโนมัติ</h2>
+              <h2 className="text-base font-semibold tracking-tight">การซิงค์ข้อมูลอัตโนมัติ</h2>
               {masterOn ? (
                 <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/15">
                   <CheckCircle2 className="h-3 w-3 mr-1" />
@@ -82,8 +89,7 @@ export function AutoSyncSection() {
               )}
             </div>
             <p className="text-sm text-muted-foreground mt-1 max-w-xl">
-              เมื่อเปิดใช้งาน ระบบจะดึงข้อมูลโฆษณาจาก Meta อัตโนมัติ <strong>ทุก 1 ชั่วโมง</strong> โดยไม่ต้องกดปุ่ม
-              Sync Now เอง — ครอบคลุมการซิงค์ข้อมูลโฆษณา, บัญชี Business Manager และการตรวจการแจ้งเตือน
+              ดึงข้อมูลโฆษณาจาก Meta อัตโนมัติ <strong>ทุก 1 ชั่วโมง</strong> โดยไม่ต้องกด Sync Now เอง
             </p>
           </div>
         </div>
@@ -102,25 +108,56 @@ export function AutoSyncSection() {
         </div>
       </div>
 
-      {/* รายการ jobs */}
-      <div className="mt-5 space-y-2.5">
-        {loading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            กำลังโหลดสถานะ…
-          </div>
-        ) : (
-          (data?.jobs ?? []).map((job) => (
-            <div
-              key={job.key}
-              className="flex items-center justify-between gap-4 rounded-lg border bg-muted/30 px-4 py-3"
-            >
-              <div className="min-w-0">
+      {/* แถวปุ่ม expand/collapse — กะทัดรัด ไม่รกหน้าจอ */}
+      <div className="mt-3 flex items-center gap-4 text-sm">
+        <button
+          type="button"
+          onClick={() => setShowDetails((s) => !s)}
+          className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+          aria-expanded={showDetails}
+        >
+          <ChevronRight
+            className={`h-4 w-4 transition-transform duration-200 ${showDetails ? "rotate-90" : ""}`}
+          />
+          ดูรายละเอียด
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowNote((s) => !s)}
+          className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+          aria-expanded={showNote}
+        >
+          <Info className="h-4 w-4" />
+          ดูหมายเหตุ
+        </button>
+      </div>
+
+      {/* รายละเอียด 3 jobs (expand) */}
+      {showDetails && (
+        <div className="mt-3 space-y-2">
+          {loading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              กำลังโหลดสถานะ…
+            </div>
+          ) : jobs.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-2">ยังไม่มีงานที่ตั้งเวลาไว้</p>
+          ) : (
+            jobs.map((job) => (
+              <div
+                key={job.key}
+                className="rounded-lg border bg-muted/30 px-4 py-2.5"
+              >
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-sm">{job.label}</span>
                   <Badge variant="outline" className="text-xs font-normal">
                     {job.intervalLabel}
                   </Badge>
+                  {job.exists && job.isEnable ? (
+                    <span className="text-xs text-emerald-600">● ทำงาน</span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">○ หยุด</span>
+                  )}
                 </div>
                 <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground flex-wrap">
                   <span className="flex items-center gap-1">
@@ -133,25 +170,21 @@ export function AutoSyncSection() {
                   </span>
                 </div>
               </div>
-              <Switch
-                checked={job.exists && job.isEnable}
-                disabled={busy || toggleJob.isPending}
-                onCheckedChange={(v) => toggleJob.mutate({ key: job.key, enable: v })}
-                aria-label={`เปิด/ปิด ${job.label}`}
-              />
-            </div>
-          ))
-        )}
-      </div>
+            ))
+          )}
+        </div>
+      )}
 
-      {/* คำอธิบายเชิงเทคนิค */}
-      <div className="mt-4 rounded-lg bg-muted/40 px-4 py-3 text-xs text-muted-foreground leading-relaxed">
-        <strong className="text-foreground">หมายเหตุ:</strong> ข้อมูลจาก Meta Ads API มีความล่าช้าในตัวเอง
-        15–30 นาที ดังนั้นการซิงค์ทุก 1 ชั่วโมงจึงเป็นจุดสมดุลที่เหมาะสมระหว่างความสดของข้อมูลกับการป้องกัน
-        Meta จำกัดอัตราการเรียก API (rate limit) รอบเที่ยงคืน (เวลา UTC) ระบบจะดึงข้อมูลย้อนหลัง 7 วันให้อัตโนมัติ
-        <br />
-        การตั้งเวลาจะเริ่มทำงานหลังเผยแพร่เว็บ (Publish) แล้วเท่านั้น
-      </div>
+      {/* หมายเหตุเชิงเทคนิค (expand) */}
+      {showNote && (
+        <div className="mt-3 rounded-lg bg-muted/40 px-4 py-3 text-xs text-muted-foreground leading-relaxed">
+          <strong className="text-foreground">หมายเหตุ:</strong> ข้อมูลจาก Meta Ads API มีความล่าช้าในตัวเอง
+          15–30 นาที ดังนั้นการซิงค์ทุก 1 ชั่วโมงจึงเป็นจุดสมดุลที่เหมาะสมระหว่างความสดของข้อมูลกับการป้องกัน
+          Meta จำกัดอัตราการเรียก API (rate limit) รอบเที่ยงคืน (เวลา UTC) ระบบจะดึงข้อมูลย้อนหลัง 7 วันให้อัตโนมัติ
+          <br />
+          การตั้งเวลาจะเริ่มทำงานหลังเผยแพร่เว็บ (Publish) แล้วเท่านั้น
+        </div>
+      )}
     </Card>
   );
 }

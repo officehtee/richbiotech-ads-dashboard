@@ -607,3 +607,21 @@
 - [x] guard ทุก procedure ใน scheduleRouter (.filter/.map บน jobs)
 - [x] เพิ่ม vitest ครอบ normalize jobs undefined → [] + frontend guard
 - [x] tsc + vitest ผ่าน, checkpoint
+
+
+## Round 7.41: ปรับข้อความ sync interval + ยกเครื่อง UI การ์ด Auto-sync
+- [ ] AdIntelligence.tsx: แก้ข้อความ "sync อัตโนมัติทุก 15 นาที" → "ทุก 1 ชั่วโมง" (บรรทัด 470 แสดงจริง)
+- [ ] AdIntelligence.tsx: แก้ comment ที่กล่าวถึง 15 นาที ให้ตรงกับความจริง
+- [ ] AutoSyncSection.tsx: เอาสวิตช์ย่อย 3 ตัวออก เหลือสวิตช์ใหญ่ตัวเดียว (เปิด=enableAll, ปิด=disableAll)
+- [ ] AutoSyncSection.tsx: ยุบ 3 รายการงานเป็นปุ่ม "ดูรายละเอียด" (expand/collapse)
+- [ ] AutoSyncSection.tsx: ยุบหมายเหตุเป็นปุ่ม "ดูหมายเหตุ" (expand/collapse)
+- [ ] ลดขนาดการ์ดให้กระชับ ไม่รกหน้าจอ
+- [ ] tsc + vitest ผ่าน, checkpoint
+
+## Round 7.41 — ปรับข้อความ sync interval + ยกเครื่อง UI การ์ด Auto-sync
+- [x] AdIntelligence.tsx: ข้อความ "sync อัตโนมัติทุก 15 นาที" -> "ทุก 1 ชั่วโมง"
+- [x] help-content.ts: Status detection "ping Meta API ทุก 15 นาที" + refresh "15 นาที" -> "1 ชั่วโมง"
+- [x] AutoSyncSection.tsx: เหลือสวิตช์ใหญ่ตัวเดียว (enableAll/disableAll) ลบสวิตช์ย่อย 3 ตัว
+- [x] AutoSyncSection.tsx: รายละเอียด 3 jobs ยุบเป็น expand/collapse "ดูรายละเอียด"
+- [x] AutoSyncSection.tsx: หมายเหตุยุบเป็น expand/collapse "ดูหมายเหตุ"
+- [x] รัน tsc + vitest ยืนยัน 0 errors / ทุก test ผ่าน (352 tests, tsc 0 errors)
