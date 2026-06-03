@@ -1066,7 +1066,7 @@ export async function fetchAdInsightsDaily(
     }
   }
 
-  return res.data.map((r: any) => ({
+  const rows: AdDailyInsight[] = res.data.map((r: any) => ({
     ad_id: r.ad_id,
     ad_name: r.ad_name,
     adset_id: r.adset_id,
@@ -1085,6 +1085,86 @@ export async function fetchAdInsightsDaily(
     cost_per_message: extractCostPerMessage(r.cost_per_action_type),
     purchase_roas: extractPurchaseRoas(r.purchase_roas),
   }));
+
+  // Round 7.39 — ถ้าทุกแถว reach=0 (Meta ไม่คืน reach เมื่อขอพร้อม time_increment=1)
+  // ให้ดึง reach แยก request (รวมช่วง ไม่มี time_increment) แล้วเฉลี่ยกลับเข้าแต่ละแถว
+  const allReachZero = rows.length > 0 && rows.every((row) => row.reach === 0);
+  if (allReachZero) {
+    const reachMap = await fetchAdReachMap(adAccountId, accessToken, dateRange);
+    if (reachMap.size > 0) {
+      return distributeReachIntoDaily(rows, reachMap);
+    }
+  }
+
+  return rows;
+}
+
+/**
+ * Round 7.39 — ดึง reach รวมต่อ ad_id ในช่วงวันที่ (ไม่มี time_increment)
+ * Meta มักไม่คืน reach เมื่อขอ insights แบบ time_increment=1 (รายวัน)
+ * แต่จะคืน reach รวมเมื่อขอแบบไม่ระบุ time_increment
+ * คืน Map<ad_id, reachรวม>
+ */
+export async function fetchAdReachMap(
+  adAccountId: string,
+  accessToken: string,
+  dateRange: MetaDateRange,
+): Promise<Map<string, number>> {
+  const params = new URLSearchParams({
+    fields: "ad_id,reach",
+    time_range: JSON.stringify(dateRange),
+    level: "ad",
+    limit: "500",
+  });
+  const url = `${META_BASE}/${adAccountId}/insights?${params.toString()}`;
+  const res = await metaFetch<{ data: any[] }>(url, accessToken);
+  const map = new Map<string, number>();
+  if (!res || !res.data) return map;
+  for (const r of res.data) {
+    if (r.ad_id != null) map.set(String(r.ad_id), parseNum(r.reach));
+  }
+  return map;
+}
+
+/**
+ * Round 7.39 — กระจาย reach รวม (ต่อ ad_id) กลับเข้าแถวรายวัน
+ * pure function — แยกออกมาเพื่อทดสอบได้
+ * กลยุทธ์: เฉลี่ย reach รวมตามสัดส่วน impressions ของแต่ละวัน
+ * ถ้า impressions รวม = 0 → เฉลี่ยเท่ากันทุกวัน
+ * ทั้งนี้ไม่แตะแถวที่ reach > 0 อยู่แล้ว
+ */
+export function distributeReachIntoDaily(
+  rows: AdDailyInsight[],
+  reachMap: Map<string, number>,
+): AdDailyInsight[] {
+  // group index ตาม ad_id
+  const byAd = new Map<string, AdDailyInsight[]>();
+  for (const row of rows) {
+    const list = byAd.get(row.ad_id) ?? [];
+    list.push(row);
+    byAd.set(row.ad_id, list);
+  }
+
+  byAd.forEach((list, adId) => {
+    const totalReach = reachMap.get(adId);
+    if (totalReach == null || totalReach <= 0) return;
+    // ถ้าแถวใดมี reach > 0 อยู่แล้ว ถือว่า Meta คืนมาแล้ว ไม่ override
+    if (list.some((r: AdDailyInsight) => r.reach > 0)) return;
+
+    const totalImpr = list.reduce((s: number, r: AdDailyInsight) => s + r.impressions, 0);
+    if (totalImpr > 0) {
+      list.forEach((r: AdDailyInsight) => {
+        r.reach = Math.round((r.impressions / totalImpr) * totalReach);
+      });
+    } else {
+      const per = Math.round(totalReach / list.length);
+      list.forEach((r: AdDailyInsight) => {
+        r.reach = per;
+      });
+    }
+  });
+
+  return rows;
 }
 
 /**

@@ -569,18 +569,18 @@
 - [x] เพิ่ม debug logging ใน fetchAdInsightsDaily — log action_type ทั้งหมด + raw reach ของ 3 แถวแรก (spend>0)
 - [x] แก้ extractPurchases/extractPurchaseValue/extractPurchaseRoas รองรับ onsite_conversion.purchase (messaging campaign)
 - [x] เพิ่ม extractCostPerPurchase + vitest 5 เคสใหม่ (333 passed, tsc 0 errors)
-- [ ] ให้ผู้ใช้กด Sync Now บนเว็บจริง → เก็บ log action_type ที่แท้จริง
-- [ ] ตรวจ field reach — ขอแยก request หรือ field ถูกต้อง (level=ad + time_increment=1)
-- [ ] re-sync + verify ค่าใน DB ไม่เป็น 0
+- [x] ให้ผู้ใช้กด Sync Now บนเว็บจริง → เก็บ log (ยืนยันแล้ว: Meta บล็อก API ทุกบัญชี OAuthException code 200 — ไม่ใช่ปัญหา action_type)
+- [x] ตรวจ field reach — แก้แล้วด้วย fetchAdReachMap + distributeReachIntoDaily (Round 7.39) ดึง reach แยก request เมื่อรายวันคืน 0
+- [ ] re-sync + verify ค่าใน DB ไม่เป็น 0 — รอ Meta อนุมัติ Business Verification ก่อน (อยู่นอกเหนือการแก้โค้ด)
 - [x] tests + tsc clean + checkpoint (e67d8449)
 
 ## Round 7.39: reach แยก request + แก้ purchase/cost จากภาพ Meta จริง
 - พบจากภาพ Meta Ads Manager (2/6/2026): reach มีค่า (682, 2035), การซื้อ=1 (รวม), แต่เว็บขึ้น 0 หมด
 - ต้นตอ reach=0: Meta ไม่คืน reach เมื่อขอพร้อม time_increment=1 + level=ad → ต้องดึง reach แยก request (รวมช่วง ไม่ใช่รายวัน)
-- [ ] เพิ่มฟังก์ชัน fetchAdReachMap (level=ad, ไม่มี time_increment) → คืน reach ต่อ ad_id ต่อ account
-- [ ] รวม reach map เข้า fetchAdInsightsDaily / deepAdsSync (เติม reach ต่อแถวจาก map)
-- [ ] ยืนยัน extractPurchases onsite_conversion.purchase (ทำแล้ว Round 7.38) ครอบคลุม + เพิ่ม cost per purchase fallback
-- [ ] tests + tsc clean + checkpoint
+- [x] เพิ่มฟังก์ชัน fetchAdReachMap (level=ad, ไม่มี time_increment) → คืน reach ต่อ ad_id ต่อ account
+- [x] รวม reach map เข้า fetchAdInsightsDaily (เรียกอัตโนมัติเมื่อทุกแถว reach=0) + distributeReachIntoDaily เฉลี่ยตามสัดส่วน impressions
+- [x] ยืนยัน extractPurchases onsite_conversion.purchase (ทำแล้ว Round 7.38) ครอบคลุม + เพิ่ม cost per purchase fallback
+- [x] tests + tsc clean + checkpoint (distributeReach 7 tests, 340 passed, tsc 0 errors)
 
 ## Round 7.39b: เปลี่ยนชื่อคอลัมน์ + แบนเนอร์เตือน BM ถูกบล็อก
 - [x] เปลี่ยนชื่อคอลัมน์ "ยอดขาย" → "ค่าคอนเวอร์ชั่นการซื้อ" (header, CSV, legend, description) ใน AdIntelligence.tsx
