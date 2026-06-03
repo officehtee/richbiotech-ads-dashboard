@@ -10,6 +10,10 @@
 const META_API_VERSION = "v22.0";
 const META_BASE = `https://graph.facebook.com/${META_API_VERSION}`;
 
+// Round 7.38 — เปิด debug log ของ Deep Ads insights ชั่วคราวเพื่อดู action_type จริง
+// ตั้งผ่าน env DEBUG_DEEP_ADS=1 หรือเปิดชั่วคราวด้วยการตั้งค่าไว้ true ด้านล่าง
+const DEBUG_INSIGHTS = process.env.DEBUG_DEEP_ADS === "1" || true;
+
 export type MetaDateRange = {
   since: string; // YYYY-MM-DD
   until: string; // YYYY-MM-DD
@@ -118,20 +122,35 @@ function extractMessaging(actions: any[] | undefined): number {
  */
 export function extractPurchases(actions: any[] | undefined): number {
   if (!actions) return 0;
-  const omni = extractAction(actions, "omni_purchase");
-  if (omni > 0) return omni;
-  const purchase = extractAction(actions, "purchase");
-  if (purchase > 0) return purchase;
-  return extractAction(actions, "offsite_conversion.fb_pixel_purchase");
+  // Round 7.38 — รองรับ messaging campaign: "การซื้อ" อาจถูกบันทึกเป็น
+  // onsite_conversion.purchase (เกิดบนแชท/เพจ) แทน omni/offsite (pixel เว็บ)
+  const types = [
+    "omni_purchase",
+    "purchase",
+    "onsite_conversion.purchase",
+    "offsite_conversion.fb_pixel_purchase",
+  ];
+  for (const t of types) {
+    const v = extractAction(actions, t);
+    if (v > 0) return v;
+  }
+  return 0;
 }
 
 function extractPurchaseValue(actionValues: any[] | undefined): number {
   if (!actionValues) return 0;
-  const omni = extractAction(actionValues, "omni_purchase");
-  if (omni > 0) return omni;
-  const purchase = extractAction(actionValues, "purchase");
-  if (purchase > 0) return purchase;
-  return extractAction(actionValues, "offsite_conversion.fb_pixel_purchase");
+  // Round 7.38 — ตรงกับ extractPurchases: รองรับ onsite_conversion.purchase ด้วย
+  const types = [
+    "omni_purchase",
+    "purchase",
+    "onsite_conversion.purchase",
+    "offsite_conversion.fb_pixel_purchase",
+  ];
+  for (const t of types) {
+    const v = extractAction(actionValues, t);
+    if (v > 0) return v;
+  }
+  return 0;
 }
 
 /**
@@ -160,13 +179,32 @@ export function extractCostPerMessage(costPerActionType: any[] | undefined): num
 }
 
 /**
+ * Round 7.38 — ต้นทุนต่อการซื้อ (cost per purchase) จาก cost_per_action_type
+ * รองรับ messaging campaign (onsite_conversion.purchase) ด้วย
+ * ใช้เป็น fallback ถ้า spend/orders คำนวณไม่ได้ (เช่น orders=0 แต่ Meta มีค่า)
+ */
+export function extractCostPerPurchase(costPerActionType: any[] | undefined): number | null {
+  return extractCostPerAction(costPerActionType, [
+    "omni_purchase",
+    "purchase",
+    "onsite_conversion.purchase",
+    "offsite_conversion.fb_pixel_purchase",
+  ]);
+}
+
+/**
  * Round 7.36 — ROAS ดึงจาก purchase_roas (list<AdsActionStats>) โดยตรง
  * เลือก omni_purchase ก่อน fallback type อื่น
  * คืน null ถ้าไม่มี (ปล่อยให้ frontend แสดง —)
  */
 export function extractPurchaseRoas(purchaseRoas: any[] | undefined): number | null {
   if (!purchaseRoas || !Array.isArray(purchaseRoas)) return null;
-  const types = ["omni_purchase", "purchase", "offsite_conversion.fb_pixel_purchase"];
+  const types = [
+    "omni_purchase",
+    "purchase",
+    "onsite_conversion.purchase",
+    "offsite_conversion.fb_pixel_purchase",
+  ];
   for (const t of types) {
     const found = purchaseRoas.find((a: any) => a.action_type === t);
     if (found && parseNum(found.value) > 0) return parseNum(found.value);
@@ -1011,6 +1049,23 @@ export async function fetchAdInsightsDaily(
   const url = `${META_BASE}/${adAccountId}/insights?${params.toString()}`;
   const res = await metaFetch<{ data: any[] }>(url, accessToken);
   if (!res || !res.data) return [];
+
+  // Round 7.38 DEBUG — log raw Meta payload for first rows that have spend>0
+  // เพื่อดู action_type / reach / action_values จริงของบัญชี messaging campaign
+  if (DEBUG_INSIGHTS) {
+    const sample = res.data.filter((r: any) => parseNum(r.spend) > 0).slice(0, 3);
+    for (const r of sample) {
+      console.log(
+        `[DeepAdsDEBUG] acct=${adAccountId} ad=${r.ad_id} date=${r.date_start} ` +
+          `spend=${r.spend} reach=${r.reach ?? "MISSING"} ` +
+          `actions=${JSON.stringify(r.actions ?? [])} ` +
+          `action_values=${JSON.stringify(r.action_values ?? [])} ` +
+          `cost_per_action_type=${JSON.stringify(r.cost_per_action_type ?? [])} ` +
+          `purchase_roas=${JSON.stringify(r.purchase_roas ?? [])}`,
+      );
+    }
+  }
+
   return res.data.map((r: any) => ({
     ad_id: r.ad_id,
     ad_name: r.ad_name,

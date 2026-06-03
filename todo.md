@@ -561,3 +561,15 @@
 - [x] ยืนยัน mapping ทุกคอลัมน์ตรง Meta (spend/ctr/messages/costPerMessage/orders/costPerOrder/chatToOrderRate%/salesValue/roas/adsSpendPct%/budget/reach) — ตรวจแล้วถูกต้อง ไม่ต้องแก้
 - [x] tests + tsc clean (328 passed, tsc 0 errors)
 - [x] checkpoint
+
+
+## Round 7.38: แก้ reach/orders/sales/costPerMessage/roas = 0 ทุกแถว (Deep Ads)
+- พบ: DB มี spend>0 (203/263) แต่ reach/orders/sales = 0 ทั้ง 263 แถว, costPerMessage/roas = NULL ทั้งหมด
+- สาเหตุที่ต้องพิสูจน์: extractor (extractPurchases/reach) จับ action_type ไม่ตรงกับที่บัญชี messaging campaign ส่งกลับ
+- [x] เพิ่ม debug logging ใน fetchAdInsightsDaily — log action_type ทั้งหมด + raw reach ของ 3 แถวแรก (spend>0)
+- [x] แก้ extractPurchases/extractPurchaseValue/extractPurchaseRoas รองรับ onsite_conversion.purchase (messaging campaign)
+- [x] เพิ่ม extractCostPerPurchase + vitest 5 เคสใหม่ (333 passed, tsc 0 errors)
+- [ ] ให้ผู้ใช้กด Sync Now บนเว็บจริง → เก็บ log action_type ที่แท้จริง
+- [ ] ตรวจ field reach — ขอแยก request หรือ field ถูกต้อง (level=ad + time_increment=1)
+- [ ] re-sync + verify ค่าใน DB ไม่เป็น 0
+- [ ] tests + tsc clean + checkpoint

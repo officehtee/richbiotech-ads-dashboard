@@ -98,3 +98,42 @@ describe("Round 7.36 — extractPurchaseRoas (purchase_roas)", () => {
     expect(extractPurchaseRoas([])).toBeNull();
   });
 });
+
+
+import { extractCostPerPurchase } from "./metaApi";
+
+describe("Round 7.38 — รองรับ onsite_conversion.purchase (messaging campaign)", () => {
+  it("extractPurchases จับ onsite_conversion.purchase ได้", () => {
+    const actions = [
+      { action_type: "onsite_conversion.messaging_conversation_started_7d", value: "10" },
+      { action_type: "onsite_conversion.purchase", value: "3" },
+    ];
+    expect(extractPurchases(actions)).toBe(3);
+  });
+
+  it("extractPurchases เลือก omni_purchase ก่อน onsite ถ้ามีทั้งคู่", () => {
+    const actions = [
+      { action_type: "onsite_conversion.purchase", value: "3" },
+      { action_type: "omni_purchase", value: "5" },
+    ];
+    expect(extractPurchases(actions)).toBe(5);
+  });
+
+  it("extractPurchaseRoas รองรับ onsite_conversion.purchase", () => {
+    const roas = [{ action_type: "onsite_conversion.purchase", value: "1.85" }];
+    expect(extractPurchaseRoas(roas)).toBeCloseTo(1.85, 5);
+  });
+
+  it("extractCostPerPurchase ดึงต้นทุนต่อการซื้อจาก onsite_conversion.purchase", () => {
+    const cpa = [
+      { action_type: "onsite_conversion.messaging_conversation_started_7d", value: "20" },
+      { action_type: "onsite_conversion.purchase", value: "150.5" },
+    ];
+    expect(extractCostPerPurchase(cpa)).toBeCloseTo(150.5, 5);
+  });
+
+  it("extractCostPerPurchase คืน null เมื่อไม่พบ purchase", () => {
+    expect(extractCostPerPurchase([{ action_type: "link_click", value: "5" }])).toBeNull();
+    expect(extractCostPerPurchase(undefined)).toBeNull();
+  });
+});
