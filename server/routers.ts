@@ -953,8 +953,13 @@ export const appRouter = router({
 
         // enrich each real (spend>0) row with derived fields + status badge
         const enriched = rows.map((r) => {
-          // Orders / ยอดขาย / ROAS ดึงจาก Meta อัตโนมัติ (purchase / purchase value)
-          const derived = computeDeepAdsDerived(r);
+          // Orders / ยอดขาย / ROAS ดึงจาก Meta อัตโนมัติ (omni_purchase / purchase value)
+          // Round 7.36: ค่าคลิก = cost_per_action_type, ROAS = purchase_roas (จาก Meta โดยตรง)
+          const derived = computeDeepAdsDerived({
+            ...r,
+            metaCostPerMessage: r.costPerMessage,
+            metaPurchaseRoas: r.purchaseRoas,
+          });
           // prev day key
           const d = new Date(`${r.date}T00:00:00Z`);
           d.setUTCDate(d.getUTCDate() - 1);
@@ -1052,8 +1057,11 @@ export const appRouter = router({
               messages: null as any,
               dailyBudget: null,
               budgetSource: "none" as any,
-              metaOrders: null as any,
+            metaOrders: null as any,
               metaSalesAmount: null as any,
+              reach: null as any,
+              costPerMessage: null,
+              purchaseRoas: null,
               previewCachedUrl: null,
               pageName: acc?.pageName ?? null,
               syncedAt: cs.syncedAt,
@@ -1070,7 +1078,6 @@ export const appRouter = router({
               manualNote: null,
               costPerOrder: null,
               costPerClick: null,
-              costPerMessage: null,
               chatToOrderRate: null,
               roas: null,
               adsSpendPct: null,

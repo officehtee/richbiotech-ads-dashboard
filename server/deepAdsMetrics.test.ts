@@ -77,6 +77,46 @@ describe("computeDeepAdsDerived — Orders/ยอดขาย/ROAS จาก Met
   });
 });
 
+describe("Round 7.36 — costPerMessage/roas ใช้ค่า Meta โดยตรง", () => {
+  it("costPerMessage ใช้ metaCostPerMessage (cost_per_action_type) แทนการคำนวณ spend/messages", () => {
+    const d = computeDeepAdsDerived({
+      spend: 200,
+      messages: 8, // ถ้าคำนวณเองจะได้ 25
+      clicks: 40,
+      metaOrders: 5,
+      metaSalesAmount: 500,
+      metaCostPerMessage: 33.5, // แต่ Meta ส่งมา 33.5 → ต้องใช้ตัวนี้
+    });
+    expect(d.costPerMessage).toBeCloseTo(33.5, 5);
+  });
+
+  it("roas ใช้ metaPurchaseRoas (purchase_roas) แทน salesAmount/spend", () => {
+    const d = computeDeepAdsDerived({
+      spend: 100,
+      messages: 10,
+      clicks: 50,
+      metaOrders: 4,
+      metaSalesAmount: 250, // คำนวณเองจะได้ 2.5
+      metaPurchaseRoas: 0.61, // แต่ Meta ส่งมา 0.61 → ต้องใช้ตัวนี้
+    });
+    expect(d.roas).toBeCloseTo(0.61, 5);
+  });
+
+  it("fallback ไปคำนวณเองเมื่อ Meta ไม่ส่งค่า (null/0)", () => {
+    const d = computeDeepAdsDerived({
+      spend: 200,
+      messages: 8,
+      clicks: 40,
+      metaOrders: 5,
+      metaSalesAmount: 500,
+      metaCostPerMessage: null,
+      metaPurchaseRoas: 0,
+    });
+    expect(d.costPerMessage).toBeCloseTo(25, 5); // spend/messages
+    expect(d.roas).toBeCloseTo(2.5, 5); // salesAmount/spend
+  });
+});
+
 describe("manualCellBorderStyle — เส้นประ/เส้นทึบ", () => {
   it("มีค่าตัวเลข → solid", () => {
     expect(manualCellBorderStyle(100)).toBe("solid");

@@ -60,8 +60,9 @@ type SortKey =
   | "date"
   | "spend"
   | "ctr"
+  | "reach"
   | "messages"
-  | "costPerClick"
+  | "costPerMessage"
   | "metaOrders"
   | "costPerOrder"
   | "chatToOrderRate"
@@ -289,6 +290,7 @@ export default function AdIntelligence() {
         "Ad",
         "ค่า ADS",
         "CTR%",
+        "การเข้าถึง",
         "ทัก",
         "ค่าคลิก",
         "Orders",
@@ -312,8 +314,9 @@ export default function AdIntelligence() {
         r.adName ?? "",
         r.spend ?? 0,
         r.ctr ?? 0,
+        r.reach ?? 0,
         r.messages ?? 0,
-        r.costPerClick ?? 0,
+        r.costPerMessage ?? 0,
         r.metaOrders ?? 0,
         r.costPerOrder ?? 0,
         r.chatToOrderRate ?? 0,
@@ -594,10 +597,13 @@ export default function AdIntelligence() {
                   <SortBtn k="ctr" label="CTR" />
                 </th>
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[100px]">
+                  <SortBtn k="reach" label="การเข้าถึง" />
+                </th>
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[100px]">
                   <SortBtn k="messages" label="ทัก" />
                 </th>
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
-                  <SortBtn k="costPerClick" label="ค่าคลิก" />
+                  <SortBtn k="costPerMessage" label="ค่าคลิก" />
                 </th>
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
                   <SortBtn k="metaOrders" label="Orders" />
@@ -638,7 +644,7 @@ export default function AdIntelligence() {
               {listQuery.isLoading
                 ? Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i} className="border-t">
-                      <td colSpan={21} className="px-4 py-4">
+                      <td colSpan={22} className="px-4 py-4">
                         <Skeleton className="h-9 w-full" />
                       </td>
                     </tr>
@@ -647,7 +653,7 @@ export default function AdIntelligence() {
                   ? (
                     <tr>
                       <td
-                        colSpan={21}
+                        colSpan={22}
                         className="px-4 py-16 text-center text-sm text-muted-foreground"
                       >
                         ไม่มีข้อมูล — กดปุ่ม "Sync Now" เพื่อดึงจาก Meta หรือลองเลือกช่วงวันที่อื่น
@@ -817,6 +823,13 @@ export default function AdIntelligence() {
                               formatPercent(r.ctr ?? 0, 2)
                             )}
                           </td>
+                          <td className="px-4 py-4 text-right tabular-nums border-t">
+                            {isNoSpend ? (
+                              <span className="text-muted-foreground">—</span>
+                            ) : (
+                              formatNumber(r.reach ?? 0)
+                            )}
+                          </td>
                           <td className="px-4 py-4 text-right tabular-nums border-t text-blue-600 dark:text-blue-400 font-medium">
                             {isNoSpend ? (
                               <span className="text-muted-foreground font-normal">—</span>
@@ -825,8 +838,8 @@ export default function AdIntelligence() {
                             )}
                           </td>
                           <td className="px-4 py-4 text-right tabular-nums border-t">
-                            {r.costPerClick != null
-                              ? formatCurrency(r.costPerClick, 2)
+                            {r.costPerMessage != null
+                              ? formatCurrency(r.costPerMessage, 2)
                               : "—"}
                           </td>
                           <td className="px-4 py-4 text-right tabular-nums border-t text-emerald-700 dark:text-emerald-400 font-medium">
@@ -946,6 +959,7 @@ export default function AdIntelligence() {
                   <td className="px-4 py-3 text-right tabular-nums border-t-2">
                     {formatCurrency(summary.spend, 0)}
                   </td>
+                  <td className="px-4 py-3 border-t-2"></td>
                   <td className="px-4 py-3 border-t-2"></td>
                   <td className="px-4 py-3 text-right tabular-nums border-t-2">
                     {formatNumber(summary.messages)}

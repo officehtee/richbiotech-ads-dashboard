@@ -158,6 +158,9 @@ export async function syncAdInsightsForAccount(
         budgetSource: budget.source,
         metaOrders: row.purchases,
         metaSalesAmount: row.purchase_value,
+        reach: row.reach,
+        costPerMessage: row.cost_per_message,
+        purchaseRoas: row.purchase_roas,
       });
       rowsSynced += 1;
       adIdsToCachePreview.add(row.ad_id);

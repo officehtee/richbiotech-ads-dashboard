@@ -539,3 +539,18 @@
 - [x] Quick filter chips: WAIT / REJECT
 - [x] Tests: campaignStatus.test.ts 13 tests (classify/isNew/shouldDelete/reconcile/rejectedExpired/3 เคสสเปค) + tsc clean (316 tests passed)
 - [x] Checkpoint
+
+
+## Round 7.36: แก้กลุ่มค่าเมตริก Deep Ads ให้ดึงจาก Meta โดยตรง
+- [x] metaApi: เพิ่ม cost_per_action_type, purchase_roas, reach ใน fetchAdInsightsDaily fields
+- [x] metaApi: extractPurchases/extractPurchaseValue ใช้ omni_purchase เดี่ยว (กัน double count)
+- [x] metaApi: helper extract cost_per_action_type (messaging) + purchase_roas value
+- [x] metaApi: เพิ่ม reach + costPerMessage + purchaseRoas ใน AdDailyInsight type + mapping
+- [x] schema: เพิ่ม column reach, costPerMessage, purchaseRoas ใน adInsightsDaily + migration 0008
+- [x] db: upsertAdInsightsDaily + getDeepAdsRows รองรับ field ใหม่
+- [x] sync: deepAdsSync ส่ง field ใหม่เข้า upsert
+- [x] routers deepAds.list: ส่ง reach/costPerMessage/purchaseRoas ออก + synthetic row คง null
+- [x] frontend: ค่าคลิก ใช้ costPerMessage จาก Meta, ROAS ใช้ purchaseRoas จาก Meta
+- [x] frontend: เพิ่มคอลัมน์ "การเข้าถึง" (reach) วางก่อน "ทัก" (CTR → การเข้าถึง → ทัก → ค่าคลิก) + CSV + footer + colSpan
+- [x] tests: เคส omni_purchase เดี่ยว + cost_per_action_type + purchase_roas (328 tests passed) + tsc clean
+- [x] checkpoint

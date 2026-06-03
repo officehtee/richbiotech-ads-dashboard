@@ -10,6 +10,9 @@ export interface DeepAdsRawMetrics {
   clicks: number | null | undefined;
   metaOrders: number | null | undefined;
   metaSalesAmount: number | null | undefined;
+  // Round 7.36 — ค่าที่ Meta ส่งมาโดยตรง (ถ้า null จะ fallback ไปคำนวณเอง)
+  metaCostPerMessage?: number | null | undefined;
+  metaPurchaseRoas?: number | null | undefined;
 }
 
 export interface DeepAdsDerived {
@@ -37,14 +40,31 @@ export function computeDeepAdsDerived(r: DeepAdsRawMetrics): DeepAdsDerived {
   const clicks = r.clicks ?? 0;
   const orders = r.metaOrders ?? 0;
   const salesAmount = r.metaSalesAmount ?? 0;
+  // "ค่าคลิก" = ต้นทุนต่อการเริ่มสนทนา: ใช้ค่าจาก Meta (cost_per_action_type) ก่อน
+  // fallback เป็น spend/messages เพื่อไม่ให้ว่างถ้า Meta ไม่ส่งค่า
+  const metaCpm = r.metaCostPerMessage;
+  const costPerMessage =
+    metaCpm != null && metaCpm > 0
+      ? metaCpm
+      : messages > 0
+        ? spend / messages
+        : null;
+  // ROAS: ใช้ purchase_roas จาก Meta ก่อน fallback เป็น salesAmount/spend
+  const metaRoas = r.metaPurchaseRoas;
+  const roas =
+    metaRoas != null && metaRoas > 0
+      ? metaRoas
+      : spend > 0 && salesAmount > 0
+        ? salesAmount / spend
+        : null;
   return {
     orders,
     salesAmount,
     costPerOrder: orders > 0 ? spend / orders : null,
     costPerClick: clicks > 0 ? spend / clicks : null,
-    costPerMessage: messages > 0 ? spend / messages : null,
+    costPerMessage,
     chatToOrderRate: messages > 0 ? (orders / messages) * 100 : null,
-    roas: spend > 0 && salesAmount > 0 ? salesAmount / spend : null,
+    roas,
     adsSpendPct: salesAmount > 0 ? (spend / salesAmount) * 100 : null,
   };
 }

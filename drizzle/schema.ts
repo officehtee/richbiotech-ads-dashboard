@@ -415,8 +415,11 @@ export const adInsightsDaily = mysqlTable("adInsightsDaily", {
   messages: int("messages").default(0).notNull(),
   dailyBudget: double("dailyBudget"), // adset daily budget OR campaign daily budget (CBO fallback)
   budgetSource: mysqlEnum("budgetSource", ["adset", "campaign", "none"]).default("none"),
-  metaOrders: int("metaOrders").default(0).notNull(), // จำนวนการซื้อ (purchase) ดึงจาก Meta
-  metaSalesAmount: double("metaSalesAmount").default(0).notNull(), // ค่าคอนเวอร์ชั่นการซื้อ (purchase value) ดึงจาก Meta
+  metaOrders: int("metaOrders").default(0).notNull(), // จำนวนการซื้อ (omni_purchase) ดึงจาก Meta
+  metaSalesAmount: double("metaSalesAmount").default(0).notNull(), // ค่าคอนเวอร์ชั่นการซื้อ (omni_purchase value) ดึงจาก Meta
+  reach: int("reach").default(0).notNull(), // การเข้าถึง (reach) ดึงจาก Meta
+  costPerMessage: double("costPerMessage"), // ต้นทุนต่อการเริ่มสนทนา (cost_per_action_type) — null ถ้าไม่มี
+  purchaseRoas: double("purchaseRoas"), // ROAS (purchase_roas) ดึงจาก Meta — null ถ้าไม่มี
   previewCachedUrl: text("previewCachedUrl"), // /manus-storage/...
   previewCachedAt: timestamp("previewCachedAt"),
   syncedAt: timestamp("syncedAt").defaultNow().notNull(),

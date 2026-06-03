@@ -1091,6 +1091,9 @@ export async function upsertAdInsightsDaily(row: InsertAdInsightDaily): Promise<
     budgetSource: row.budgetSource ?? "none",
     metaOrders: row.metaOrders ?? 0,
     metaSalesAmount: row.metaSalesAmount ?? 0,
+    reach: row.reach ?? 0,
+    costPerMessage: row.costPerMessage ?? null,
+    purchaseRoas: row.purchaseRoas ?? null,
     syncedAt: new Date(),
   };
   // Don't clobber preview cache fields unless they're supplied in the input
@@ -1279,6 +1282,9 @@ export async function getDeepAdsRows(
       budgetSource: adInsightsDaily.budgetSource,
       metaOrders: adInsightsDaily.metaOrders,
       metaSalesAmount: adInsightsDaily.metaSalesAmount,
+      reach: adInsightsDaily.reach,
+      costPerMessage: adInsightsDaily.costPerMessage,
+      purchaseRoas: adInsightsDaily.purchaseRoas,
       previewCachedUrl: adInsightsDaily.previewCachedUrl,
       pageName: adInsightsDaily.pageName,
       syncedAt: adInsightsDaily.syncedAt,

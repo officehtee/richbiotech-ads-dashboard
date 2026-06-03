@@ -110,24 +110,71 @@ function extractMessaging(actions: any[] | undefined): number {
   return 0;
 }
 
-function extractPurchases(actions: any[] | undefined): number {
+/**
+ * Round 7.36 — Orders & Revenue ใช้ omni_purchase ตัวเดียว
+ * (Meta รวม offsite_conversion.fb_pixel_purchase ไว้ใน omni_purchase แล้ว)
+ * การบวก purchase + omni_purchase + fb_pixel_purchase พร้อมกันทำให้ double count
+ * fallback ไป purchase ถ้าไม่มี omni_purchase (บัญชีเก่า/บาง schema)
+ */
+export function extractPurchases(actions: any[] | undefined): number {
   if (!actions) return 0;
-  const types = ["purchase", "omni_purchase", "offsite_conversion.fb_pixel_purchase"];
-  let total = 0;
-  for (const t of types) {
-    total += extractAction(actions, t);
-  }
-  return total;
+  const omni = extractAction(actions, "omni_purchase");
+  if (omni > 0) return omni;
+  const purchase = extractAction(actions, "purchase");
+  if (purchase > 0) return purchase;
+  return extractAction(actions, "offsite_conversion.fb_pixel_purchase");
 }
 
 function extractPurchaseValue(actionValues: any[] | undefined): number {
   if (!actionValues) return 0;
-  const types = ["purchase", "omni_purchase", "offsite_conversion.fb_pixel_purchase"];
-  let total = 0;
-  for (const t of types) {
-    total += extractAction(actionValues, t);
+  const omni = extractAction(actionValues, "omni_purchase");
+  if (omni > 0) return omni;
+  const purchase = extractAction(actionValues, "purchase");
+  if (purchase > 0) return purchase;
+  return extractAction(actionValues, "offsite_conversion.fb_pixel_purchase");
+}
+
+/**
+ * Round 7.36 — ต้นทุนต่อ action จาก cost_per_action_type (list<AdsActionStats>)
+ * ใช้กับ "ค่าคลิก" = ต้นทุนต่อการเริ่มสนทนา (messaging conversation started)
+ * คืน null ถ้าไม่พบ (จะได้ไม่แสดงแทน 0)
+ */
+function extractCostPerAction(
+  costPerActionType: any[] | undefined,
+  preferredTypes: string[],
+): number | null {
+  if (!costPerActionType || !Array.isArray(costPerActionType)) return null;
+  for (const t of preferredTypes) {
+    const found = costPerActionType.find((a: any) => a.action_type === t);
+    if (found && parseNum(found.value) > 0) return parseNum(found.value);
   }
-  return total;
+  return null;
+}
+
+export function extractCostPerMessage(costPerActionType: any[] | undefined): number | null {
+  return extractCostPerAction(costPerActionType, [
+    "onsite_conversion.messaging_conversation_started_7d",
+    "onsite_conversion.total_messaging_connection",
+    "messaging_conversation_started_7d",
+  ]);
+}
+
+/**
+ * Round 7.36 — ROAS ดึงจาก purchase_roas (list<AdsActionStats>) โดยตรง
+ * เลือก omni_purchase ก่อน fallback type อื่น
+ * คืน null ถ้าไม่มี (ปล่อยให้ frontend แสดง —)
+ */
+export function extractPurchaseRoas(purchaseRoas: any[] | undefined): number | null {
+  if (!purchaseRoas || !Array.isArray(purchaseRoas)) return null;
+  const types = ["omni_purchase", "purchase", "offsite_conversion.fb_pixel_purchase"];
+  for (const t of types) {
+    const found = purchaseRoas.find((a: any) => a.action_type === t);
+    if (found && parseNum(found.value) > 0) return parseNum(found.value);
+  }
+  // บางบัญชี purchase_roas มีแค่ element เดียวไม่ระบุ action_type
+  const first = purchaseRoas[0];
+  if (first && parseNum(first.value) > 0) return parseNum(first.value);
+  return null;
 }
 
 async function metaFetch<T = any>(
@@ -919,8 +966,11 @@ export type AdDailyInsight = {
   clicks: number;
   ctr: number;
   messages: number;
-  purchases: number; // จำนวนการซื้อ (purchase) จาก Meta
-  purchase_value: number; // ค่าคอนเวอร์ชั่นการซื้อ (purchase conversion value) จาก Meta
+  purchases: number; // จำนวนการซื้อ (omni_purchase) จาก Meta
+  purchase_value: number; // ค่าคอนเวอร์ชั่นการซื้อ (omni_purchase value) จาก Meta
+  reach: number; // การเข้าถึง (reach) จาก Meta
+  cost_per_message: number | null; // ต้นทุนต่อการเริ่มสนทนา (cost_per_action_type) จาก Meta
+  purchase_roas: number | null; // ROAS (purchase_roas) จาก Meta โดยตรง
 };
 
 /**
@@ -944,8 +994,11 @@ export async function fetchAdInsightsDaily(
     "impressions",
     "clicks",
     "ctr",
+    "reach",
     "actions",
     "action_values",
+    "cost_per_action_type",
+    "purchase_roas",
     "date_start",
   ].join(",");
   const params = new URLSearchParams({
@@ -973,6 +1026,9 @@ export async function fetchAdInsightsDaily(
     messages: extractMessaging(r.actions),
     purchases: extractPurchases(r.actions),
     purchase_value: extractPurchaseValue(r.action_values),
+    reach: parseNum(r.reach),
+    cost_per_message: extractCostPerMessage(r.cost_per_action_type),
+    purchase_roas: extractPurchaseRoas(r.purchase_roas),
   }));
 }
 
