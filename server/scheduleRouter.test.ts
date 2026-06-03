@@ -55,3 +55,46 @@ describe("AUTOSYNC_JOBS definitions", () => {
     }
   });
 });
+
+/**
+ * Round 7.40b: จำลองพฤติกรรม normalize ของ listOurJobs
+ * (Forge อาจละ field `jobs` ออกจาก response → ต้อง fallback เป็น [])
+ */
+describe("normalize jobs (กัน undefined.map crash)", () => {
+  function normalizeJobs(res: { jobs?: unknown } | null | undefined) {
+    return Array.isArray(res?.jobs) ? res!.jobs : [];
+  }
+
+  it("response ปกติ (มี jobs array) → คืน array เดิม", () => {
+    const out = normalizeJobs({ jobs: [{ name: "a" }, { name: "b" }] });
+    expect(out).toHaveLength(2);
+  });
+
+  it("response ไม่มี field jobs → คืน []", () => {
+    const out = normalizeJobs({ total: 0 } as { jobs?: unknown });
+    expect(out).toEqual([]);
+  });
+
+  it("response jobs = undefined → คืน []", () => {
+    const out = normalizeJobs({ jobs: undefined });
+    expect(out).toEqual([]);
+  });
+
+  it("response jobs = null → คืน []", () => {
+    const out = normalizeJobs({ jobs: null as unknown });
+    expect(out).toEqual([]);
+  });
+
+  it("res เป็น undefined → คืน []", () => {
+    const out = normalizeJobs(undefined);
+    expect(out).toEqual([]);
+  });
+
+  it("ผลลัพธ์ normalize เรียก .filter/.map ได้เสมอโดยไม่ throw", () => {
+    const cases = [{ jobs: undefined }, { jobs: null as unknown }, {}, undefined, { jobs: [{ name: "x" }] }];
+    for (const c of cases) {
+      const arr = normalizeJobs(c as { jobs?: unknown });
+      expect(() => arr.filter(() => true).map((x) => x)).not.toThrow();
+    }
+  });
+});

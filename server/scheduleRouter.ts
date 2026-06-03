@@ -57,6 +57,16 @@ export type AutoSyncJobKey = (typeof AUTOSYNC_JOBS)[number]["key"];
 type JobDef = (typeof AUTOSYNC_JOBS)[number];
 const JOB_BY_NAME = new Map<string, JobDef>(AUTOSYNC_JOBS.map((j) => [j.name, j] as [string, JobDef]));
 
+/**
+ * เรียก listHeartbeatJobs แล้วการันตีว่าได้ array เสมอ
+ * (Forge API อาจละ field `jobs` ออกจาก response เมื่อไม่มี cron job เลย → undefined)
+ */
+async function listOurJobs(session: string): Promise<HeartbeatJobInfo[]> {
+  const res = await listHeartbeatJobs(session, { pageSize: 100 });
+  const all = Array.isArray(res?.jobs) ? res.jobs : [];
+  return all;
+}
+
 /** ดึง decoded app_session_id จาก cookie header (จำเป็นต่อการผูก cron กับ owner) */
 function getSessionToken(ctx: { req: { headers: { cookie?: string } } }): string {
   const token = parseCookie(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? "";
@@ -91,7 +101,7 @@ export const scheduleRouter = router({
    */
   status: ownerProcedure.query(async ({ ctx }) => {
     const session = getSessionToken(ctx);
-    const { jobs } = await listHeartbeatJobs(session, { pageSize: 100 });
+    const jobs = await listOurJobs(session);
     const ours = jobs.filter((j) => JOB_BY_NAME.has(j.name)).map(describeJob);
 
     const configured = AUTOSYNC_JOBS.map((def) => {
@@ -128,7 +138,7 @@ export const scheduleRouter = router({
    */
   enableAll: ownerProcedure.mutation(async ({ ctx }) => {
     const session = getSessionToken(ctx);
-    const { jobs } = await listHeartbeatJobs(session, { pageSize: 100 });
+    const jobs = await listOurJobs(session);
     const existingByName = new Map(jobs.map((j) => [j.name, j]));
 
     const results: { key: AutoSyncJobKey; action: "created" | "resumed" | "updated" }[] = [];
@@ -165,7 +175,7 @@ export const scheduleRouter = router({
    */
   disableAll: ownerProcedure.mutation(async ({ ctx }) => {
     const session = getSessionToken(ctx);
-    const { jobs } = await listHeartbeatJobs(session, { pageSize: 100 });
+    const jobs = await listOurJobs(session);
     const ours = jobs.filter((j) => JOB_BY_NAME.has(j.name));
 
     for (const j of ours) {
@@ -192,7 +202,7 @@ export const scheduleRouter = router({
       const def = AUTOSYNC_JOBS.find((j) => j.key === input.key);
       if (!def) throw new TRPCError({ code: "BAD_REQUEST", message: "unknown job key" });
 
-      const { jobs } = await listHeartbeatJobs(session, { pageSize: 100 });
+      const jobs = await listOurJobs(session);
       const existing = jobs.find((j) => j.name === def.name);
 
       if (!existing) {
@@ -214,7 +224,7 @@ export const scheduleRouter = router({
    */
   removeAll: ownerProcedure.mutation(async ({ ctx }) => {
     const session = getSessionToken(ctx);
-    const { jobs } = await listHeartbeatJobs(session, { pageSize: 100 });
+    const jobs = await listOurJobs(session);
     const ours = jobs.filter((j) => JOB_BY_NAME.has(j.name));
 
     for (const j of ours) {

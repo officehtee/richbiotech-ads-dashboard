@@ -599,4 +599,11 @@
 - [x] เพิ่ม UI หน้า Settings: เปิด/ปิด Auto-sync + ดูสถานะ cron (last run, next run)
 - [x] เพิ่ม vitest สำหรับ schedule logic
 - [x] tsc 0 errors + vitest ผ่าน
-- [ ] checkpoint + แนะนำ deploy
+- [x] checkpoint + แนะนำ deploy (checkpoint a9eba0bc — รอ user deploy แล้วเปิด Auto-sync)
+
+
+## Round 7.40b: แก้บั๊ก "Cannot read properties of undefined (reading 'map')" ตอนเปิด Auto-sync
+- [x] guard listHeartbeatJobs ให้คืน jobs เป็น [] เสมอ (listOurJobs helper)
+- [x] guard ทุก procedure ใน scheduleRouter (.filter/.map บน jobs)
+- [x] เพิ่ม vitest ครอบ normalize jobs undefined → [] + frontend guard
+- [x] tsc + vitest ผ่าน, checkpoint

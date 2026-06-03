@@ -110,7 +110,7 @@ export function AutoSyncSection() {
             กำลังโหลดสถานะ…
           </div>
         ) : (
-          data?.jobs.map((job) => (
+          (data?.jobs ?? []).map((job) => (
             <div
               key={job.key}
               className="flex items-center justify-between gap-4 rounded-lg border bg-muted/30 px-4 py-3"
