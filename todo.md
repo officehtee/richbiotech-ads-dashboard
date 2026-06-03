@@ -610,13 +610,13 @@
 
 
 ## Round 7.41: ปรับข้อความ sync interval + ยกเครื่อง UI การ์ด Auto-sync
-- [ ] AdIntelligence.tsx: แก้ข้อความ "sync อัตโนมัติทุก 15 นาที" → "ทุก 1 ชั่วโมง" (บรรทัด 470 แสดงจริง)
-- [ ] AdIntelligence.tsx: แก้ comment ที่กล่าวถึง 15 นาที ให้ตรงกับความจริง
-- [ ] AutoSyncSection.tsx: เอาสวิตช์ย่อย 3 ตัวออก เหลือสวิตช์ใหญ่ตัวเดียว (เปิด=enableAll, ปิด=disableAll)
-- [ ] AutoSyncSection.tsx: ยุบ 3 รายการงานเป็นปุ่ม "ดูรายละเอียด" (expand/collapse)
-- [ ] AutoSyncSection.tsx: ยุบหมายเหตุเป็นปุ่ม "ดูหมายเหตุ" (expand/collapse)
-- [ ] ลดขนาดการ์ดให้กระชับ ไม่รกหน้าจอ
-- [ ] tsc + vitest ผ่าน, checkpoint
+- [x] AdIntelligence.tsx: แก้ข้อความ "sync อัตโนมัติทุก 15 นาที" → "ทุก 1 ชั่วโมง"
+- [x] AdIntelligence.tsx: comment ถูกต้องแล้ว (client refresh 15 นาที อ่านจาก DB / server cron sync 1 ชม.) — ไม่ต้องแก้
+- [x] AutoSyncSection.tsx: เอาสวิตช์ย่อย 3 ตัวออก เหลือสวิตช์ใหญ่ตัวเดียว (เปิด=enableAll, ปิด=disableAll)
+- [x] AutoSyncSection.tsx: ยุบ 3 รายการงานเป็นปุ่ม "ดูรายละเอียด" (expand/collapse)
+- [x] AutoSyncSection.tsx: ยุบหมายเหตุเป็นปุ่ม "ดูหมายเหตุ" (expand/collapse)
+- [x] ลดขนาดการ์ดให้กระชับ ไม่รกหน้าจอ
+- [x] tsc + vitest ผ่าน, checkpoint (5d4f9755)
 
 ## Round 7.41 — ปรับข้อความ sync interval + ยกเครื่อง UI การ์ด Auto-sync
 - [x] AdIntelligence.tsx: ข้อความ "sync อัตโนมัติทุก 15 นาที" -> "ทุก 1 ชั่วโมง"
