@@ -485,3 +485,33 @@ export const campaignStatus = mysqlTable("campaignStatus", {
 
 export type CampaignStatus = typeof campaignStatus.$inferSelect;
 export type InsertCampaignStatus = typeof campaignStatus.$inferInsert;
+
+/**
+ * Round 7.44 — Sync Log
+ * บันทึกประวัติการ sync แต่ละรอบของ syncAdInsights (และ job อื่นในอนาคต)
+ * ใช้ตรวจสอบเมื่อ Meta อนุมัติ token: ดูจำนวนบัญชีใหม่/เก่า, rows, สำเร็จ/ล้มเหลว
+ */
+export const syncLogs = mysqlTable("syncLogs", {
+  id: int("id").autoincrement().primaryKey(),
+  jobType: mysqlEnum("jobType", ["adInsights", "bm", "alerts"])
+    .default("adInsights")
+    .notNull(),
+  runAt: timestamp("runAt").defaultNow().notNull(),
+  tenants: int("tenants").default(0).notNull(), // จำนวน workspace ที่ประมวลผล
+  newAccounts: int("newAccounts").default(0).notNull(), // บัญชีใหม่ (initial 90 วัน)
+  existingAccounts: int("existingAccounts").default(0).notNull(), // บัญชีเก่า (normal 7 วัน)
+  rowsSynced: int("rowsSynced").default(0).notNull(),
+  previewsRefreshed: int("previewsRefreshed").default(0).notNull(),
+  failed: int("failed").default(0).notNull(),
+  durationMs: int("durationMs").default(0).notNull(),
+  status: mysqlEnum("status", ["success", "partial", "failed"])
+    .default("success")
+    .notNull(),
+  errorMessage: text("errorMessage"),
+}, (t) => [
+  index("syncLogs_jobType_idx").on(t.jobType),
+  index("syncLogs_runAt_idx").on(t.runAt),
+]);
+
+export type SyncLog = typeof syncLogs.$inferSelect;
+export type InsertSyncLog = typeof syncLogs.$inferInsert;

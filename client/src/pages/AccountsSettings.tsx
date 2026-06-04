@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BMSection } from "@/components/BMSection";
 import { AutoSyncSection } from "@/components/AutoSyncSection";
+import { SyncLogSection } from "@/components/SyncLogSection";
 import {
   Dialog,
   DialogContent,
@@ -121,6 +122,9 @@ export default function AccountsSettings() {
 
       {/* Round 7.40 — Auto-sync (Heartbeat cron) */}
       <AutoSyncSection />
+
+      {/* Round 7.44 — ประวัติการซิงค์ */}
+      <SyncLogSection />
 
       {/* Round 7.23 — BM Auto-Discovery */}
       <BMSection />

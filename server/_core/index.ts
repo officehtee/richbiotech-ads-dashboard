@@ -13,6 +13,7 @@ import {
   getAdAccountsByUser,
   hasAdInsightsData,
   hasAdInsightsDataForAccount,
+  insertSyncLog,
 } from "../db";
 import { syncOneBusinessManager, shouldNotifyOwner, summarizeOutcome } from "../bmSync";
 import { syncAdInsightsForAccounts, dateOffsetString } from "../deepAdsSync";
@@ -124,6 +125,9 @@ async function startServer() {
       let totalFailed = 0;
       let totalReconciled = 0;
       let totalDeleted = 0;
+      let totalNewAccounts = 0;
+      let totalExistingAccounts = 0;
+      const startedAt = Date.now();
       const until = dateOffsetString(0);
       for (const tid of tenants) {
         try {
@@ -136,6 +140,8 @@ async function startServer() {
           );
           const newAccounts = active.filter((_, i) => !flags[i]); // initial: 90 วัน
           const existingAccounts = active.filter((_, i) => flags[i]); // normal: 7 วัน
+          totalNewAccounts += newAccounts.length;
+          totalExistingAccounts += existingAccounts.length;
 
           const batches: { accounts: typeof active; since: string }[] = [];
           if (newAccounts.length > 0)
@@ -161,9 +167,27 @@ async function startServer() {
           totalFailed += 1;
         }
       }
+      // Round 7.44: บันทึกประวัติการ sync รอบนี้
+      try {
+        await insertSyncLog({
+          jobType: "adInsights",
+          tenants: tenants.length,
+          newAccounts: totalNewAccounts,
+          existingAccounts: totalExistingAccounts,
+          rowsSynced: totalRows,
+          previewsRefreshed: totalPreviews,
+          failed: totalFailed,
+          durationMs: Date.now() - startedAt,
+          status: totalFailed === 0 ? "success" : totalRows > 0 ? "partial" : "failed",
+        });
+      } catch (logErr) {
+        console.warn("[syncAdInsights] insertSyncLog failed", logErr);
+      }
       return res.json({
         ok: true,
         tenants: tenants.length,
+        newAccounts: totalNewAccounts,
+        existingAccounts: totalExistingAccounts,
         rowsSynced: totalRows,
         previewsRefreshed: totalPreviews,
         campaignsReconciled: totalReconciled,
@@ -172,6 +196,15 @@ async function startServer() {
       });
     } catch (e: any) {
       console.error("[syncAdInsights] failed", e);
+      try {
+        await insertSyncLog({
+          jobType: "adInsights",
+          status: "failed",
+          errorMessage: e?.message ?? String(e),
+        });
+      } catch {
+        /* ignore */
+      }
       return res.status(500).json({
         error: e?.message ?? String(e),
         stack: e?.stack,

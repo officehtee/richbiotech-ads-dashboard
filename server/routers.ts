@@ -122,6 +122,7 @@ import {
   getAccountGroupMap,
   getLatestSyncedAt,
   upsertAdManualMetric,
+  listSyncLogs,
 } from "./db";
 import {
   fetchAdsForAdset,
@@ -1155,6 +1156,22 @@ export const appRouter = router({
       const at = await getLatestSyncedAt(tid);
       return { latestSyncedAt: at };
     }),
+  }),
+
+  /* ----- Sync Logs (Round 7.44) — owner/ceo ดูประวัติการ sync ----- */
+  syncLogs: router({
+    list: ownerProcedure
+      .input(
+        z
+          .object({
+            limit: z.number().int().min(1).max(200).optional(),
+            jobType: z.enum(["adInsights", "bm", "alerts"]).optional(),
+          })
+          .optional(),
+      )
+      .query(async ({ input }) => {
+        return listSyncLogs(input?.limit ?? 50, input?.jobType);
+      }),
   }),
 
   /* ----- Smart Scaling ----- */

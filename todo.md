@@ -639,3 +639,13 @@
 - [x] index.ts syncAdInsights: แบ่งบัญชีเป็น 2 กลุ่ม — บัญชีใหม่ (ไม่มีข้อมูล) ดึง 90 วัน / บัญชีเก่า ดึง 7 วัน
 - [x] เพิ่ม vitest 5 tests ครอบ per-account split logic (splitAccountsByData)
 - [x] tsc 0 errors + vitest 363 tests ผ่าน, checkpoint
+
+## Round 7.44: Sync Log — บันทึก/แสดงประวัติการ sync แต่ละรอบ
+- [x] เลือกทางเลือก C: ไม่เพิ่ม preset 90 วัน (ใช้ custom range แทน)
+- [x] drizzle/schema.ts: เพิ่มตาราง syncLogs (jobType, runAt, newAccounts, existingAccounts, rowsSynced, failed, durationMs, status)
+- [x] migration + execute SQL
+- [x] db.ts: insertSyncLog + listSyncLogs helpers
+- [x] index.ts syncAdInsights: บันทึก log แต่ละรอบ (บัญชีใหม่/เก่า, rows, failed, duration)
+- [x] routers.ts: เพิ่ม syncLogs.list procedure (admin/owner only)
+- [x] หน้า UI แสดงประวัติ sync log
+- [x] vitest + tsc ผ่าน, checkpoint

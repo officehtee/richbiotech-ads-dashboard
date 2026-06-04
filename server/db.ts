@@ -44,8 +44,10 @@ import {
   scaleLogs,
   scaleSettings,
   shareLinks,
+  syncLogs,
   users,
 } from "../drizzle/schema";
+import type { InsertSyncLog, SyncLog } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1450,6 +1452,28 @@ export async function hasAdInsightsDataForAccount(
     .where(and(eq(adInsightsDaily.userId, userId), eq(adInsightsDaily.accountId, accountId)))
     .limit(1);
   return rows.length > 0;
+}
+
+/* ============================================================
+ * Round 7.44 — Sync Log helpers
+ * ============================================================ */
+export async function insertSyncLog(log: InsertSyncLog): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(syncLogs).values(log);
+}
+
+export async function listSyncLogs(
+  limit = 50,
+  jobType?: "adInsights" | "bm" | "alerts",
+): Promise<SyncLog[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const base = db.select().from(syncLogs);
+  const rows = jobType
+    ? await base.where(eq(syncLogs.jobType, jobType)).orderBy(desc(syncLogs.runAt)).limit(limit)
+    : await base.orderBy(desc(syncLogs.runAt)).limit(limit);
+  return rows;
 }
 
 /* ============================================================
