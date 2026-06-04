@@ -291,7 +291,7 @@ export default function AdIntelligence() {
         "ค่าคลิก",
         "Orders",
         "ต้นทุน/ซื้อ",
-        "%ทัก/ลูกค้า",
+        "% ปิดการขาย",
         "ค่าคอนเวอร์ชั่นการซื้อ",
         "ROAS",
         "%ค่า ADS",
@@ -605,7 +605,7 @@ export default function AdIntelligence() {
                   <SortBtn k="costPerOrder" label="ต้นทุน/ซื้อ" />
                 </th>
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
-                  <SortBtn k="chatToOrderRate" label="%ทัก/ลูกค้า" />
+                  <SortBtn k="chatToOrderRate" label="% ปิดการขาย" />
                 </th>
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[120px]">
                   <SortBtn k="metaSalesAmount" label="ค่าคอนเวอร์ชั่นการซื้อ" />
