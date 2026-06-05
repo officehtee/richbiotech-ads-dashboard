@@ -238,6 +238,34 @@ export function dateOffsetString(daysBack: number, base = new Date()): string {
 }
 
 /**
+ * Round 7.46 — จำกัดจำนวนวัน re-sync ให้อยู่ในช่วง 1–90 วัน (ป้องกัน abuse / rate limit).
+ * pure function — ทดสอบง่าย
+ */
+export function clampResyncDays(days: number): number {
+  if (!Number.isFinite(days)) return 7;
+  const n = Math.floor(days);
+  if (n < 1) return 1;
+  if (n > 90) return 90;
+  return n;
+}
+
+/**
+ * Round 7.46 — คำนวณช่วง since/until สำหรับ re-sync ย้อนหลัง N วัน (รวมวันนี้).
+ * เช่น days=90 → since = ย้อนหลัง 89 วัน, until = วันนี้ (รวม 90 วัน)
+ */
+export function resolveResyncRange(
+  days: number,
+  base = new Date(),
+): { since: string; until: string; days: number } {
+  const d = clampResyncDays(days);
+  return {
+    since: dateOffsetString(d - 1, base),
+    until: dateOffsetString(0, base),
+    days: d,
+  };
+}
+
+/**
  * Sync many accounts sequentially with a small delay between each.
  */
 export async function syncAdInsightsForAccounts(

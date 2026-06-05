@@ -123,6 +123,7 @@ import {
   getLatestSyncedAt,
   upsertAdManualMetric,
   listSyncLogs,
+  insertSyncLog,
 } from "./db";
 import {
   fetchAdsForAdset,
@@ -144,6 +145,7 @@ import {
 import {
   syncAdInsightsForAccounts,
   dateOffsetString,
+  resolveResyncRange,
 } from "./deepAdsSync";
 
 const tokenAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
@@ -1148,6 +1150,71 @@ export const appRouter = router({
           previewsRefreshed: results.reduce((s, r) => s + r.previewsRefreshed, 0),
           failed: results.filter((r) => !r.ok).length,
           errors: results.filter((r) => !r.ok).map((r) => ({ accountId: r.accountId, message: r.errorMessage })),
+        };
+      }),
+    /**
+     * Round 7.46: Re-sync ย้อนหลัง (manual backfill) — กดเองเมื่อจำเป็นเท่านั้น
+     * รองรับช่วงสูงสุด 90 วัน เพื่อเขียนทับข้อมูลเก่าที่ดึงมาด้วยสูตร/คอลัมน์เดิมที่ไม่ถูกต้อง
+     * - ทยอย sync ทีละบัญชี (sequential) + delay 800ms ต่อบัญชี เพื่อกัน Meta rate limit
+     * - upsert ทับเฉพาะ field ที่ดึงจาก Meta — ข้อมูลกรอกมือ (adManualMetrics) ไม่ถูกแตะ
+     * - บันทึก syncLog หลังเสร็จเพื่อให้ดูประวัติได้
+     * NOTE: auto-sync เบื้องหลังยังคงเป็น 7 วันตามเดิม ไม่กระทบ
+     */
+    resyncBackfill: ownerProcedure
+      .input(
+        z.object({
+          accountId: z.number().optional(),
+          days: z.number().int().min(1).max(90).default(90),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        const all = await getAdAccountsByUser(tid);
+        const accounts = input.accountId
+          ? all.filter((a) => a.id === input.accountId && a.isActive)
+          : all.filter((a) => a.isActive);
+        const { since, until } = resolveResyncRange(input.days);
+        const startedAt = Date.now();
+        // ทยอยทีละบัญชี + delay 800ms (สูงกว่า auto-sync 300ms) เพราะดึงช่วงยาวกว่า
+        const results = await syncAdInsightsForAccounts(
+          accounts,
+          since,
+          until,
+          tid,
+          800,
+        );
+        const rowsSynced = results.reduce((s, r) => s + r.rowsSynced, 0);
+        const previewsRefreshed = results.reduce(
+          (s, r) => s + r.previewsRefreshed,
+          0,
+        );
+        const failed = results.filter((r) => !r.ok).length;
+        // บันทึกประวัติการ re-sync
+        try {
+          await insertSyncLog({
+            jobType: "adInsights",
+            tenants: 1,
+            newAccounts: 0,
+            existingAccounts: accounts.length,
+            rowsSynced,
+            previewsRefreshed,
+            failed,
+            durationMs: Date.now() - startedAt,
+            status:
+              failed === 0 ? "success" : rowsSynced > 0 ? "partial" : "failed",
+          });
+        } catch {
+          /* ignore log failure */
+        }
+        return {
+          accountsProcessed: results.length,
+          days: input.days,
+          rowsSynced,
+          previewsRefreshed,
+          failed,
+          errors: results
+            .filter((r) => !r.ok)
+            .map((r) => ({ accountId: r.accountId, message: r.errorMessage })),
         };
       }),
     /** Round 7.32: Lightweight status endpoint for Ad Intelligence auto-sync UI. */

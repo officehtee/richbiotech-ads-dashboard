@@ -30,6 +30,9 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -48,6 +51,7 @@ import {
   ArrowDownAZ,
   ArrowUpAZ,
   Download,
+  History,
   Image as ImageIcon,
   Loader2,
   RefreshCw,
@@ -182,6 +186,27 @@ export default function AdIntelligence() {
       statusQuery.refetch();
     },
     onError: (e) => toast.error(`Sync ล้มเหลว: ${e.message}`),
+  });
+
+  // Round 7.46: Re-sync ย้อนหลัง (manual backfill) — เลือกช่วงวันได้สูงสุด 90 วัน
+  const [resyncOpen, setResyncOpen] = useState(false);
+  const [resyncDays, setResyncDays] = useState<string>("90");
+  const resyncMutation = trpc.deepAds.resyncBackfill.useMutation({
+    onSuccess: (r) => {
+      if (r.failed > 0 && r.rowsSynced === 0) {
+        toast.error(
+          `Re-sync ล้มเหลวทุกบัญชี (${r.failed}) — ${r.errors[0]?.message ?? "ไม่ทราบสาเหตุ"}`,
+        );
+      } else {
+        toast.success(
+          `Re-sync ${r.days} วันเสร็จ: ${r.rowsSynced} แถว · ${r.accountsProcessed} บัญชี${r.failed ? ` · ล้มเหลว ${r.failed}` : ""}`,
+        );
+      }
+      setResyncOpen(false);
+      listQuery.refetch();
+      statusQuery.refetch();
+    },
+    onError: (e) => toast.error(`Re-sync ล้มเหลว: ${e.message}`),
   });
 
   // Round 7.32 / 7.41: silent refresh หน้าจอทุก 15 นาที เพื่อดึงข้อมูลล่าสุดจาก DB มาแสดง
@@ -443,6 +468,22 @@ export default function AdIntelligence() {
                   <RefreshCw className="h-4 w-4" />
                 )}
                 <span className="ml-1.5">Sync Now</span>
+              </Button>
+            )}
+            {isOwner && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setResyncOpen(true)}
+                disabled={syncMutation.isPending || resyncMutation.isPending}
+                className="bg-background"
+              >
+                {resyncMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <History className="h-4 w-4" />
+                )}
+                <span className="ml-1.5">Re-sync ย้อนหลัง</span>
               </Button>
             )}
             <Button
@@ -1061,6 +1102,74 @@ export default function AdIntelligence() {
               />
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Round 7.46 — Re-sync ย้อนหลัง (manual backfill) dialog */}
+      <Dialog open={resyncOpen} onOpenChange={(o) => !resyncMutation.isPending && setResyncOpen(o)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Re-sync ย้อนหลัง
+            </DialogTitle>
+            <DialogDescription className="space-y-2 pt-1">
+              <span className="block">
+                ดึงข้อมูลจาก Meta ย้อนหลังตามช่วงที่เลือก แล้ว{" "}
+                <span className="font-medium text-foreground">เขียนทับข้อมูลเดิมด้วยสูตรปัจจุบัน</span>{" "}
+                ใช้เมื่อข้อมูลเก่าถูกดึงมาไม่ถูกต้อง
+              </span>
+              <span className="block text-xs">
+                • ข้อมูลกรอกมือ (Orders/ยอดขาย/หมายเหตุ) จะไม่ถูกแตะ
+              </span>
+              <span className="block text-xs">
+                • ทยอยดึงทีละบัญชีเพื่อกัน Meta บล็อก — ถ้ามีหลายบัญชีอาจใช้เวลาสักครู่
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-1">
+            <label className="text-sm font-medium">ช่วงย้อนหลังที่ต้องการดึงใหม่</label>
+            <Select value={resyncDays} onValueChange={setResyncDays}>
+              <SelectTrigger className="bg-background">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">7 วันล่าสุด</SelectItem>
+                <SelectItem value="30">30 วันล่าสุด</SelectItem>
+                <SelectItem value="60">60 วันล่าสุด</SelectItem>
+                <SelectItem value="90">90 วันล่าสุด (เต็มช่วง)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              ช่วงยิ่งยาวใช้ API หนักขึ้น — แนะนำใช้เมื่อจำเป็นเท่านั้น ไม่ควรกดถี่
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setResyncOpen(false)}
+              disabled={resyncMutation.isPending}
+              className="bg-background"
+            >
+              ยกเลิก
+            </Button>
+            <Button
+              onClick={() => resyncMutation.mutate({ days: parseInt(resyncDays, 10) })}
+              disabled={resyncMutation.isPending}
+            >
+              {resyncMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                  กำลังดึงข้อมูล...
+                </>
+              ) : (
+                <>
+                  <History className="h-4 w-4 mr-1.5" />
+                  เริ่ม Re-sync
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

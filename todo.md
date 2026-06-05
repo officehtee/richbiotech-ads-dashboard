@@ -649,3 +649,12 @@
 - [x] routers.ts: เพิ่ม syncLogs.list procedure (admin/owner only)
 - [x] หน้า UI แสดงประวัติ sync log
 - [x] vitest + tsc ผ่าน, checkpoint
+
+## Round 7.46 — Re-sync ย้อนหลัง (manual backfill)
+- [x] เพิ่ม backend procedure `deepAds.resyncBackfill` รับ days (7/30/60/90, max 90) ทยอย sync ทีละบัญชี (sequential + delay) กัน rate limit
+- [x] บันทึก syncLog หลัง re-sync (status success/partial/failed)
+- [x] ยืนยัน upsert ไม่แตะ manual metrics (ยอดใหม่/หมายเหตุ) — ใช้ adManualMetrics แยก table อยู่แล้ว
+- [x] เพิ่ม UI ปุ่ม "Re-sync ย้อนหลัง" แยกจาก "Sync Now" เดิม (7 วัน คงไว้)
+- [x] dropdown เลือกช่วง 7/30/60/90 วัน + สถานะ loading + toast แจ้งผลเมื่อเสร็จ
+- [x] auto-sync เบื้องหลังคงไว้ 7 วัน (ไม่แตะ)
+- [x] เขียน vitest + tsc 0 errors + test ผ่านครบ

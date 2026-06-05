@@ -88,3 +88,69 @@ describe("isPreviewFresh (7-day cache)", () => {
     expect(isPreviewFresh(cached, now)).toBe(true);
   });
 });
+
+/* Round 7.46 — Re-sync ย้อนหลัง (manual backfill) range helpers */
+import { clampResyncDays, resolveResyncRange } from "./deepAdsSync";
+
+describe("clampResyncDays (1–90 guard)", () => {
+  it("keeps valid values within range", () => {
+    expect(clampResyncDays(7)).toBe(7);
+    expect(clampResyncDays(30)).toBe(30);
+    expect(clampResyncDays(90)).toBe(90);
+  });
+
+  it("clamps values above 90 down to 90", () => {
+    expect(clampResyncDays(120)).toBe(90);
+    expect(clampResyncDays(9999)).toBe(90);
+  });
+
+  it("clamps values below 1 up to 1", () => {
+    expect(clampResyncDays(0)).toBe(1);
+    expect(clampResyncDays(-5)).toBe(1);
+  });
+
+  it("floors fractional values", () => {
+    expect(clampResyncDays(30.9)).toBe(30);
+  });
+
+  it("falls back to 7 for non-finite input", () => {
+    expect(clampResyncDays(NaN)).toBe(7);
+    expect(clampResyncDays(Infinity)).toBe(7); // Number.isFinite(Infinity) === false → fallback 7
+  });
+});
+
+describe("resolveResyncRange (since/until window)", () => {
+  const base = new Date("2026-05-15T12:00:00Z");
+
+  it("90 days → since 89 days back, until today (90-day inclusive window)", () => {
+    const r = resolveResyncRange(90, base);
+    expect(r.until).toBe("2026-05-15");
+    expect(r.since).toBe("2026-02-15"); // 89 days before 2026-05-15
+    expect(r.days).toBe(90);
+  });
+
+  it("7 days → since 6 days back, until today", () => {
+    const r = resolveResyncRange(7, base);
+    expect(r.until).toBe("2026-05-15");
+    expect(r.since).toBe("2026-05-09");
+    expect(r.days).toBe(7);
+  });
+
+  it("30 days window", () => {
+    const r = resolveResyncRange(30, base);
+    expect(r.until).toBe("2026-05-15");
+    expect(r.since).toBe("2026-04-16");
+    expect(r.days).toBe(30);
+  });
+
+  it("clamps over-limit days before computing range", () => {
+    const r = resolveResyncRange(365, base);
+    expect(r.days).toBe(90);
+    expect(r.since).toBe("2026-02-15");
+  });
+
+  it("since is always <= until", () => {
+    const r = resolveResyncRange(60, base);
+    expect(r.since <= r.until).toBe(true);
+  });
+});
