@@ -48,8 +48,10 @@ import {
 import { trpc } from "@/lib/trpc";
 import type { DateRangeInput } from "@shared/types";
 import {
+  AlertTriangle,
   ArrowDownAZ,
   ArrowUpAZ,
+  CheckCircle2,
   Download,
   History,
   Image as ImageIcon,
@@ -191,8 +193,19 @@ export default function AdIntelligence() {
   // Round 7.46: Re-sync ย้อนหลัง (manual backfill) — เลือกช่วงวันได้สูงสุด 90 วัน
   const [resyncOpen, setResyncOpen] = useState(false);
   const [resyncDays, setResyncDays] = useState<string>("90");
+  // Round 7.47: เก็บผลลัพธ์ re-sync ล่าสุด เพื่อแสดงสถานะ "เสร็จแล้ว" ใน dialog
+  type ResyncResult = {
+    days: number;
+    rowsSynced: number;
+    accountsProcessed: number;
+    totalAccounts: number;
+    failed: number;
+    errors: { accountId: number; message?: string }[];
+  };
+  const [resyncResult, setResyncResult] = useState<ResyncResult | null>(null);
   const resyncMutation = trpc.deepAds.resyncBackfill.useMutation({
     onSuccess: (r) => {
+      setResyncResult(r as ResyncResult);
       if (r.failed > 0 && r.rowsSynced === 0) {
         toast.error(
           `Re-sync ล้มเหลวทุกบัญชี (${r.failed}) — ${r.errors[0]?.message ?? "ไม่ทราบสาเหตุ"}`,
@@ -202,12 +215,16 @@ export default function AdIntelligence() {
           `Re-sync ${r.days} วันเสร็จ: ${r.rowsSynced} แถว · ${r.accountsProcessed} บัญชี${r.failed ? ` · ล้มเหลว ${r.failed}` : ""}`,
         );
       }
-      setResyncOpen(false);
+      // ไม่ปิด dialog อัตโนมัติ — ให้ผู้ใช้เห็นสรุปผลก่อนแล้วกดปิดเอง
       listQuery.refetch();
       statusQuery.refetch();
     },
     onError: (e) => toast.error(`Re-sync ล้มเหลว: ${e.message}`),
   });
+  // จำนวนบัญชี active ที่จะถูก re-sync (ใช้แสดงในคำเตือน + ประมาณเวลา)
+  const activeAccountsCount = (accountsQuery.data ?? []).filter(
+    (a) => a.isActive,
+  ).length;
 
   // Round 7.32 / 7.41: silent refresh หน้าจอทุก 15 นาที เพื่อดึงข้อมูลล่าสุดจาก DB มาแสดง
   // (server มี cron sync ทุก 1 ชั่วโมง เขียนข้อมูลสดลง DB — client แค่ refetch อ่านจาก DB เรา ไม่ยิง Meta)
@@ -1105,9 +1122,20 @@ export default function AdIntelligence() {
         </DialogContent>
       </Dialog>
 
-      {/* Round 7.46 — Re-sync ย้อนหลัง (manual backfill) dialog */}
-      <Dialog open={resyncOpen} onOpenChange={(o) => !resyncMutation.isPending && setResyncOpen(o)}>
-        <DialogContent className="sm:max-w-md">
+      {/* Round 7.46 / 7.47 — Re-sync ย้อนหลัง (manual backfill) dialog */}
+      <Dialog
+        open={resyncOpen}
+        onOpenChange={(o) => {
+          if (resyncMutation.isPending) return; // กำลัง sync ห้ามปิด
+          setResyncOpen(o);
+          if (!o) setResyncResult(null); // ปิดแล้ว reset ผลลัพธ์
+        }}
+      >
+        <DialogContent
+          className="sm:max-w-md"
+          onInteractOutside={(e) => resyncMutation.isPending && e.preventDefault()}
+          onEscapeKeyDown={(e) => resyncMutation.isPending && e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <History className="h-5 w-5" />
@@ -1120,55 +1148,122 @@ export default function AdIntelligence() {
                 ใช้เมื่อข้อมูลเก่าถูกดึงมาไม่ถูกต้อง
               </span>
               <span className="block text-xs">
-                • ข้อมูลกรอกมือ (Orders/ยอดขาย/หมายเหตุ) จะไม่ถูกแตะ
+                • ข้อมูลจาก Meta (เช่น Orders / ยอดขาย / คลิก / ROAS) จะถูกดึงใหม่{" "}
+                <span className="font-medium text-foreground">เขียนทับ</span>ด้วยสูตรปัจจุบัน
+              </span>
+              <span className="block text-xs">
+                • ข้อมูลที่กรอกมือ —{" "}
+                <span className="font-medium text-foreground">ยอดต่อแอด (ยอดใหม่)</span> และ{" "}
+                <span className="font-medium text-foreground">หมายเหตุ</span> —{" "}
+                จะไม่ถูกแตะ
               </span>
               <span className="block text-xs">
                 • ทยอยดึงทีละบัญชีเพื่อกัน Meta บล็อก — ถ้ามีหลายบัญชีอาจใช้เวลาสักครู่
               </span>
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 py-1">
-            <label className="text-sm font-medium">ช่วงย้อนหลังที่ต้องการดึงใหม่</label>
-            <Select value={resyncDays} onValueChange={setResyncDays}>
-              <SelectTrigger className="bg-background">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7">7 วันล่าสุด</SelectItem>
-                <SelectItem value="30">30 วันล่าสุด</SelectItem>
-                <SelectItem value="60">60 วันล่าสุด</SelectItem>
-                <SelectItem value="90">90 วันล่าสุด (เต็มช่วง)</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              ช่วงยิ่งยาวใช้ API หนักขึ้น — แนะนำใช้เมื่อจำเป็นเท่านั้น ไม่ควรกดถี่
-            </p>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setResyncOpen(false)}
-              disabled={resyncMutation.isPending}
-              className="bg-background"
-            >
-              ยกเลิก
-            </Button>
-            <Button
-              onClick={() => resyncMutation.mutate({ days: parseInt(resyncDays, 10) })}
-              disabled={resyncMutation.isPending}
-            >
-              {resyncMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
-                  กำลังดึงข้อมูล...
-                </>
+
+          {/* สถานะ A: กำลังทำงาน */}
+          {resyncMutation.isPending ? (
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium">
+                  กำลังดึงข้อมูลย้อนหลัง {resyncDays} วัน...
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  กำลังทยอยดึง {activeAccountsCount} บัญชีทีละบัญชี
+                </p>
+                <p className="text-xs text-amber-600 dark:text-amber-500">
+                  กรุณาอย่าปิดหน้าต่างนี้จนกว่าจะเสร็จ
+                </p>
+              </div>
+            </div>
+          ) : resyncResult ? (
+            /* สถานะ C: เสร็จแล้ว — แสดงสรุปผล */
+            <div className="flex flex-col items-center gap-3 py-5 text-center">
+              {resyncResult.failed > 0 && resyncResult.rowsSynced === 0 ? (
+                <AlertTriangle className="h-8 w-8 text-destructive" />
               ) : (
-                <>
-                  <History className="h-4 w-4 mr-1.5" />
-                  เริ่ม Re-sync
-                </>
+                <CheckCircle2 className="h-8 w-8 text-emerald-500" />
               )}
-            </Button>
+              <div className="space-y-1">
+                <p className="text-sm font-medium">
+                  {resyncResult.failed > 0 && resyncResult.rowsSynced === 0
+                    ? "Re-sync ไม่สำเร็จ"
+                    : "Re-sync เสร็จเรียบร้อย"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  ดึงข้อมูลย้อนหลัง {resyncResult.days} วัน ·{" "}
+                  อัปเดต {resyncResult.rowsSynced.toLocaleString()} แถว ·{" "}
+                  {resyncResult.accountsProcessed}/{resyncResult.totalAccounts} บัญชี
+                  {resyncResult.failed > 0 ? ` · ล้มเหลว ${resyncResult.failed}` : ""}
+                </p>
+                {resyncResult.failed > 0 && resyncResult.errors[0]?.message ? (
+                  <p className="text-xs text-destructive">
+                    สาเหตุ: {resyncResult.errors[0].message}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            /* สถานะ B: พร้อมเริ่ม — เลือกช่วงวัน */
+            <div className="space-y-2 py-1">
+              <label className="text-sm font-medium">ช่วงย้อนหลังที่ต้องการดึงใหม่</label>
+              <Select value={resyncDays} onValueChange={setResyncDays}>
+                <SelectTrigger className="bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7">7 วันล่าสุด</SelectItem>
+                  <SelectItem value="30">30 วันล่าสุด</SelectItem>
+                  <SelectItem value="60">60 วันล่าสุด</SelectItem>
+                  <SelectItem value="90">90 วันล่าสุด (เต็มช่วง)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                จะ re-sync {activeAccountsCount} บัญชีที่เปิดใช้งาน ·{" "}
+                ช่วงยิ่งยาวใช้ API หนักขึ้น แนะนำใช้เมื่อจำเป็นเท่านั้น ไม่ควรกดถี่
+              </p>
+            </div>
+          )}
+
+          <DialogFooter>
+            {resyncResult && !resyncMutation.isPending ? (
+              <Button onClick={() => { setResyncOpen(false); setResyncResult(null); }}>
+                ปิด
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setResyncOpen(false)}
+                  disabled={resyncMutation.isPending}
+                  className="bg-background"
+                >
+                  ยกเลิก
+                </Button>
+                <Button
+                  onClick={() => {
+                    setResyncResult(null);
+                    resyncMutation.mutate({ days: parseInt(resyncDays, 10) });
+                  }}
+                  disabled={resyncMutation.isPending || activeAccountsCount === 0}
+                >
+                  {resyncMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                      กำลังดึงข้อมูล...
+                    </>
+                  ) : (
+                    <>
+                      <History className="h-4 w-4 mr-1.5" />
+                      เริ่ม Re-sync
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

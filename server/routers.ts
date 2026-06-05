@@ -1208,6 +1208,7 @@ export const appRouter = router({
         }
         return {
           accountsProcessed: results.length,
+          totalAccounts: accounts.length,
           days: input.days,
           rowsSynced,
           previewsRefreshed,
