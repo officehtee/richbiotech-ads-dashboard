@@ -669,3 +669,9 @@
 - [x] getAdInsightsList: เปลี่ยน pageName select เป็น COALESCE(adInsightsDaily.pageName, adAccounts.pageName) — fallback จากระดับบัญชี
 - [x] deepAdsSync: เขียน pageName ลงแต่ละแถวผ่าน updatePageNameForAd ใน preview loop + รอบเสริม getAdIdsMissingPageName + upsert ไม่ clobber pageName ด้วย null
 - [x] vitest ครอบ coalesce fallback logic (pageNameResolve.test.ts 8 เคส) — 390 tests ผ่าน
+
+## Round 7.49: ดึง page_id แคมเปญ messaging/Advantage+ ไม่ได้
+- [x] วินิจฉัย: ต้นเหตุหลักคือ Meta API ถูกบล็อก (OAuthException code 200) + creative messaging ไม่มี effective_object_story_id
+- [x] metaApi: ขอ field object_story_spec{page_id,instagram_user_id} ให้ชัด
+- [x] metaApi: เพิ่ม pure helper extractPageId (object_story_spec.page_id → eosi prefix → object_id)
+- [x] vitest extractPageId.test.ts 7 เคส — รวม 397 tests ผ่าน

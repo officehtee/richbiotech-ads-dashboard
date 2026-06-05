@@ -1175,19 +1175,37 @@ export async function fetchAdPreviewThumb(
   adId: string,
   accessToken: string,
 ): Promise<{ thumbnailUrl: string | null; pageId: string | null } | null> {
-  const fields = "creative{thumbnail_url,effective_object_story_id,object_story_spec}";
+  // Round 7.49: ขอ field ให้ครอบคลุมแคมเปญทุกแบบ (รวม messaging/Advantage+)
+  // - object_story_spec.page_id → เพจที่ใช้ยิงจริง (รวม click-to-messenger)
+  // - effective_object_story_id → สำหรับ page post ทั่วไป
+  const fields =
+    "creative{thumbnail_url,effective_object_story_id,object_story_spec{page_id,instagram_user_id}}";
   const url = `${META_BASE}/${adId}?fields=${encodeURIComponent(fields)}`;
   const res = await metaFetch<{ creative?: any }>(url, accessToken);
   if (!res || !res.creative) return null;
   const c = res.creative;
-  const pageId =
-    (c.effective_object_story_id as string | undefined)?.split("_")[0] ||
-    c.object_story_spec?.page_id ||
-    null;
   return {
     thumbnailUrl: c.thumbnail_url || null,
-    pageId,
+    pageId: extractPageId(c),
   };
+}
+
+/**
+ * Round 7.49 (pure): ดึง page_id จาก creative object ให้ครอบคลุมทุกรูปแบบ
+ * ลำดับ: object_story_spec.page_id (แม่นที่สุด) → effective_object_story_id prefix → object_id
+ * messaging/Advantage+ ads มักมีเฉพาะ object_story_spec.page_id
+ */
+export function extractPageId(creative: any): string | null {
+  if (!creative) return null;
+  const fromSpec = creative.object_story_spec?.page_id;
+  if (fromSpec) return String(fromSpec);
+  const eosi = creative.effective_object_story_id as string | undefined;
+  if (eosi && eosi.includes("_")) {
+    const prefix = eosi.split("_")[0];
+    if (prefix) return prefix;
+  }
+  if (creative.object_id) return String(creative.object_id);
+  return null;
 }
 
 /**
