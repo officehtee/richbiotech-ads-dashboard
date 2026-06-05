@@ -1083,7 +1083,6 @@ export async function upsertAdInsightsDaily(row: InsertAdInsightDaily): Promise<
     campaignId: row.campaignId,
     campaignName: row.campaignName,
     groupId: row.groupId ?? null,
-    pageName: row.pageName ?? null,
     spend: row.spend,
     impressions: row.impressions,
     clicks: row.clicks,
@@ -1101,7 +1100,49 @@ export async function upsertAdInsightsDaily(row: InsertAdInsightDaily): Promise<
   // Don't clobber preview cache fields unless they're supplied in the input
   if (row.previewCachedUrl !== undefined) updateSet.previewCachedUrl = row.previewCachedUrl;
   if (row.previewCachedAt !== undefined) updateSet.previewCachedAt = row.previewCachedAt;
+  // Round 7.48: ไม่ clobber pageName เดิมด้วย null — เขียนทับเฉพาะเมื่อ sync ส่งชื่อมาจริง
+  if (row.pageName != null) updateSet.pageName = row.pageName;
   await db.insert(adInsightsDaily).values(row).onDuplicateKeyUpdate({ set: updateSet });
+}
+
+/**
+ * Round 7.48: เขียน pageName ลงทุกแถวของ adId หนึ่ง (ชื่อเพจเป็น per-ad ไม่ใช่ per-day)
+ * ใช้หลังจาก preview loop ดึง pageId/pageName ของแต่ละ ad ได้
+ */
+export async function updatePageNameForAd(
+  userId: number,
+  adId: string,
+  pageName: string,
+): Promise<void> {
+  const db = await getDb();
+  if (!db || !pageName) return;
+  await db
+    .update(adInsightsDaily)
+    .set({ pageName })
+    .where(and(eq(adInsightsDaily.userId, userId), eq(adInsightsDaily.adId, adId)));
+}
+
+/**
+ * Round 7.48: คืน adId (distinct) ของบัญชีหนึ่งที่ pageName ยังเป็น NULL
+ * ใช้ให้ sync ดึงชื่อเพจเฉพาะแอดที่ยังขาด (ไม่ผูกกับ preview freshness)
+ */
+export async function getAdIdsMissingPageName(
+  userId: number,
+  accountId: number,
+): Promise<string[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .selectDistinct({ adId: adInsightsDaily.adId })
+    .from(adInsightsDaily)
+    .where(
+      and(
+        eq(adInsightsDaily.userId, userId),
+        eq(adInsightsDaily.accountId, accountId),
+        sql`${adInsightsDaily.pageName} IS NULL`,
+      ),
+    );
+  return rows.map((r) => r.adId);
 }
 
 /**
@@ -1288,7 +1329,8 @@ export async function getDeepAdsRows(
       costPerMessage: adInsightsDaily.costPerMessage,
       purchaseRoas: adInsightsDaily.purchaseRoas,
       previewCachedUrl: adInsightsDaily.previewCachedUrl,
-      pageName: adInsightsDaily.pageName,
+      // Round 7.48: fallback ชื่อเพจจากระดับบัญชี (adAccounts.pageName) เมื่อแถวยังไม่มี
+      pageName: sql<string | null>`COALESCE(${adInsightsDaily.pageName}, ${adAccounts.pageName})`,
       syncedAt: adInsightsDaily.syncedAt,
       // account
       accountId: adInsightsDaily.accountId,

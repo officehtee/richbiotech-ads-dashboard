@@ -25,6 +25,8 @@ import {
   getLatestPreviewCachedAt,
   updateAdPreviewCache,
   backfillPageName,
+  updatePageNameForAd,
+  getAdIdsMissingPageName,
   getCampaignStatusMap,
   upsertCampaignStatus,
   hardDeleteCampaignData,
@@ -63,6 +65,27 @@ export function pickBudgetForInsight(
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Round 7.48 (pure): ตัดสินว่าควรเขียนทับ pageName ลงแถวหรือไม่
+ * หลักการ: เขียนเฉพาะเมื่อ sync ได้ชื่อจริง (non-empty) — ห้ามเขียนทับด้วย null/""
+ */
+export function shouldUpdatePageName(incoming: string | null | undefined): boolean {
+  return typeof incoming === "string" && incoming.trim().length > 0;
+}
+
+/**
+ * Round 7.48 (pure): เลือกชื่อเพจสำหรับแสดงผล (จำลอง COALESCE ฝั่ง query)
+ * ลำดับ: ชื่อระดับแถว (rowPageName) → ชื่อระดับบัญชี (accountPageName) → null
+ */
+export function resolvePageName(
+  rowPageName: string | null | undefined,
+  accountPageName: string | null | undefined,
+): string | null {
+  if (rowPageName != null && rowPageName !== "") return rowPageName;
+  if (accountPageName != null && accountPageName !== "") return accountPageName;
+  return null;
+}
 
 /**
  * Sync one ad account for a given date range.
@@ -189,6 +212,10 @@ export async function syncAdInsightsForAccount(
               pageNameCache.set(thumb.pageId, pageName);
             }
           }
+          // Round 7.48: เขียนชื่อเพจลงทุกแถวของแอดนี้
+          if (pageName) {
+            await updatePageNameForAd(tenantId, adId, pageName);
+          }
           const cached = await cacheAdPreview(adId, thumb.thumbnailUrl);
           if (cached) {
             await updateAdPreviewCache(tenantId, adId, "", cached.url, cached.cachedAt);
@@ -201,6 +228,34 @@ export async function syncAdInsightsForAccount(
       }
     };
     await Promise.all(Array.from({ length: concurrency }, () => worker()));
+
+    // Round 7.48: เติม pageName ให้แอดที่ยังขาด (preview fresh แล้วเลยถูกข้ามใน loop ข้างบน)
+    // ดึงเฉพาะ distinct adId ที่ pageName ยัง NULL — จำกัดจำนวนเพื่อกัน rate limit
+    try {
+      const missing = await getAdIdsMissingPageName(tenantId, account.id);
+      const MAX_PAGE_LOOKUPS = 60;
+      for (const adId of missing.slice(0, MAX_PAGE_LOOKUPS)) {
+        try {
+          const thumb = await fetchAdPreviewThumb(adId, token);
+          if (!thumb?.pageId) continue;
+          let pageName: string | null;
+          if (pageNameCache.has(thumb.pageId)) {
+            pageName = pageNameCache.get(thumb.pageId) ?? null;
+          } else {
+            pageName = await fetchPageName(thumb.pageId, token);
+            pageNameCache.set(thumb.pageId, pageName);
+          }
+          if (pageName) {
+            await updatePageNameForAd(tenantId, adId, pageName);
+          }
+          await sleep(50);
+        } catch (e) {
+          console.warn(`[deepAdsSync] pageName fill fail adId=${adId}:`, (e as Error).message);
+        }
+      }
+    } catch (e) {
+      console.warn(`[deepAdsSync] fill missing pageName fail:`, (e as Error).message);
+    }
 
     // Backfill pageName to adAccounts if currently NULL
     try {

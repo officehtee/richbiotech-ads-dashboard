@@ -664,3 +664,8 @@
 - [x] เพิ่มสถานะความคืบหน้าใน dialog ให้รู้ชัดว่า sync เสร็จเมื่อไหร่ (กำลังทำงาน/เสร็จ/ผลลัพธ์)
 - [x] ระหว่าง sync ปิดปุ่มกากบาท/คลิกนอก dialog ไม่ให้ปิด + แสดงข้อความว่าห้ามปิดหน้า
 - [x] tsc + vitest ผ่าน, checkpoint
+
+## Round 7.48: แก้คอลัมน์ "Page" แสดง "—"
+- [x] getAdInsightsList: เปลี่ยน pageName select เป็น COALESCE(adInsightsDaily.pageName, adAccounts.pageName) — fallback จากระดับบัญชี
+- [x] deepAdsSync: เขียน pageName ลงแต่ละแถวผ่าน updatePageNameForAd ใน preview loop + รอบเสริม getAdIdsMissingPageName + upsert ไม่ clobber pageName ด้วย null
+- [x] vitest ครอบ coalesce fallback logic (pageNameResolve.test.ts 8 เคส) — 390 tests ผ่าน
