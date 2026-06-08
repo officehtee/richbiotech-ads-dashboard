@@ -71,6 +71,13 @@
       "when": 1780531700746,
       "tag": "0009_flimsy_thena",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1780954797819,
+      "tag": "0010_bored_cloak",
+      "breakpoints": true
     }
   ]
 }

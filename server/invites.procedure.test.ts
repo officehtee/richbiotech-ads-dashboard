@@ -11,7 +11,7 @@ type StoredInvite = {
   id: number;
   token: string;
   ownerId: number;
-  role: "ceo" | "content" | "staff";
+  role: "ceo" | "supervisor" | "content" | "staff";
   label: string | null;
   expiresAt: Date;
   usedAt: Date | null;

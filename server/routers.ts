@@ -90,6 +90,7 @@ import {
   setGroupMembers,
   setOwnerCompany,
   setUserRole,
+  updateUserNickname,
   updateAccountGroup,
   updateAdAccount,
   updateCommissionGrade,
@@ -213,7 +214,7 @@ export const appRouter = router({
       .input(
         z.object({
           userId: z.number(),
-          role: z.enum(["ceo", "content", "staff", "pending"]),
+          role: z.enum(["ceo", "supervisor", "content", "staff", "pending"]),
         }),
       )
       .mutation(async ({ ctx, input }) => {
@@ -235,6 +236,26 @@ export const appRouter = router({
           throw new TRPCError({ code: "FORBIDDEN" });
         }
         await setUserRole(input.userId, "pending", null);
+        return { ok: true };
+      }),
+    /** ตั้ง/แก้ชื่อเล่นของผู้ใช้ในเวิร์กสเปซ — ไม่ถูกทับตอน login (owner/ceo/supervisor) */
+    updateNickname: ownerProcedure
+      .input(
+        z.object({
+          userId: z.number(),
+          nickname: z.string().max(255).nullable(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        const target = await getUserById(input.userId);
+        if (!target) throw new TRPCError({ code: "NOT_FOUND" });
+        // อนุญาตเฉพาะ user ใน workspace เดียวกัน (เป็น owner เอง หรือสมาชิกของ owner)
+        if (target.id !== tid && target.ownerId !== tid) {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
+        const trimmed = input.nickname?.trim() ?? "";
+        await updateUserNickname(input.userId, trimmed === "" ? null : trimmed);
         return { ok: true };
       }),
   }),
@@ -270,7 +291,7 @@ export const appRouter = router({
     create: ownerProcedure
       .input(
         z.object({
-          role: z.enum(["ceo", "content", "staff"]),
+          role: z.enum(["ceo", "supervisor", "content", "staff"]),
           label: z.string().max(255).optional(),
         }),
       )

@@ -50,9 +50,9 @@ import { AppSidebar, type SidebarSection } from "./AppSidebar";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
 
-const ALL_ROLES = ["admin", "owner", "ceo", "content", "staff"];
-const OWNER_ROLES = ["admin", "owner", "ceo"];
-const COMMISSION_VIEW_ROLES = ["admin", "owner", "ceo", "content"];
+const ALL_ROLES = ["admin", "owner", "ceo", "supervisor", "content", "staff"];
+const OWNER_ROLES = ["admin", "owner", "ceo", "supervisor"];
+const COMMISSION_VIEW_ROLES = ["admin", "owner", "ceo", "supervisor", "content"];
 
 const menuSections: SidebarSection[] = [
   {
@@ -114,6 +114,7 @@ const roleLabel: Record<string, string> = {
   admin: "Platform Admin",
   owner: "เจ้าของ",
   ceo: "Co-Owner",
+  supervisor: "Supervisor",
   content: "ทีมคอนเทนต์",
   staff: "พนักงาน",
   pending: "รอ approve",

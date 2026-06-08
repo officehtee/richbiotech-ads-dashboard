@@ -25,7 +25,7 @@ const BADGE_COLOR: Record<string, string> = {
 
 export default function SmartScaling() {
   const { user } = useAuth();
-  const isOwner = user?.role === "owner" || user?.role === "ceo";
+  const isOwner = user?.role === "owner" || user?.role === "ceo" || user?.role === "supervisor";
   const [dateRange, setDateRange] = useState<DateRangeInput>({ preset: "7d" });
   const [tab, setTab] = useState<"suggestions" | "logs" | "settings">("suggestions");
   const [showLog, setShowLog] = useState<ScalingScoreData | null>(null);

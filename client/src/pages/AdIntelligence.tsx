@@ -141,7 +141,8 @@ export function isCampaignNew(
 
 export default function AdIntelligence() {
   const { user } = useAuth();
-  const isOwner = user?.role === "owner";
+  const isOwner =
+    user?.role === "owner" || user?.role === "ceo" || user?.role === "supervisor";
 
   // Round 7.32: default "เมื่อวาน" — flow พนักงานลงข้อมูลย้อนหลัง 1 วัน
   const [dateRange, setDateRange] = useState<DateRangeInput>({ preset: "yesterday" });

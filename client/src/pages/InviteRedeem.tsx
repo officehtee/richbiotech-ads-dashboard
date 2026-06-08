@@ -26,6 +26,7 @@ function Brand({ subtitle }: { subtitle?: string }) {
 
 const ROLE_LABEL: Record<string, string> = {
   ceo: "Co-Owner (CEO)",
+  supervisor: "Supervisor",
   content: "ทีมคอนเทนต์",
   staff: "พนักงาน",
 };

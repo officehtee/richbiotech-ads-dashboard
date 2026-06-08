@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 
 const ROLES = [
   { value: "ceo", label: "Co-Owner (CEO)" },
+  { value: "supervisor", label: "Supervisor" },
   { value: "content", label: "ทีมคอนเทนต์" },
   { value: "staff", label: "พนักงาน" },
   { value: "pending", label: "รอ approve" },
@@ -29,6 +30,7 @@ const ROLES = [
 const ROLE_COLOR: Record<string, string> = {
   owner: "bg-primary/10 text-primary",
   ceo: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+  supervisor: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
   content: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
   staff: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
   pending: "bg-muted text-muted-foreground",
@@ -53,8 +55,25 @@ export default function UserManagement() {
     },
     onError: (e) => toast.error(e.message),
   });
+  const updateNickname = trpc.users.updateNickname.useMutation({
+    onSuccess: async () => {
+      toast.success("บันทึกชื่อเล่นแล้ว");
+      await utils.users.list.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  // สถานะ inline edit ชื่อเล่น: เก็บ userId ที่กำลังแก้ + draft
+  const [editingNickId, setEditingNickId] = useState<number | null>(null);
+  const [nickDraft, setNickDraft] = useState("");
 
   const code = myCompany.data?.companyCode;
+
+  const saveNickname = (userId: number) => {
+    updateNickname.mutate({ userId, nickname: nickDraft.trim() || null });
+    setEditingNickId(null);
+    setNickDraft("");
+  };
 
   return (
     <div className="space-y-6">
@@ -93,6 +112,7 @@ export default function UserManagement() {
           <TableHeader>
             <TableRow>
               <TableHead>ชื่อ</TableHead>
+              <TableHead>ชื่อเล่น</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>เข้าใช้ล่าสุด</TableHead>
@@ -102,7 +122,7 @@ export default function UserManagement() {
           <TableBody>
             {!usersQuery.data || usersQuery.data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">
+                <TableCell colSpan={6} className="h-24 text-center">
                   <Users className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
                   <p className="text-sm text-muted-foreground">ยังไม่มีสมาชิกในทีม</p>
                 </TableCell>
@@ -115,6 +135,46 @@ export default function UserManagement() {
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">
                       {u.name ?? "—"} {isMe && <span className="text-xs text-muted-foreground">(คุณ)</span>}
+                    </TableCell>
+                    <TableCell>
+                      {editingNickId === u.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            autoFocus
+                            value={nickDraft}
+                            onChange={(e) => setNickDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") saveNickname(u.id);
+                              if (e.key === "Escape") {
+                                setEditingNickId(null);
+                                setNickDraft("");
+                              }
+                            }}
+                            maxLength={255}
+                            placeholder="ตั้งชื่อเล่น"
+                            className="h-8 w-36"
+                          />
+                          <Button size="sm" className="h-8" onClick={() => saveNickname(u.id)}>
+                            บันทึก
+                          </Button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="text-sm hover:text-primary hover:underline cursor-pointer"
+                          title="คลิกเพื่อแก้ชื่อเล่น"
+                          onClick={() => {
+                            setEditingNickId(u.id);
+                            setNickDraft(u.nickname ?? "");
+                          }}
+                        >
+                          {u.nickname ? (
+                            u.nickname
+                          ) : (
+                            <span className="text-muted-foreground/60 italic">+ เพิ่มชื่อเล่น</span>
+                          )}
+                        </button>
+                      )}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs">{u.email ?? "—"}</TableCell>
                     <TableCell>
@@ -173,6 +233,7 @@ export default function UserManagement() {
 
 const INVITE_ROLES = [
   { value: "ceo", label: "Co-Owner (CEO)" },
+  { value: "supervisor", label: "Supervisor" },
   { value: "content", label: "ทีมคอนเทนต์" },
   { value: "staff", label: "พนักงาน" },
 ] as const;

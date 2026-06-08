@@ -675,3 +675,36 @@
 - [x] metaApi: ขอ field object_story_spec{page_id,instagram_user_id} ให้ชัด
 - [x] metaApi: เพิ่ม pure helper extractPageId (object_story_spec.page_id → eosi prefix → object_id)
 - [x] vitest extractPageId.test.ts 7 เคส — รวม 397 tests ผ่าน
+
+
+## เฟส 1: Role "Supervisor" + ช่อง "ชื่อเล่น" (nickname)
+
+### Schema + Migration
+- [x] เพิ่ม "supervisor" ใน mysqlEnum ของ users.role และ inviteTokens.role
+- [x] เพิ่ม nickname varchar(255) nullable ใน users table
+- [x] generate migration SQL + apply ผ่าน webdev_execute_sql
+
+### Backend
+- [x] เพิ่ม "supervisor" ใน allowed array ของ ownerProcedure + commissionViewProcedure (trpc.ts)
+- [x] เพิ่ม "supervisor" ใน z.enum ของ setRole + invite create (routers.ts)
+- [x] เพิ่ม helper updateUserNickname(userId, nickname) ใน db.ts (ห้ามแตะ upsertUser)
+- [x] เพิ่ม procedure users.updateNickname (ownerProcedure)
+
+### Frontend
+- [x] DashboardLayout.tsx: เพิ่ม supervisor ใน OWNER_ROLES + roleLabel
+- [x] UserManagement.tsx: เพิ่ม supervisor ใน ROLES, INVITE_ROLES, ROLE_COLOR + คอลัมน์ชื่อเล่น inline edit
+- [x] Alerts.tsx: แก้ isOwner ให้รวม supervisor
+- [x] CommissionTable.tsx: แก้ isOwner ให้รวม supervisor
+- [x] SmartScaling.tsx: แก้ isOwner ให้รวม supervisor
+- [x] AdIntelligence.tsx: แก้ isOwner ให้รวม owner+ceo+supervisor (แก้บั๊กเดิม)
+- [x] InviteRedeem.tsx: เพิ่ม supervisor ใน role label map
+- [x] Profile.tsx: เพิ่ม supervisor ใน role label map
+
+### Tests
+- [x] อัปเดต type role ใน inviteTokens.test.ts + invites.procedure.test.ts
+- [x] เขียน vitest สำหรับ updateNickname + supervisor permission (supervisorNickname.test.ts, 12 tests)
+- [x] รัน test suite ทั้งหมดผ่าน (40 files / 409 tests)
+
+
+### ห้ามแตะ (ยืนยันแล้วว่าไม่ได้แตะ)
+- [x] ไม่แตะ upsertUser, login/OAuth flow, สิทธิ์ role อื่น, Help Center / help-content.ts

@@ -167,6 +167,19 @@ export async function setUserRole(
   await db.update(users).set({ role, ownerId }).where(eq(users.id, userId));
 }
 
+/**
+ * ตั้ง/แก้ nickname ของผู้ใช้ — แยกจาก upsertUser โดยเจตนา เพื่อไม่ให้ nickname ถูกเขียนทับตอน login
+ * (upsertUser จะไม่แตะ nickname เลย — ห้ามรวม nickname ไว้ใน set ของ upsertUser)
+ */
+export async function updateUserNickname(
+  userId: number,
+  nickname: string | null,
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ nickname }).where(eq(users.id, userId));
+}
+
 export async function findUserByCompanyCode(code: string) {
   const db = await getDb();
   if (!db) return undefined;

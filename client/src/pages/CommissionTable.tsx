@@ -29,7 +29,7 @@ function monthLabel(year: number, month: number) {
 
 export default function CommissionTable() {
   const { user } = useAuth();
-  const isOwner = user?.role === "owner" || user?.role === "ceo";
+  const isOwner = user?.role === "owner" || user?.role === "ceo" || user?.role === "supervisor";
 
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());

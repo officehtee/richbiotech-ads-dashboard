@@ -44,14 +44,14 @@ export const adminProcedure = t.procedure.use(
   }),
 );
 
-/** Owner-or-higher procedure (admin / owner / ceo) */
+/** Owner-or-higher procedure (admin / owner / ceo / supervisor) */
 export const ownerProcedure = t.procedure.use(
   t.middleware(async opts => {
     const { ctx, next } = opts;
     if (!ctx.user) {
       throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
     }
-    const allowed = ['admin', 'owner', 'ceo'];
+    const allowed = ['admin', 'owner', 'ceo', 'supervisor'];
     if (!allowed.includes(ctx.user.role)) {
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_OWNER_ERR_MSG });
     }
@@ -59,14 +59,14 @@ export const ownerProcedure = t.procedure.use(
   }),
 );
 
-/** Commission view procedure (admin / owner / ceo / content) */
+/** Commission view procedure (admin / owner / ceo / supervisor / content) */
 export const commissionViewProcedure = t.procedure.use(
   t.middleware(async opts => {
     const { ctx, next } = opts;
     if (!ctx.user) {
       throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
     }
-    const allowed = ['admin', 'owner', 'ceo', 'content'];
+    const allowed = ['admin', 'owner', 'ceo', 'supervisor', 'content'];
     if (!allowed.includes(ctx.user.role)) {
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_OWNER_ERR_MSG });
     }

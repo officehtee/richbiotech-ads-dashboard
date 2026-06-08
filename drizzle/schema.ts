@@ -31,6 +31,7 @@ export const users = mysqlTable("users", {
     "admin",
     "owner",
     "ceo",
+    "supervisor",
     "content",
     "staff",
     "pending",
@@ -38,6 +39,7 @@ export const users = mysqlTable("users", {
   ])
     .default("pending")
     .notNull(),
+  nickname: varchar("nickname", { length: 255 }),
   ownerId: int("ownerId"),
   companyCode: varchar("companyCode", { length: 20 }),
   companyName: varchar("companyName", { length: 255 }),
@@ -308,7 +310,7 @@ export const inviteTokens = mysqlTable("inviteTokens", {
   id: int("id").autoincrement().primaryKey(),
   token: varchar("token", { length: 64 }).notNull().unique(),
   ownerId: int("ownerId").notNull(), // workspace owner user id
-  role: mysqlEnum("role", ["ceo", "content", "staff"]).notNull(),
+  role: mysqlEnum("role", ["ceo", "supervisor", "content", "staff"]).notNull(),
   label: varchar("label", { length: 255 }), // ชื่อพนักงาน (optional)
   expiresAt: timestamp("expiresAt").notNull(),
   usedAt: timestamp("usedAt"),

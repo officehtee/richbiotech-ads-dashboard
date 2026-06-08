@@ -67,7 +67,7 @@ const SEV_STYLE: Record<string, string> = {
 
 export default function Alerts() {
   const { user } = useAuth();
-  const isOwner = ["admin", "owner", "ceo"].includes(user?.role ?? "");
+  const isOwner = ["admin", "owner", "ceo", "supervisor"].includes(user?.role ?? "");
   const utils = trpc.useUtils();
 
   const rules = trpc.alerts.listRules.useQuery();

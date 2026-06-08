@@ -9,6 +9,7 @@ const ROLE_LABEL: Record<string, string> = {
   admin: "Platform Admin",
   owner: "เจ้าของ Workspace",
   ceo: "Co-Owner / CEO",
+  supervisor: "Supervisor",
   content: "ทีมคอนเทนต์",
   staff: "พนักงาน",
   pending: "รอ approve",
