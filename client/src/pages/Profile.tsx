@@ -35,6 +35,9 @@ export default function Profile() {
           </Avatar>
           <div>
             <p className="text-lg font-semibold">{user.name}</p>
+            <p className="text-sm text-muted-foreground">
+              ชื่อเล่น: {user.nickname?.trim() ? user.nickname : "—"}
+            </p>
             <p className="text-sm text-muted-foreground">{user.email}</p>
             <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">
               {ROLE_LABEL[user.role] ?? user.role}
