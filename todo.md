@@ -769,4 +769,11 @@
 - [x] ปุ่มใน header AccountsSettings (ข้างปุ่มเพิ่มบัญชี) + loading spinner + toast summary (checked/changed/skipped/failed)
 - [x] invalidate accounts.list หลังเช็กเสร็จ (อัปเดต tokenStatus ในตาราง)
 - [x] unit test: เพิ่ม 2 เคส (global mode → undefined, manual mode → ส่ง tenantId = tenant isolation); vitest 43 ไฟล์ / 446 tests ผ่าน, typecheck clean, build ผ่าน
-- [ ] checkpoint + ส่งมอบ
+- [x] checkpoint (77ce71ef) + ส่งมอบ
+
+## Prompt D: เพิ่ม 4 คอลัมน์ใหม่ + ตัวกรองพนักงาน ในหน้าวิเคราะห์แอดเชิงลึก
+- [x] server/db.ts — เพิ่ม ownerUserId ใน DeepAdsFilters + WHERE condition + SELECT fields (ownerUserId, paymentType, limitAmount, roasTarget)
+- [x] server/routers.ts — เพิ่ม ownerUserId ใน deepAds.list input schema + filter synthetic rows + เพิ่ม 4 fields ใน synthetic rows
+- [x] client/src/pages/AdIntelligence.tsx — เพิ่ม ownerFilter state + ownersQuery + dropdown + 4 คอลัมน์ใหม่ + อัปเดต colSpan (6→10, 21→25) + CSV export
+- [x] server/deepAdsOwnerFilter.test.ts — vitest 18 case ครอบคลุม filter logic / synthetic row fields / schema / paymentType label / roasTarget display
+- [x] vitest 461/461 ผ่าน, build สำเร็จ, TypeScript clean

@@ -1085,6 +1085,8 @@ export const appRouter = router({
           search: z.string().optional(),
           accountId: z.number().optional(),
           groupId: z.number().optional(),
+          /** Prompt D: ตัวกรองเจ้าของบัญชี */
+          ownerUserId: z.number().optional(),
         }),
       )
       .query(async ({ ctx, input }) => {
@@ -1095,6 +1097,7 @@ export const appRouter = router({
               search: input.search,
               accountId: input.accountId,
               groupId: input.groupId,
+              ownerUserId: input.ownerUserId,
             }),
             getScaleAmountMap(tid, input.dateFrom, input.dateTo),
             getCampaignFirstDates(tid),
@@ -1179,6 +1182,10 @@ export const appRouter = router({
               continue;
             const gId = groupMap.get(cs.accountId) ?? null;
             if (input.groupId !== undefined && gId !== input.groupId) continue;
+            // Prompt D: filter by ownerUserId
+            const acc = accountById.get(cs.accountId);
+            if (input.ownerUserId !== undefined && acc?.ownerUserId !== input.ownerUserId)
+              continue;
             // filter: search (เทียบกับชื่อแคมเปญ)
             if (
               input.search &&
@@ -1188,7 +1195,6 @@ export const appRouter = router({
                 .includes(input.search.trim().toLowerCase())
             )
               continue;
-            const acc = accountById.get(cs.accountId);
             const grp = gId != null ? groupById.get(gId) : undefined;
             const statusBadge = computeBadge(
               cs.effectiveStatus,
@@ -1226,6 +1232,11 @@ export const appRouter = router({
               groupId: gId,
               groupName: grp?.groupName ?? null,
               groupColor: grp?.color ?? null,
+              // Prompt D: owner / payment / limit / roasTarget
+              ownerUserId: acc?.ownerUserId ?? null,
+              paymentType: acc?.paymentType ?? null,
+              limitAmount: acc?.limitAmount ?? null,
+              roasTarget: grp?.roasTarget ?? null,
               manualOrders: null,
               manualSalesCount: null,
               manualSalesAmount: null,

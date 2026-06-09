@@ -149,6 +149,7 @@ export default function AdIntelligence() {
   const [search, setSearch] = useState("");
   const [accountFilter, setAccountFilter] = useState<string>("all");
   const [groupFilter, setGroupFilter] = useState<string>("all");
+  const [ownerFilter, setOwnerFilter] = useState<string>("all");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [sortBy, setSortBy] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -159,6 +160,8 @@ export default function AdIntelligence() {
 
   const accountsQuery = trpc.accounts.list.useQuery();
   const groupsQuery = trpc.groups.list.useQuery();
+  // Prompt D: รายชื่อเจ้าของบัญชี (สำหรับ dropdown ตัวกรอง)
+  const ownersQuery = trpc.users.selectableOwners.useQuery();
 
   const { dateFrom, dateTo } = useMemo(
     () => presetToDateRange(dateRange.preset, dateRange.since, dateRange.until),
@@ -171,6 +174,8 @@ export default function AdIntelligence() {
     search: search.trim() || undefined,
     accountId: accountFilter === "all" ? undefined : parseInt(accountFilter, 10),
     groupId: groupFilter === "all" ? undefined : parseInt(groupFilter, 10),
+    // Prompt D: ตัวกรองเจ้าของบัญชี
+    ownerUserId: ownerFilter === "all" ? undefined : parseInt(ownerFilter, 10),
   });
 
   // Round 7.32 / 7.41: แสดง "อัปเดตล่าสุด: HH:MM" (server cron sync ทุก 1 ชั่วโมง)
@@ -323,7 +328,11 @@ export default function AdIntelligence() {
       [
         "วันที่",
         "บัญชี",
+        "เจ้าของ",
+        "การชำระเงิน",
+        "Limit (บาท)",
         "Group",
+        "ROAS เป้า",
         "Page",
         "Campaign",
         "Ad",
@@ -343,29 +352,40 @@ export default function AdIntelligence() {
         "หมายเหตุ",
         "ยอดยิง",
       ],
-      sorted.map((r) => [
-        formatDateNumeric(r.date),
-        r.accountNickname ?? "",
-        r.groupName ?? "",
-        r.pageName ?? "",
-        r.campaignName ?? "",
-        r.adName ?? "",
-        r.spend ?? 0,
-        r.ctr ?? 0,
-        r.reach ?? 0,
-        r.messages ?? 0,
-        r.costPerMessage ?? 0,
-        r.metaOrders ?? 0,
-        r.costPerOrder ?? 0,
-        r.chatToOrderRate ?? 0,
-        r.metaSalesAmount ?? 0,
-        r.roas ?? 0,
-        r.adsSpendPct ?? 0,
-        r.prevDayScale ?? 0,
-        r.manualScaleNextAmount ?? 0,
-        r.manualNote ?? "",
-        r.dailyBudget ?? 0,
-      ]),
+      sorted.map((r) => {
+        // Prompt D: หา ownerNickname จาก ownersQuery
+        const ownerNick = (r as any).ownerUserId != null
+          ? (ownersQuery.data ?? []).find((o) => o.id === (r as any).ownerUserId)?.nickname ?? String((r as any).ownerUserId)
+          : "";
+        const payLabel = (r as any).paymentType === "card" ? "ผูกบัตร" : (r as any).paymentType === "prepaid" ? "เติมเงิน" : "";
+        return [
+          formatDateNumeric(r.date),
+          r.accountNickname ?? "",
+          ownerNick,
+          payLabel,
+          (r as any).limitAmount ?? "",
+          r.groupName ?? "",
+          (r as any).roasTarget ?? "",
+          r.pageName ?? "",
+          r.campaignName ?? "",
+          r.adName ?? "",
+          r.spend ?? 0,
+          r.ctr ?? 0,
+          r.reach ?? 0,
+          r.messages ?? 0,
+          r.costPerMessage ?? 0,
+          r.metaOrders ?? 0,
+          r.costPerOrder ?? 0,
+          r.chatToOrderRate ?? 0,
+          r.metaSalesAmount ?? 0,
+          r.roas ?? 0,
+          r.adsSpendPct ?? 0,
+          r.prevDayScale ?? 0,
+          r.manualScaleNextAmount ?? 0,
+          r.manualNote ?? "",
+          r.dailyBudget ?? 0,
+        ];
+      }),
     );
   };
 
@@ -562,6 +582,20 @@ export default function AdIntelligence() {
               ))}
             </SelectContent>
           </Select>
+          {/* Prompt D: ตัวกรองเจ้าของบัญชี (พนักงาน) */}
+          <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+            <SelectTrigger className="h-8 w-44 text-xs">
+              <SelectValue placeholder="ทุกเจ้าของ" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">ทุกเจ้าของ</SelectItem>
+              {(ownersQuery.data ?? []).map((o) => (
+                <SelectItem key={o.id} value={String(o.id)}>
+                  {o.nickname}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
@@ -608,7 +642,7 @@ export default function AdIntelligence() {
               {/* Tier 1: column group headers */}
               <tr className="text-center text-[11px] uppercase tracking-wider text-muted-foreground">
                 <th
-                  colSpan={6}
+                  colSpan={10}
                   className="px-3 py-2 bg-muted/80 border-b border-r border-border font-semibold"
                 >
                   มิติ (Dimensions)
@@ -640,6 +674,11 @@ export default function AdIntelligence() {
                 <th className="px-3 py-3 sticky left-[120px] bg-muted/80 z-20 w-[72px] min-w-[72px] whitespace-nowrap">Preview</th>
                 <th className="px-4 py-3 sticky left-[192px] bg-muted/80 z-20 min-w-[140px] whitespace-nowrap">บัญชี</th>
                 <th className="px-4 py-3 whitespace-nowrap min-w-[120px]">Group</th>
+                {/* Prompt D: 4 คอลัมน์ใหม่ */}
+                <th className="px-4 py-3 whitespace-nowrap min-w-[120px]">เจ้าของ</th>
+                <th className="px-4 py-3 whitespace-nowrap min-w-[110px]">การชำระเงิน</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[100px]">Limit (บาท)</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap min-w-[100px]">ROAS เป้า</th>
                 <th className="px-4 py-3 whitespace-nowrap min-w-[140px]">Page</th>
                 <th className="px-4 py-3 whitespace-nowrap min-w-[320px] border-r border-border">Campaign</th>
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
@@ -693,7 +732,7 @@ export default function AdIntelligence() {
               {listQuery.isLoading
                 ? Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i} className="border-t">
-                      <td colSpan={21} className="px-4 py-4">
+                      <td colSpan={25} className="px-4 py-4">
                         <Skeleton className="h-9 w-full" />
                       </td>
                     </tr>
@@ -702,7 +741,7 @@ export default function AdIntelligence() {
                   ? (
                     <tr>
                       <td
-                        colSpan={21}
+                        colSpan={25}
                         className="px-4 py-16 text-center text-sm text-muted-foreground"
                       >
                         ไม่มีข้อมูล — กดปุ่ม "Sync Now" เพื่อดึงจาก Meta หรือลองเลือกช่วงวันที่อื่น
@@ -796,6 +835,40 @@ export default function AdIntelligence() {
                               >
                                 {r.groupName}
                               </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          {/* Prompt D: 4 เซลล์ใหม่ */}
+                          <td className="px-4 py-4 whitespace-nowrap border-t text-sm">
+                            {(r as any).ownerUserId != null ? (
+                              <span className="text-foreground">
+                                {(ownersQuery.data ?? []).find((o) => o.id === (r as any).ownerUserId)?.nickname
+                                  ?? `#${(r as any).ownerUserId}`}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap border-t text-sm">
+                            {(r as any).paymentType === "card" ? (
+                              <Badge variant="outline" className="text-[10px] h-5 border-blue-400 text-blue-600 dark:text-blue-400">ผูกบัตร</Badge>
+                            ) : (r as any).paymentType === "prepaid" ? (
+                              <Badge variant="outline" className="text-[10px] h-5 border-emerald-400 text-emerald-600 dark:text-emerald-400">เติมเงิน</Badge>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-4 text-right tabular-nums border-t text-sm">
+                            {(r as any).limitAmount != null ? (
+                              <span>{((r as any).limitAmount as number).toLocaleString()}</span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-4 text-right tabular-nums border-t text-sm">
+                            {(r as any).roasTarget != null ? (
+                              <span className="text-violet-600 dark:text-violet-400">{((r as any).roasTarget as number).toFixed(2)}</span>
                             ) : (
                               <span className="text-muted-foreground">—</span>
                             )}
@@ -986,7 +1059,7 @@ export default function AdIntelligence() {
                 <tr className="border-t-2">
                   <td
                     className="px-4 py-3 sticky left-0 bg-muted/70 z-10 border-t-2"
-                    colSpan={6}
+                    colSpan={10}
                   >
                     รวม ({sorted.length}) — ตัวชี้วัดรวม
                   </td>

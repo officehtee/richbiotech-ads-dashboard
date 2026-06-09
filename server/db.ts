@@ -1435,6 +1435,8 @@ export type DeepAdsFilters = {
   search?: string;
   accountId?: number;
   groupId?: number;
+  /** กรองตาม ownerUserId ของบัญชี (Prompt D) */
+  ownerUserId?: number;
 };
 
 /**
@@ -1459,6 +1461,9 @@ export async function getDeepAdsRows(
   }
   if (filters.groupId !== undefined) {
     conditions.push(eq(adInsightsDaily.groupId, filters.groupId));
+  }
+  if (filters.ownerUserId !== undefined) {
+    conditions.push(eq(adAccounts.ownerUserId, filters.ownerUserId));
   }
   if (filters.search && filters.search.trim().length > 0) {
     const q = `%${filters.search.trim()}%`;
@@ -1502,10 +1507,16 @@ export async function getDeepAdsRows(
       accountId: adInsightsDaily.accountId,
       accountNickname: adAccounts.nickname,
       accountMetaId: adAccounts.adAccountId,
+      // Prompt D: owner / payment / limit
+      ownerUserId: adAccounts.ownerUserId,
+      paymentType: adAccounts.paymentType,
+      limitAmount: adAccounts.limitAmount,
       // group
       groupId: adInsightsDaily.groupId,
       groupName: accountGroups.groupName,
       groupColor: accountGroups.color,
+      // Prompt D: ROAS เป้าหมายจาก accountGroups
+      roasTarget: accountGroups.roasTarget,
       // manual
       manualOrders: adManualMetrics.orders,
       manualSalesCount: adManualMetrics.salesCount,
