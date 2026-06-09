@@ -506,7 +506,7 @@ export type InsertCampaignStatus = typeof campaignStatus.$inferInsert;
  */
 export const syncLogs = mysqlTable("syncLogs", {
   id: int("id").autoincrement().primaryKey(),
-  jobType: mysqlEnum("jobType", ["adInsights", "bm", "alerts"])
+  jobType: mysqlEnum("jobType", ["adInsights", "bm", "alerts", "tokenCheck"])
     .default("adInsights")
     .notNull(),
   runAt: timestamp("runAt").defaultNow().notNull(),

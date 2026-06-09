@@ -802,3 +802,13 @@
 - [x] permission: ไม่ต้องแก้ (ownerProcedure ครอบ supervisor/owner/ceo อยู่แล้ว)
 - [x] เพิ่ม vitest testToken writes tokenStatus (blocked/active/transient/BM no-touch)
 - [x] vitest ผ่านทั้งหมด, TypeScript clean, build สำเร็จ
+
+## Prompt G: ปุ่ม Sync BM เดี๋ยวนี้ + เช็ก Token บันทึก syncLog + ปรับประวัติการซิงค์
+- [x] schema: เพิ่ม "tokenCheck" ใน syncLogs.jobType enum (migrate ALTER TABLE)
+- [x] backend: เพิ่ม bm.syncAllNow (ownerProcedure) — trigger BM sync ทุก BM ของ tenant + บันทึก syncLog jobType=bm
+- [x] backend: checkStandaloneTokensNow บันทึก syncLog jobType=tokenCheck (existingAccounts/failed/duration/status)
+- [x] frontend: เพิ่มปุ่ม "Sync BM เดี๋ยวนี้" ใน AccountsSettings header + loading + toast + invalidate bm.list/accounts.list
+- [x] frontend: SyncLogSection เพิ่มคอลัมน์ "ประเภท" (ข้อมูลโฆษณา/BM/เช็ก Token) + ป้ายสี
+- [x] frontend: แก้คำอธิบายประวัติการซิงค์ให้เข้าใจง่าย
+- [x] ทุกการ sync อัปเดตสถานะบัญชีทันที (ยืนยันแล้ว: BM=businessManagers.status, standalone=tokenStatus)
+- [x] vitest ครอบ logic ใหม่ (decideCountStatus + jobTypeLabel) + tsc clean + test ผ่าน 486 เคส

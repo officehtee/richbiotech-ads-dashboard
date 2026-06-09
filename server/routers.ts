@@ -516,7 +516,32 @@ export const appRouter = router({
      */
     checkStandaloneTokensNow: ownerProcedure.mutation(async ({ ctx }) => {
       const tid = await tenantId(ctx);
+      const startedAt = Date.now();
       const summary = await syncStandaloneAccounts(300, tid);
+      // บันทึกประวัติการเช็ก Token (jobType=tokenCheck)
+      // existingAccounts = บัญชีที่เช็ก, failed = บัญชีที่เกิด exception
+      // status: failed ทั้งหมด -> failed, มีบาง fail -> partial, ไม่มี -> success
+      try {
+        const status =
+          summary.failed === 0
+            ? "success"
+            : summary.checked > summary.failed
+              ? "partial"
+              : "failed";
+        await insertSyncLog({
+          jobType: "tokenCheck",
+          tenants: 1,
+          newAccounts: 0,
+          existingAccounts: summary.checked,
+          rowsSynced: summary.changed, // จำนวนบัญชีที่อัปเดตสถานะ
+          previewsRefreshed: 0,
+          failed: summary.failed,
+          durationMs: Date.now() - startedAt,
+          status,
+        });
+      } catch {
+        /* ignore log failure */
+      }
       return summary;
     }),
   }),
@@ -762,7 +787,62 @@ export const appRouter = router({
           totalFound: outcome.totalFound,
         };
       }),
-
+    /**
+     * Prompt G: Manual trigger — Sync ทุก BM ของ workspace นี้เดี๋ยวนี้ (ไม่ต้องรอ cron)
+     * - ทยอยทีละ BM (sequential) เพื่อกัน Meta rate limit
+     * - แต่ละ BM อัปเดต businessManagers.status ทันที (active/blocked/token_expired)
+     *   → คอลัมน์สถานะบัญชีย่อยในตารางอัปเดตตาม (effectiveStatus คำนวณจาก BM)
+     * - บันทึก syncLog jobType=bm หนึ่งรายการสรุปทั้งรอบ
+     */
+    syncAllNow: ownerProcedure.mutation(async ({ ctx }) => {
+      const tid = await tenantId(ctx);
+      const bms = await listBusinessManagers(tid);
+      const startedAt = Date.now();
+      let totalNew = 0;
+      let totalRemoved = 0;
+      let failed = 0;
+      for (const bm of bms) {
+        try {
+          const outcome = await syncOneBusinessManager(bm, tid, "manual");
+          if (!outcome.ok) {
+            failed += 1;
+          } else {
+            totalNew += outcome.newCount;
+            totalRemoved += outcome.removedCount;
+          }
+        } catch {
+          failed += 1;
+        }
+      }
+      // บันทึกประวัติการ sync BM (jobType=bm)
+      try {
+        const status =
+          failed === 0
+            ? "success"
+            : bms.length > failed
+              ? "partial"
+              : "failed";
+        await insertSyncLog({
+          jobType: "bm",
+          tenants: 1,
+          newAccounts: totalNew, // บัญชีใหม่ที่ค้นพบ
+          existingAccounts: bms.length, // จำนวน BM ที่ประมวลผล
+          rowsSynced: 0, // BM sync ไม่ดึง ad insights
+          previewsRefreshed: 0,
+          failed,
+          durationMs: Date.now() - startedAt,
+          status,
+        });
+      } catch {
+        /* ignore log failure */
+      }
+      return {
+        bmTotal: bms.length,
+        newAccounts: totalNew,
+        removedAccounts: totalRemoved,
+        failed,
+      };
+    }),
     /**
      * Prompt A: ดึง token เต็มของ BM (decrypt) — ใช้ตอนกดปุ่ม Copy เท่านั้น (ไม่ส่งมากับ bm.list)
      */
@@ -1424,7 +1504,7 @@ export const appRouter = router({
         z
           .object({
             limit: z.number().int().min(1).max(200).optional(),
-            jobType: z.enum(["adInsights", "bm", "alerts"]).optional(),
+            jobType: z.enum(["adInsights", "bm", "alerts", "tokenCheck"]).optional(),
           })
           .optional(),
       )

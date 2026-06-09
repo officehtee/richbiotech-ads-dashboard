@@ -162,6 +162,26 @@ export default function AccountsSettings() {
     onError: (e) => toast.error(e.message),
   });
 
+  // ปุ่ม "Sync BM เดี๋ยวนี้" — sync ทุก BM ของ workspace กับ Meta ทันที
+  const syncBmNow = trpc.bm.syncAllNow.useMutation({
+    onSuccess: async (s) => {
+      // อัปเดตทั้งตาราง BM และตารางบัญชี (สถานะบัญชีย่อยคำนวณจาก BM)
+      await Promise.all([
+        utils.bm.list.invalidate(),
+        utils.accounts.list.invalidate(),
+      ]);
+      if (s.bmTotal === 0) {
+        toast.info("ยังไม่มี Business Manager ให้ซิงค์");
+      } else {
+        toast.success(
+          `ซิงค์ BM แล้ว ${s.bmTotal} รายการ — บัญชีใหม่ ${s.newAccounts}, ถอด ${s.removedAccounts}` +
+            (s.failed > 0 ? `, ล้มเหลว ${s.failed}` : ""),
+        );
+      }
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   // ── Test Token state ──────────────────────────────────────────
   const [testOpen, setTestOpen] = useState(false);
   const [testFor, setTestFor] = useState<Account | null>(null);
@@ -256,6 +276,20 @@ export default function AccountsSettings() {
               <RefreshCw className="h-4 w-4 mr-1.5" />
             )}
             {checkTokensNow.isPending ? "กำลังเช็ก..." : "เช็ก Token เดี๋ยวนี้"}
+          </Button>
+          <Button
+            variant="outline"
+            className="bg-background"
+            disabled={syncBmNow.isPending}
+            onClick={() => syncBmNow.mutate()}
+            title="ซิงค์บัญชีย่อยของทุก Business Manager กับ Meta ทันที (ไม่ต้องรอรอบอัตโนมัติ)"
+          >
+            {syncBmNow.isPending ? (
+              <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+            ) : (
+              <Building2 className="h-4 w-4 mr-1.5" />
+            )}
+            {syncBmNow.isPending ? "กำลังซิงค์ BM..." : "Sync BM เดี๋ยวนี้"}
           </Button>
           <Button onClick={() => setOpen(true)}>
             <Plus className="h-4 w-4 mr-1.5" />

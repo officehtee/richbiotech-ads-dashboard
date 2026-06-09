@@ -1702,7 +1702,7 @@ export async function insertSyncLog(log: InsertSyncLog): Promise<void> {
 
 export async function listSyncLogs(
   limit = 50,
-  jobType?: "adInsights" | "bm" | "alerts",
+  jobType?: "adInsights" | "bm" | "alerts" | "tokenCheck",
 ): Promise<SyncLog[]> {
   const db = await getDb();
   if (!db) return [];

@@ -40,6 +40,36 @@ function formatDuration(ms: number): string {
   return `${m} น. ${rs} วิ`;
 }
 
+type JobType = "adInsights" | "bm" | "alerts" | "tokenCheck";
+
+/** ป้ายบอกประเภทของการ sync แต่ละรอบ เพื่อให้อ่านง่ายว่ารอบนั้นทำอะไร */
+function JobTypeBadge({ jobType }: { jobType: JobType }) {
+  const map: Record<JobType, { label: string; cls: string }> = {
+    adInsights: {
+      label: "ข้อมูลโฆษณา",
+      cls: "bg-blue-500/15 text-blue-600 border-blue-500/30",
+    },
+    bm: {
+      label: "Business Manager",
+      cls: "bg-violet-500/15 text-violet-600 border-violet-500/30",
+    },
+    tokenCheck: {
+      label: "เช็ก Token",
+      cls: "bg-cyan-500/15 text-cyan-600 border-cyan-500/30",
+    },
+    alerts: {
+      label: "แจ้งเตือน",
+      cls: "bg-orange-500/15 text-orange-600 border-orange-500/30",
+    },
+  };
+  const item = map[jobType] ?? map.adInsights;
+  return (
+    <Badge variant="outline" className={`${item.cls} hover:${item.cls} font-normal`}>
+      {item.label}
+    </Badge>
+  );
+}
+
 function StatusBadge({ status }: { status: "success" | "partial" | "failed" }) {
   if (status === "success")
     return (
@@ -87,8 +117,10 @@ export function SyncLogSection() {
           </div>
           <div>
             <h2 className="text-base font-semibold tracking-tight">ประวัติการซิงค์ข้อมูล</h2>
-            <p className="text-sm text-muted-foreground mt-1 max-w-xl">
-              บันทึกผลการซิงค์แต่ละรอบ — บัญชีใหม่/เก่า, จำนวนแถวข้อมูล, ความสำเร็จ ใช้ตรวจสอบเมื่อ Meta อนุมัติการเชื่อมต่อ
+            <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+              ประวัติการ sync ทุกประเภท ทั้งแบบอัตโนมัติ (ทุก 1 ชั่วโมง) และแบบกดเอง —
+              ดูได้ว่าแต่ละรอบเป็นการ sync ประเภทไหน (ข้อมูลโฆษณา / Business Manager / เช็ก Token),
+              ประมวลผลกี่บัญชี สำเร็จหรือล้มเหลวกี่ราย และใช้เวลาไปเท่าไร (สถานะรายบัญชีดูได้ที่ตารางจัดการบัญชี)
             </p>
           </div>
         </div>
@@ -142,8 +174,9 @@ export function SyncLogSection() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>เวลา</TableHead>
+                    <TableHead>ประเภท</TableHead>
                     <TableHead className="text-right">บัญชีใหม่</TableHead>
-                    <TableHead className="text-right">บัญชีเก่า</TableHead>
+                    <TableHead className="text-right">ประมวลผล</TableHead>
                     <TableHead className="text-right">แถวข้อมูล</TableHead>
                     <TableHead className="text-right">ล้มเหลว</TableHead>
                     <TableHead className="text-right">ระยะเวลา</TableHead>
@@ -155,6 +188,9 @@ export function SyncLogSection() {
                     <TableRow key={log.id}>
                       <TableCell className="whitespace-nowrap text-sm">
                         {formatTime(log.runAt)}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <JobTypeBadge jobType={log.jobType as JobType} />
                       </TableCell>
                       <TableCell className="text-right text-sm">
                         {log.newAccounts > 0 ? (
