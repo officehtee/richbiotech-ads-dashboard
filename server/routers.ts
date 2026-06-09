@@ -97,6 +97,7 @@ import {
   updateUserNickname,
   updateAccountGroup,
   updateAdAccount,
+  updateAccountTopup,
   updateCommissionGrade,
   updateCommissionStaff,
   updateScaleLog,
@@ -175,6 +176,15 @@ const dateRangeInput = z.object({
 
 async function tenantId(ctx: { user: { id: number; role: string; ownerId: number | null } }): Promise<number> {
   return resolveWorkspaceUserId(ctx.user.id, ctx.user.role, ctx.user.ownerId);
+}
+
+/**
+ * เฟส 6: role ที่เห็น/จัดการ "ทุกบัญชี" ใน workspace (ไม่จำกัดความเป็นเจ้าของ)
+ * staff = เห็น/จัดการเฉพาะบัญชีตัวเอง (ownerUserId === ctx.user.id)
+ */
+const OWNER_ROLES = ["admin", "owner", "ceo", "supervisor"] as const;
+function isOwnerRole(role: string): boolean {
+  return (OWNER_ROLES as readonly string[]).includes(role);
 }
 
 export const appRouter = router({
@@ -560,7 +570,9 @@ export const appRouter = router({
      */
     myAccounts: protectedProcedure.query(async ({ ctx }) => {
       const tid = await tenantId(ctx);
-      return getMyAccountsEnriched(tid, ctx.user.id);
+      // เฟส 6: OWNER_ROLES เห็นทุกบัญชีใน tenant / staff เห็นเฉพาะบัญชีตัวเอง
+      const seeAll = isOwnerRole(ctx.user.role);
+      return getMyAccountsEnriched(tid, ctx.user.id, seeAll);
     }),
     /**
      * Prompt I: แก้เฉพาะ "การชำระเงิน" + "Limit" ของบัญชีตัวเองเท่านั้น
@@ -578,7 +590,9 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const tid = await tenantId(ctx);
         const target = await getAdAccountById(input.id, tid);
-        if (!target || target.ownerUserId !== ctx.user.id) {
+        // เฟส 6: tenant guard เสมอ (getAdAccountById กรอง tid อยู่แล้ว) + role-based ownership
+        // OWNER_ROLES แก้ได้ทุกบัญชีใน tenant / staff แก้ได้เฉพาะบัญชีตัวเอง
+        if (!target || (!isOwnerRole(ctx.user.role) && target.ownerUserId !== ctx.user.id)) {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: "คุณไม่มีสิทธิ์แก้ไขบัญชีนี้",
@@ -587,6 +601,46 @@ export const appRouter = router({
         await updateAdAccount(input.id, tid, {
           paymentType: input.paymentType ?? null,
           limitAmount: input.limitAmount ?? null,
+        });
+        return { ok: true };
+      }),
+    /**
+     * เฟส 6: อัปเดตข้อมูลเติมเงิน (topup) — กรอกมือ 4 ค่า
+     * - OWNER_ROLES แก้ได้ทุกบัญชีใน tenant / staff แก้ได้เฉพาะบัญชีตัวเอง
+     * - เช็ค tenant เสมอ (กันแก้ข้าม workspace)
+     * - เฉพาะบัญชี prepaid (card ไม่มีการเติมเงิน)
+     * - topupLastDate รับเป็น UTC ms timestamp (number) จาก client → แปลงเป็น Date
+     */
+    updateTopup: protectedProcedure
+      .input(
+        z.object({
+          id: z.number().int().positive(),
+          topupLastDate: z.number().int().nullish(), // UTC ms
+          topupDailySpend: z.number().int().min(0).nullish(),
+          topupUsed: z.number().int().min(0).nullish(),
+          topupBalance: z.number().int().min(0).nullish(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        const target = await getAdAccountById(input.id, tid);
+        if (!target || (!isOwnerRole(ctx.user.role) && target.ownerUserId !== ctx.user.id)) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "คุณไม่มีสิทธิ์แก้ไขข้อมูลเติมเงินของบัญชีนี้",
+          });
+        }
+        if (target.paymentType !== "prepaid") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "บัญชีนี้ไม่ใช่แบบเติมเงิน (prepaid) จึงตั้งค่าเติมเงินไม่ได้",
+          });
+        }
+        await updateAccountTopup(input.id, tid, {
+          topupLastDate: input.topupLastDate != null ? new Date(input.topupLastDate) : null,
+          topupDailySpend: input.topupDailySpend ?? null,
+          topupUsed: input.topupUsed ?? null,
+          topupBalance: input.topupBalance ?? null,
         });
         return { ok: true };
       }),

@@ -887,3 +887,20 @@
 - [x] frontend: ปุ่มย้ายเข้าถังเองในตารางหลัก AdIntelligence (optimistic update + AlertDialog ยืนยัน + Trash2 hover)
 - [x] vitest: เคส revive_from_trash (campaignStatus.test.ts 4 เคส) + ปรับ trashLogic.test.ts ให้ตรง logic ใหม่ — 539 ผ่าน
 - [x] tsc + vitest ทั้งชุดผ่าน (tsc 0 errors, 539 tests passed)
+
+
+## Phase 6 — Tab บัญชีของฉัน + เติมเงิน (topup) + role-based
+- [x] Migrate adAccounts +5 field topup (topupLastDate/DailySpend/Used/Balance/UpdatedAt) + apply
+- [x] db: getMyAccountsEnriched รองรับ role-based (seeAll) + คืน topup fields + ownerNickname
+- [x] db: updateAccountTopup helper (set 4 ค่า + topupUpdatedAt=now)
+- [x] routers: myAccounts role-based (OWNER_ROLES เห็นทุกบัญชี / staff ตัวเอง)
+- [x] routers: updateMyAccount guard role-based (Sup ทุกบัญชี / staff ตัวเอง / เช็ค tenant เสมอ)
+- [x] routers: เพิ่ม accounts.updateTopup mutation (guard role-based + เช็ค prepaid)
+- [x] frontend: แยก Tab 1 (AdAnalysisTab) sub-component ย้าย state/query/timer/dialog ครบ (conditional mount)
+- [x] frontend: สร้าง AccountsTab (Tab 2) ยกของเดิมครบ (6 คอลัมน์/3 ตัวกรอง/inline edit/optimistic/empty/ตัวนับ)
+- [x] frontend: คอลัมน์เจ้าของ (เฉพาะ OWNER_ROLES) + header/label ตาม role + ลบ guard staff-only เดิม
+- [x] frontend: คอลัมน์เติมเงิน + popup 4 ค่า + คำนวณสด clamp ติดลบ + card ขีด + timezone-safe
+- [x] frontend: หุ้ม Tabs (shadcn) ในหน้า AdIntelligence
+- [x] ยุบหน้าเก่า: redirect /my-accounts → /ad-intelligence + ลบเมนู sidebar (คง import MyAccounts ไว้ไม่ได้ใช้แล้วลบ, UserIcon ยังใช้)
+- [x] vitest: รื้อ mock getMyAccountsEnriched role-based + ขยาย makeCtx union + updateTopup + แยกเคส staff/Sup/owner/content (18 เคส)
+- [x] tsc + vitest ผ่านทั้งชุด (tsc 0 errors, 548 tests passed)

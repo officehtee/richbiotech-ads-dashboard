@@ -16,7 +16,6 @@ import CommissionPersonal from "./pages/CommissionPersonal";
 import CommissionSettings from "./pages/CommissionSettings";
 import CommissionTable from "./pages/CommissionTable";
 import GroupOverview from "./pages/GroupOverview";
-import MyAccounts from "./pages/MyAccounts";
 import GroupsSettings from "./pages/GroupsSettings";
 import HelpCenter from "./pages/HelpCenter";
 import HubDashboard from "./pages/HubDashboard";
@@ -166,10 +165,9 @@ function Router() {
           <AccountsSettings />
         </ProtectedShell>
       </Route>
+      {/* เฟส 6: ยุบหน้า "บัญชีของฉัน" เป็น Tab ในหน้าวิเคราะห์แอดเชิงลึก — redirect ลิงก์เก่า */}
       <Route path="/my-accounts">
-        <ProtectedShell>
-          <MyAccounts />
-        </ProtectedShell>
+        <Redirect to="/ad-intelligence" />
       </Route>
       <Route path="/groups">
         <ProtectedShell>

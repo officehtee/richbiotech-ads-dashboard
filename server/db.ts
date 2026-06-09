@@ -366,24 +366,45 @@ export type MyAccount = {
   nickname: string | null;
   adAccountId: string;
   bmId: number | null;
+  ownerUserId: number | null;
+  ownerNickname: string | null;
   paymentType: "card" | "prepaid" | null;
   limitAmount: number | null;
   groupNames: string[];
   effectiveStatus: "active" | "token_expired" | "blocked" | "revoked";
   statusSource: "single" | "bm";
+  // ── เฟส 6: topup ──
+  topupLastDate: Date | null;
+  topupDailySpend: number | null;
+  topupUsed: number | null;
+  topupBalance: number | null;
+  topupUpdatedAt: Date | null;
 };
+/**
+ * เฟส 6: role-based
+ * - seeAll = true (OWNER_ROLES) → คืนทุกบัญชีใน tenant (ข้าม filter ownerUserId)
+ * - seeAll = false (staff) → คืนเฉพาะ ownerUserId === ownerUserId (เหมือนเดิม)
+ * ยังคง shape groupNames[] + ตัด accessToken ทิ้ง
+ */
 export async function getMyAccountsEnriched(
   tenantId: number,
   ownerUserId: number,
+  seeAll = false,
 ): Promise<MyAccount[]> {
   const db = await getDb();
   if (!db) return [];
+  const whereClause = seeAll
+    ? eq(adAccounts.userId, tenantId)
+    : and(eq(adAccounts.userId, tenantId), eq(adAccounts.ownerUserId, ownerUserId));
   const accounts = await db
     .select()
     .from(adAccounts)
-    .where(and(eq(adAccounts.userId, tenantId), eq(adAccounts.ownerUserId, ownerUserId)))
+    .where(whereClause)
     .orderBy(asc(adAccounts.sortOrder), asc(adAccounts.id));
   if (accounts.length === 0) return [];
+  // owner nickname map (ใช้แสดงคอลัมน์เจ้าของตอน seeAll)
+  const workspaceUsers = await listUsersInWorkspace(tenantId);
+  const userMap = new Map<number, User>(workspaceUsers.map((u) => [u.id, u]));
   // group membership (account -> all groups)
   const members = await getAllGroupMembersForUser(tenantId);
   const groups = await getAccountGroupsByUser(tenantId);
@@ -408,18 +429,48 @@ export async function getMyAccountsEnriched(
     const effectiveStatus = fromBm
       ? (bmStatusMap.get(a.bmId as number) ?? "active")
       : a.tokenStatus;
+    const owner = a.ownerUserId != null ? userMap.get(a.ownerUserId) : undefined;
     return {
       id: a.id,
       nickname: a.nickname ?? null,
       adAccountId: a.adAccountId,
       bmId: a.bmId ?? null,
+      ownerUserId: a.ownerUserId ?? null,
+      ownerNickname: owner?.nickname ?? owner?.name ?? null,
       paymentType: a.paymentType ?? null,
       limitAmount: a.limitAmount ?? null,
       groupNames,
       effectiveStatus,
       statusSource: fromBm ? ("bm" as const) : ("single" as const),
+      topupLastDate: a.topupLastDate ?? null,
+      topupDailySpend: a.topupDailySpend ?? null,
+      topupUsed: a.topupUsed ?? null,
+      topupBalance: a.topupBalance ?? null,
+      topupUpdatedAt: a.topupUpdatedAt ?? null,
     };
   });
+}
+
+/**
+ * เฟส 6: อัปเดตข้อมูลเติมเงิน (topup) ของบัญชี — เซ็ต 4 ค่า + topupUpdatedAt=now
+ * guard tenant ไว้ที่ where (userId === tenantId) — caller ต้องเช็ค role/ownership ก่อนเรียก
+ */
+export async function updateAccountTopup(
+  id: number,
+  tenantId: number,
+  patch: {
+    topupLastDate: Date | null;
+    topupDailySpend: number | null;
+    topupUsed: number | null;
+    topupBalance: number | null;
+  },
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(adAccounts)
+    .set({ ...patch, topupUpdatedAt: new Date() })
+    .where(and(eq(adAccounts.id, id), eq(adAccounts.userId, tenantId)));
 }
 
 export async function createAdAccount(input: InsertAdAccount): Promise<number> {

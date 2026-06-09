@@ -9,6 +9,9 @@
  *   - Sync Now button (owner) + auto via heartbeat
  */
 import DateRangePicker from "@/components/DateRangePicker";
+import AccountsTab from "@/components/AccountsTab";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { BarChart3, Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -174,7 +177,7 @@ export const QUALITY_TEXT_CLASS: Record<QualityKey, string> = {
   tested: "text-yellow-600 dark:text-yellow-400",
 };
 
-export default function AdIntelligence() {
+function AdAnalysisTab() {
   const { user } = useAuth();
   const isOwner =
     user?.role === "owner" || user?.role === "ceo" || user?.role === "supervisor";
@@ -1548,6 +1551,39 @@ export default function AdIntelligence() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+/**
+ * เฟส 6: Wrapper หุ้ม 2 Tab
+ * - Tab 1 "วิเคราะห์แอด": AdAnalysisTab (เนื้อหาเดิมทั้งหมด)
+ * - Tab 2 "บัญชี": AccountsTab (ยุบจากหน้า MyAccounts เดิม + topup)
+ * ใช้ conditional mount → Tab 1 unmount จริงตอนสลับไป Tab 2 (หยุด timer 60วิ/refetch/query ของ Tab 1)
+ */
+export default function AdIntelligence() {
+  const [tab, setTab] = useState<"analysis" | "accounts">("analysis");
+  return (
+    <div className="space-y-4">
+      <Tabs value={tab} onValueChange={(v) => setTab(v as "analysis" | "accounts")}>
+        <TabsList>
+          <TabsTrigger value="analysis">
+            <BarChart3 className="h-4 w-4 mr-1.5" />
+            วิเคราะห์แอดเชิงลึก
+          </TabsTrigger>
+          <TabsTrigger value="accounts">
+            <Wallet className="h-4 w-4 mr-1.5" />
+            บัญชีของฉัน
+          </TabsTrigger>
+        </TabsList>
+        {/* conditional mount — ไม่ render อีก tab เพื่อให้ unmount state/timer จริง */}
+        <TabsContent value="analysis" className="mt-4">
+          {tab === "analysis" && <AdAnalysisTab />}
+        </TabsContent>
+        <TabsContent value="accounts" className="mt-4">
+          {tab === "accounts" && <AccountsTab />}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -97,7 +97,6 @@ const menuSections: SidebarSection[] = [
   {
     label: "ตั้งค่าระบบ",
     items: [
-      { icon: UserIcon, label: "บัญชีของฉัน", path: "/my-accounts", roles: ["staff"] },
       { icon: Building2, label: "จัดการบัญชี", path: "/accounts", roles: OWNER_ROLES },
       { icon: Folder, label: "กลุ่มสินค้า", path: "/groups", roles: OWNER_ROLES },
       { icon: Users, label: "จัดการผู้ใช้", path: "/users", roles: OWNER_ROLES },
