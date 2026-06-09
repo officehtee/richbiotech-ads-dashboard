@@ -151,6 +151,7 @@ import {
   dateOffsetString,
   resolveResyncRange,
 } from "./deepAdsSync";
+import { syncStandaloneAccounts } from "./standaloneSync";
 
 const tokenAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
 const generateToken = customAlphabet(tokenAlphabet, 24);
@@ -489,6 +490,15 @@ export const appRouter = router({
         }
         return await testAdAccountToken(acc.adAccountId, acc.accessToken);
       }),
+    /**
+     * Manual trigger: เช็ก Token บัญชีเดี่ยวทั้งหมด "ใน workspace นี้" เดี๋ยวนี้
+     * (ไม่ต้องรอ cron รอบถัดไป) — scope เฉพาะ tenant ของ owner ที่กด
+     */
+    checkStandaloneTokensNow: ownerProcedure.mutation(async ({ ctx }) => {
+      const tid = await tenantId(ctx);
+      const summary = await syncStandaloneAccounts(300, tid);
+      return summary;
+    }),
   }),
 
   /* ----- Business Managers (Round 7.23 — Auto-Discovery) ----- */

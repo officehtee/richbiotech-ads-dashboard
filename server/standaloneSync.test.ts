@@ -183,6 +183,19 @@ describe("syncStandaloneAccounts", () => {
     expect(listStandaloneActiveAccounts).toHaveBeenCalledTimes(1);
   });
 
+  it("8. global mode (cron) — ไม่ส่ง tenantId ไป listStandaloneActiveAccounts", async () => {
+    store.standalone = [];
+    await syncStandaloneAccounts(0);
+    // cron ไม่ระบุ tenant → เรียกด้วย undefined
+    expect(listStandaloneActiveAccounts).toHaveBeenCalledWith(undefined);
+  });
+
+  it("9. manual mode — ส่ง tenantId ไป listStandaloneActiveAccounts (tenant isolation)", async () => {
+    store.standalone = [];
+    await syncStandaloneAccounts(0, 42);
+    expect(listStandaloneActiveAccounts).toHaveBeenCalledWith(42);
+  });
+
   it("handles empty account list gracefully", async () => {
     store.standalone = [];
     const summary = await syncStandaloneAccounts(0);

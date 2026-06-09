@@ -62,11 +62,15 @@ export type StandaloneSyncSummary = {
 };
 
 /**
- * Sync token ของบัญชีเดี่ยวทั้งหมด (global ทุก tenant)
+ * Sync token ของบัญชีเดี่ยว
  * @param delayMs delay ระหว่างบัญชี (default 300ms — เท่ากับ deepAdsSync)
+ * @param tenantId ถ้าระบุ → เฉพาะ workspace นั้น (ปุ่ม manual ของ owner); undefined → global (cron)
  */
-export async function syncStandaloneAccounts(delayMs = 300): Promise<StandaloneSyncSummary> {
-  const accounts = await listStandaloneActiveAccounts();
+export async function syncStandaloneAccounts(
+  delayMs = 300,
+  tenantId?: number,
+): Promise<StandaloneSyncSummary> {
+  const accounts = await listStandaloneActiveAccounts(tenantId);
   const summary: StandaloneSyncSummary = {
     checked: 0,
     changed: 0,

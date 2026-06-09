@@ -392,15 +392,20 @@ export async function updateAdAccountTokenStatus(
 }
 
 /**
- * ดึงบัญชีเดี่ยว (bmId IS NULL) ที่ isActive=true ของทุก tenant (global query)
+ * ดึงบัญชีเดี่ยว (bmId IS NULL) ที่ isActive=true
  * — ไม่กรองตาม tokenStatus เพื่อให้ token ที่เคยเสียถูกเช็กซ้ำได้เมื่อกลับมาใช้ได้
- * — ใช้ใน scheduled job syncStandalone (คล้าย listAllActiveBusinessManagers)
+ * @param tenantId ถ้าระบุ → กรองเฉพาะ workspace นั้น (ใช้กับปุ่ม manual ของ owner)
+ *                 ถ้า undefined → global ทุก tenant (ใช้ใน scheduled job syncStandalone)
  */
-export async function listStandaloneActiveAccounts(): Promise<
-  Array<{ id: number; accessToken: string; adAccountId: string }>
-> {
+export async function listStandaloneActiveAccounts(
+  tenantId?: number,
+): Promise<Array<{ id: number; accessToken: string; adAccountId: string }>> {
   const db = await getDb();
   if (!db) return [];
+  const conds = [isNull(adAccounts.bmId), eq(adAccounts.isActive, true)];
+  if (typeof tenantId === "number") {
+    conds.push(eq(adAccounts.userId, tenantId));
+  }
   const rows = await db
     .select({
       id: adAccounts.id,
@@ -408,7 +413,7 @@ export async function listStandaloneActiveAccounts(): Promise<
       adAccountId: adAccounts.adAccountId,
     })
     .from(adAccounts)
-    .where(and(isNull(adAccounts.bmId), eq(adAccounts.isActive, true)));
+    .where(and(...conds));
   return rows;
 }
 

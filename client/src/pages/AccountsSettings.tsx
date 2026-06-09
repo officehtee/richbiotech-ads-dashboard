@@ -43,6 +43,7 @@ import {
   Pencil,
   Plug,
   Plus,
+  RefreshCw,
   Trash2,
   Users,
   X,
@@ -145,6 +146,22 @@ export default function AccountsSettings() {
     onError: (e) => toast.error(e.message),
   });
 
+  // ปุ่ม "เช็ก Token เดี๋ยวนี้" — เช็ก token บัญชีเดี่ยวทั้ง workspace กับ Meta ทันที
+  const checkTokensNow = trpc.accounts.checkStandaloneTokensNow.useMutation({
+    onSuccess: async (s) => {
+      await utils.accounts.list.invalidate();
+      if (s.checked === 0) {
+        toast.info("ไม่มีบัญชีเดี่ยวที่ต้องเช็ก");
+      } else {
+        toast.success(
+          `เช็กแล้ว ${s.checked} บัญชี — อัปเดตสถานะ ${s.changed}, คงเดิม ${s.skipped}` +
+            (s.failed > 0 ? `, ผิดพลาด ${s.failed}` : ""),
+        );
+      }
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   // ── Test Token state ──────────────────────────────────────────
   const [testOpen, setTestOpen] = useState(false);
   const [testFor, setTestFor] = useState<Account | null>(null);
@@ -221,10 +238,26 @@ export default function AccountsSettings() {
             จัดการบัญชีเดี่ยว, Business Manager, เจ้าของบัญชี, การชำระเงิน และ Limit
           </p>
         </div>
-        <Button onClick={() => setOpen(true)}>
-          <Plus className="h-4 w-4 mr-1.5" />
-          เพิ่มบัญชี
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="bg-background"
+            disabled={checkTokensNow.isPending}
+            onClick={() => checkTokensNow.mutate()}
+            title="เช็ก Token บัญชีเดี่ยวทั้งหมดกับ Meta ทันที (ไม่ต้องรอรอบอัตโนมัติ)"
+          >
+            {checkTokensNow.isPending ? (
+              <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-1.5" />
+            )}
+            {checkTokensNow.isPending ? "กำลังเช็ก..." : "เช็ก Token เดี๋ยวนี้"}
+          </Button>
+          <Button onClick={() => setOpen(true)}>
+            <Plus className="h-4 w-4 mr-1.5" />
+            เพิ่มบัญชี
+          </Button>
+        </div>
       </header>
 
       {/* Auto-sync (Heartbeat cron) */}

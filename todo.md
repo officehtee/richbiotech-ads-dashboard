@@ -761,4 +761,12 @@
 - [x] vitest รวม 43 ไฟล์ / 444 tests ผ่าน + typecheck clean + production build ผ่าน
 
 ### B4. deploy + cron
-- [ ] checkpoint → แจ้งให้ Deploy → manus-heartbeat create syncStandalone ทุก 6 ชม.
+- [x] checkpoint (4ba900be) → Deploy (richadsdash-afw3cl97.manus.space) → ลงทะเบียน Heartbeat cron sync-standalone-tokens (task_uid=7yWZ2DwUE4tJaEq9GbmNvi) cron "0 0 */6 * * *" UTC → next 2026-06-09T06:00:00Z
+
+## Phase C: ปุ่ม "เช็ก Token เดี๋ยวนี้" (manual trigger)
+
+- [x] tRPC mutation accounts.checkStandaloneTokensNow (ownerProcedure) — scope เฉพาะ tenant (เพิ่ม tenantId param ใน listStandaloneActiveAccounts + syncStandaloneAccounts) คืน summary
+- [x] ปุ่มใน header AccountsSettings (ข้างปุ่มเพิ่มบัญชี) + loading spinner + toast summary (checked/changed/skipped/failed)
+- [x] invalidate accounts.list หลังเช็กเสร็จ (อัปเดต tokenStatus ในตาราง)
+- [x] unit test: เพิ่ม 2 เคส (global mode → undefined, manual mode → ส่ง tenantId = tenant isolation); vitest 43 ไฟล์ / 446 tests ผ่าน, typecheck clean, build ผ่าน
+- [ ] checkpoint + ส่งมอบ
