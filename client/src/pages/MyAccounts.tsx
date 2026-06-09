@@ -29,7 +29,7 @@ import {
   User as UserIcon,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 // ───────────────────────────────────────────────────────────────
@@ -97,12 +97,27 @@ export default function MyAccounts() {
   const [limitSort, setLimitSort] = useState<SortDir>("none");
 
   const updateMutation = trpc.accounts.updateMyAccount.useMutation({
-    onSuccess: () => {
-      utils.accounts.myAccounts.invalidate();
+    // Optimistic update: อัปเดต UI ทันทีที่กดบันทึก ไม่ต้องรอ re-fetch
+    onMutate: async (vars) => {
+      await utils.accounts.myAccounts.cancel();
+      const prev = utils.accounts.myAccounts.getData();
+      utils.accounts.myAccounts.setData(undefined, (old) =>
+        old?.map((acc) =>
+          acc.id === vars.id
+            ? {
+                ...acc,
+                paymentType: vars.paymentType !== undefined ? vars.paymentType : acc.paymentType,
+                limitAmount: vars.limitAmount !== undefined ? vars.limitAmount : acc.limitAmount,
+              }
+            : acc,
+        ),
+      );
+      return { prev };
     },
-    onError: (err) => {
+    onError: (err, _vars, ctx) => {
+      // rollback กลับค่าเดิมถ้าบันทึกล้มเหลว
+      if (ctx?.prev) utils.accounts.myAccounts.setData(undefined, ctx.prev);
       toast.error(err.message || "บันทึกไม่สำเร็จ");
-      utils.accounts.myAccounts.invalidate();
     },
   });
 
@@ -323,16 +338,24 @@ function AccountRow({
   const [limitDraft, setLimitDraft] = useState<string>(
     a.limitAmount != null ? String(a.limitAmount) : "",
   );
+  // ค่าที่แสดงผลในโหมด read-only — อัปเดตทันทีตอน commit แล้ว sync ตาม prop (optimistic cache)
+  const [displayLimit, setDisplayLimit] = useState<number | null>(a.limitAmount);
+  useEffect(() => {
+    setDisplayLimit(a.limitAmount);
+  }, [a.limitAmount]);
 
   const commitLimit = () => {
     setEditingLimit(false);
     const val = limitDraft.trim() === "" ? null : Number(limitDraft);
     if (val != null && (Number.isNaN(val) || val < 0)) {
       toast.error("Limit ต้องเป็นตัวเลขไม่ติดลบ");
-      setLimitDraft(a.limitAmount != null ? String(a.limitAmount) : "");
+      setLimitDraft(displayLimit != null ? String(displayLimit) : "");
       return;
     }
-    if (val !== a.limitAmount) onInlineUpdate(a.id, { limitAmount: val });
+    if (val !== displayLimit) {
+      setDisplayLimit(val); // อัปเดตจอทันที
+      onInlineUpdate(a.id, { limitAmount: val });
+    }
   };
 
   return (
@@ -402,7 +425,7 @@ function AccountRow({
                 if (e.key === "Enter") commitLimit();
                 if (e.key === "Escape") {
                   setEditingLimit(false);
-                  setLimitDraft(a.limitAmount != null ? String(a.limitAmount) : "");
+                  setLimitDraft(displayLimit != null ? String(displayLimit) : "");
                 }
               }}
               className="h-8 w-28"
@@ -418,7 +441,7 @@ function AccountRow({
               className="text-muted-foreground hover:text-foreground"
               onClick={() => {
                 setEditingLimit(false);
-                setLimitDraft(a.limitAmount != null ? String(a.limitAmount) : "");
+                setLimitDraft(displayLimit != null ? String(displayLimit) : "");
               }}
               aria-label="ยกเลิก"
             >
@@ -429,11 +452,11 @@ function AccountRow({
           <button
             className="group flex items-center gap-1.5 font-mono tabular-nums hover:text-primary"
             onClick={() => {
-              setLimitDraft(a.limitAmount != null ? String(a.limitAmount) : "");
+              setLimitDraft(displayLimit != null ? String(displayLimit) : "");
               setEditingLimit(true);
             }}
           >
-            {a.limitAmount != null ? a.limitAmount.toLocaleString("th-TH") : "—"}
+            {displayLimit != null ? displayLimit.toLocaleString("th-TH") : "—"}
             <Pencil className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-60" />
           </button>
         )}

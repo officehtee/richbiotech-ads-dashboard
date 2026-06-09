@@ -831,3 +831,9 @@
 - [x] sidebar: เพิ่มเมนู "บัญชีของฉัน" path /my-accounts roles:["staff"]
 - [x] route + frontend guard: role อื่นเข้า URL ตรง → ไม่มีสิทธิ์ (วางหลัง hooks ทั้งหมด)
 - [x] vitest ครอบ security (myAccounts กรองถูก, updateMyAccount reject บัญชีคนอื่น) 9 เคส + tsc clean + test ผ่าน 502 เคส
+
+## Prompt J — แก้ดีเลย์คอลัมน์ Limit/การชำระเงินในหน้า "บัญชีของฉัน" (optimistic update)
+- [x] เปลี่ยน updateMyAccount mutation จาก invalidate → optimistic update (onMutate/onError rollback)
+- [x] เพิ่ม displayLimit local state ใน AccountRow ให้แสดงค่าทันทีตอน commit + sync ตาม prop ด้วย useEffect
+- [x] commitLimit/cancel/edit ใช้ displayLimit แทน prop a.limitAmount (ไม่ค้างค่าเดิม)
+- [x] tsc clean + vitest 502 tests ผ่าน
