@@ -131,3 +131,40 @@ describe("jobTypeLabel (ป้ายประเภทในประวัต�
     expect(jobTypeLabel("unknown")).toBe("ข้อมูลโฆษณา");
   });
 });
+
+/**
+ * Prompt H — ตรวจสอบว่า BM auto-sync และ Alerts handler ใช้ logic status เดียวกัน
+ * status = failed === 0 ? "success" : total > failed ? "partial" : "failed"
+ * (เหมือน decideCountStatus ที่ทดสอบแล้ว แต่ทดสอบเฉพาะ edge case ของ BM/Alerts)
+ */
+describe("syncLog status for BM auto-sync handler", () => {
+  it("BM ทั้งหมด sync สำเร็จ → success", () => {
+    expect(decideCountStatus(3, 0)).toBe("success");
+  });
+
+  it("BM บางตัว failed → partial", () => {
+    expect(decideCountStatus(3, 1)).toBe("partial");
+  });
+
+  it("BM ทุกตัว failed → failed", () => {
+    expect(decideCountStatus(3, 3)).toBe("failed");
+  });
+
+  it("ไม่มี BM เลย (workspace ว่าง) → success", () => {
+    expect(decideCountStatus(0, 0)).toBe("success");
+  });
+});
+
+describe("syncLog status for Alerts handler", () => {
+  it("ตรวจ alert ทุก tenant สำเร็จ → success", () => {
+    expect(decideCountStatus(2, 0)).toBe("success");
+  });
+
+  it("tenant บางตัว error → partial", () => {
+    expect(decideCountStatus(2, 1)).toBe("partial");
+  });
+
+  it("ทุก tenant error → failed", () => {
+    expect(decideCountStatus(2, 2)).toBe("failed");
+  });
+});

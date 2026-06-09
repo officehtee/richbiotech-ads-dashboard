@@ -268,14 +268,14 @@ export default function AccountsSettings() {
             className="bg-background"
             disabled={checkTokensNow.isPending}
             onClick={() => checkTokensNow.mutate()}
-            title="เช็ก Token บัญชีเดี่ยวทั้งหมดกับ Meta ทันที (ไม่ต้องรอรอบอัตโนมัติ)"
+            title="ตรวจสอบว่า Token ของบัญชีเดี่ยว (Standalone) ทุกตัวยังใช้งานได้หรือไม่ และอัปเดตสถานะทันที"
           >
             {checkTokensNow.isPending ? (
               <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
             ) : (
               <RefreshCw className="h-4 w-4 mr-1.5" />
             )}
-            {checkTokensNow.isPending ? "กำลังเช็ก..." : "เช็ก Token เดี๋ยวนี้"}
+            {checkTokensNow.isPending ? "กำลังตรวจสอบ..." : "ตรวจสอบ Token บัญชีเดี่ยว"}
           </Button>
           <Button
             variant="outline"

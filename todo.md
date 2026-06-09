@@ -812,3 +812,9 @@
 - [x] frontend: แก้คำอธิบายประวัติการซิงค์ให้เข้าใจง่าย
 - [x] ทุกการ sync อัปเดตสถานะบัญชีทันที (ยืนยันแล้ว: BM=businessManagers.status, standalone=tokenStatus)
 - [x] vitest ครอบ logic ใหม่ (decideCountStatus + jobTypeLabel) + tsc clean + test ผ่าน 486 เคส
+
+## Prompt H: แก้ bug auto-sync BM/Alerts ไม่บันทึก syncLog + เปลี่ยนชื่อปุ่มเช็ก Token
+- [x] backend: เพิ่ม syncLog insert ใน auto-sync BM handler (syncBM scheduled job) jobType=bm
+- [x] backend: เพิ่ม syncLog insert ใน Alerts handler (checkAlerts scheduled job) jobType=alerts
+- [x] frontend: เปลี่ยนชื่อปุ่ม "เช็ก Token เดี๋ยวนี้" → "ตรวจสอบ Token บัญชีเดี่ยว" + ปรับ tooltip
+- [x] vitest ครอบ BM/Alerts status logic + tsc clean + test ผ่าน 493 เคส

@@ -66,6 +66,7 @@ async function startServer() {
       if (!user?.isCron) {
         return res.status(403).json({ error: "cron-only" });
       }
+      const bmSyncStartedAt = Date.now();
       const bms = await listAllActiveBusinessManagers();
       let totalNew = 0;
       let totalRemoved = 0;
@@ -89,6 +90,22 @@ async function startServer() {
           totalFailed += 1;
         }
       }
+      // บันทึกประวัติการ sync BM รอบนี้
+      try {
+        await insertSyncLog({
+          jobType: "bm",
+          tenants: 1,
+          newAccounts: totalNew,
+          existingAccounts: bms.length - totalFailed,
+          rowsSynced: 0,
+          previewsRefreshed: 0,
+          failed: totalFailed,
+          durationMs: Date.now() - bmSyncStartedAt,
+          status: totalFailed === 0 ? "success" : bms.length > totalFailed ? "partial" : "failed",
+        });
+      } catch (logErr) {
+        console.warn("[syncBM] insertSyncLog failed", logErr);
+      }
       return res.json({
         ok: true,
         bmTotal: bms.length,
@@ -99,6 +116,13 @@ async function startServer() {
       });
     } catch (e: any) {
       console.error("[syncBM] failed", e);
+      try {
+        await insertSyncLog({
+          jobType: "bm",
+          status: "failed",
+          errorMessage: e?.message ?? String(e),
+        });
+      } catch { /* ignore */ }
       return res.status(500).json({
         error: e?.message ?? String(e),
         stack: e?.stack,
@@ -215,8 +239,9 @@ async function startServer() {
     }
   });
 
-  // Scheduled: ตรวจ alert ทุก 3 ชม. (cron-only)
+  // Scheduled: ตรวจ alert ทุก 1 ชม. (cron-only)
   app.post("/api/scheduled/checkAlerts", async (req, res) => {
+    const alertsStartedAt = Date.now();
     try {
       const user = await sdk.authenticateRequest(req as any);
       if (!user?.isCron) {
@@ -224,16 +249,41 @@ async function startServer() {
       }
       const tenants = await listAllWorkspaceTenantIds();
       let totalTriggered = 0;
+      let totalFailed = 0;
       for (const tid of tenants) {
         const r = await runAlertCheckForTenant(tid).catch((e) => {
           console.error(`[checkAlerts] tenant=${tid}`, e);
+          totalFailed += 1;
           return { triggered: 0, skipped: 0 };
         });
         totalTriggered += r.triggered;
       }
+      // บันทึกประวัติการตรวจ alert รอบนี้
+      try {
+        await insertSyncLog({
+          jobType: "alerts",
+          tenants: tenants.length,
+          newAccounts: 0,
+          existingAccounts: tenants.length,
+          rowsSynced: totalTriggered,
+          previewsRefreshed: 0,
+          failed: totalFailed,
+          durationMs: Date.now() - alertsStartedAt,
+          status: totalFailed === 0 ? "success" : tenants.length > totalFailed ? "partial" : "failed",
+        });
+      } catch (logErr) {
+        console.warn("[checkAlerts] insertSyncLog failed", logErr);
+      }
       return res.json({ ok: true, tenants: tenants.length, triggered: totalTriggered });
     } catch (e: any) {
       console.error("[checkAlerts] failed", e);
+      try {
+        await insertSyncLog({
+          jobType: "alerts",
+          status: "failed",
+          errorMessage: e?.message ?? String(e),
+        });
+      } catch { /* ignore */ }
       return res.status(500).json({
         error: e?.message ?? String(e),
         stack: e?.stack,
