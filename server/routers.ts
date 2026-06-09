@@ -134,6 +134,8 @@ import {
   listTrashedCampaigns,
   restoreCampaign,
   deleteCampaignPermanently,
+  moveCampaignToTrash,
+  getCampaignStatusOne,
   listSyncLogs,
   insertSyncLog,
 } from "./db";
@@ -1613,6 +1615,28 @@ export const appRouter = router({
         const tid = await tenantId(ctx);
         const ok = await restoreCampaign(tid, input.campaignId);
         return { ok };
+      }),
+    /**
+     * Phase 4.1: ย้ายแคมเปญเข้าถังเอง (manual trash) จากตารางหลัก
+     * guard: ต้องมี campaignStatus row ของ tenant นี้ และยังไม่ได้อยู่ในถัง
+     */
+    moveToTrash: nonContentProcedure
+      .input(z.object({ campaignId: z.string().min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        const existing = await getCampaignStatusOne(tid, input.campaignId);
+        if (!existing) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "ไม่พบแคมเปญนี้",
+          });
+        }
+        if (existing.trashedAt != null) {
+          // อยู่ในถังอยู่แล้ว — idempotent ไม่ถือเป็น error
+          return { ok: true, alreadyTrashed: true as const };
+        }
+        const ok = await moveCampaignToTrash(tid, input.campaignId, "manual");
+        return { ok, alreadyTrashed: false as const };
       }),
     /** ลบถาวร (ลบจริง insights + manual + campaignStatus row) — กู้ไม่ได้อีก */
     deletePermanent: nonContentProcedure

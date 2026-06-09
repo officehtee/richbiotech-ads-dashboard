@@ -32,6 +32,7 @@ import {
   hardDeleteCampaignData,
   moveCampaignToTrash,
   clearRestoredCampaign,
+  restoreCampaign,
 } from "./db";
 import { cacheAdPreview, isPreviewFresh } from "./previewCache";
 import { reconcileStatus, todayString } from "./campaignStatus";
@@ -135,9 +136,34 @@ export async function syncAdInsightsForAccount(
         restored: isRestored,
         today,
       });
-      // ถ้ายังอยู่ในถัง: ไม่แตะสถานะ (คง trashedAt/effectiveStatus เดิมไว้) — ข้ามไป
+      // Phase 4.1: ถ้าอยู่ในถัง — handle action ก่อน continue
+      //   - revive_from_trash: Meta กลับ active → ดึงกลับตารางหลักอัตโนมัติ
+      //   - อื่น ๆ: คงอยู่ในถัง ไม่แตะสถานะ
       if (isTrashed) {
         campaignsReconciled += 1;
+        if (result.action === "revive_from_trash") {
+          try {
+            // restoreCampaign เคลียร์ trashedAt/rejectedAt + set restoredAt=now
+            await restoreCampaign(tenantId, cs.campaign_id);
+            // อัปเดต approvedAt/effectiveStatus ให้ขึ้น NEW นับจากวันนี้
+            await upsertCampaignStatus({
+              userId: tenantId,
+              accountId: account.id,
+              campaignId: cs.campaign_id,
+              campaignName:
+                cs.campaign_name || prev?.campaignName || null,
+              effectiveStatus: cs.effective_status,
+              approvedAt: result.approvedAt,
+              rejectedAt: result.rejectedAt,
+              rejectedExpired: result.rejectedExpired,
+            });
+          } catch (e) {
+            console.warn(
+              `[deepAdsSync] reviveFromTrash fail campaign=${cs.campaign_id}:`,
+              (e as Error).message,
+            );
+          }
+        }
         continue;
       }
       await upsertCampaignStatus({

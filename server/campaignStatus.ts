@@ -176,7 +176,12 @@ export type ReconcileOutput = {
    * - revive: แก้จนผ่าน (ACTIVE) → ดึงกลับ (ใช้กับ expired เก่า, คงไว้ backward-compat)
    * - clear_restored: status เปลี่ยนไป active → clear restoredAt (เริ่มนับใหม่ได้)
    */
-  action: "none" | "move_to_trash" | "revive" | "clear_restored";
+  action:
+    | "none"
+    | "move_to_trash"
+    | "revive"
+    | "clear_restored"
+    | "revive_from_trash";
 };
 
 /**
@@ -199,9 +204,22 @@ export function reconcileStatus(input: ReconcileInput): ReconcileOutput {
   let rejectedExpired = input.rejectedExpired;
   let action: ReconcileOutput["action"] = "none";
 
-  // Phase 4 กรณีอยู่ในถังขยะ (trashed): ถ้ายังอยู่ในถัง ไม่ต้อง reconcile — คงค่าไว้
-  // (การออกจากถังทำผ่าน restoreCampaign เท่านั้น)
+  // Phase 4.1 กรณีอยู่ในถังขยะ (trashed):
+  //   - ถ้า Meta กลับมา active → ดึงกลับตารางหลักอัตโนมัติ (revive_from_trash)
+  //     + เคลียร์ rejectedAt/expired + จด approvedAt=today (ขึ้น NEW นับจากวันนี้)
+  //   - สถานะอื่น (reject/wait/other) → คงอยู่ในถัง ไม่แตะค่า
   if (input.trashed) {
+    if (kind === "active") {
+      approvedAt = today;
+      rejectedAt = null;
+      rejectedExpired = false;
+      return {
+        approvedAt,
+        rejectedAt,
+        rejectedExpired,
+        action: "revive_from_trash",
+      };
+    }
     return { approvedAt, rejectedAt, rejectedExpired, action: "none" };
   }
 

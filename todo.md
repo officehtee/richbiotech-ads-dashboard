@@ -870,3 +870,20 @@
 - [x] trash router: list / restore / deletePermanent
 - [x] Trash.tsx + route /trash + เมนู + content role guard
 - [x] อัปเดต campaignStatus.test.ts + เขียน vitest ถังขยะ
+
+## Phase 4.1 — Manual Trash + Auto-revive
+- [ ] reconcileStatus: trashed=true + active → action revive_from_trash (ดึงกลับอัตโนมัติ)
+- [ ] deepAdsSync: handle action revive_from_trash → restoreCampaign
+- [ ] db: moveCampaignToTrash reason "manual" รองรับอยู่แล้ว (ตรวจ)
+- [ ] router: deepAds.moveToTrash mutation (nonContent, reason=manual)
+- [ ] frontend: ปุ่มย้ายเข้าถังเองในตารางหลัก + optimistic update
+- [ ] vitest: เคส revive_from_trash + manual trash
+- [ ] tsc สะอาด + vitest ผ่านทั้งชุด
+
+## Phase 4.1 — manual trash + auto-revive
+- [x] reconcileStatus: เพิ่ม action revive_from_trash (trashed + active -> revive)
+- [x] deepAdsSync: handle revive_from_trash ก่อน continue (restoreCampaign + upsert approvedAt=today)
+- [x] backend: mutation trash.moveToTrash (manual, guard ownership + idempotent)
+- [x] frontend: ปุ่มย้ายเข้าถังเองในตารางหลัก AdIntelligence (optimistic update + AlertDialog ยืนยัน + Trash2 hover)
+- [x] vitest: เคส revive_from_trash (campaignStatus.test.ts 4 เคส) + ปรับ trashLogic.test.ts ให้ตรง logic ใหม่ — 539 ผ่าน
+- [x] tsc + vitest ทั้งชุดผ่าน (tsc 0 errors, 539 tests passed)

@@ -35,6 +35,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/_core/hooks/useAuth";
 import {
   exportCSV,
@@ -58,6 +68,7 @@ import {
   Loader2,
   RefreshCw,
   Search,
+  Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -167,6 +178,12 @@ export default function AdIntelligence() {
   const { user } = useAuth();
   const isOwner =
     user?.role === "owner" || user?.role === "ceo" || user?.role === "supervisor";
+  // Phase 4.1: ย้ายเข้าถังเองได้ทุก role ยกเว้น content (ตรงกับ nonContentProcedure ฝั่ง server)
+  const canTrash = !!user && user.role !== "content";
+  // แคมเปญที่ผู้ใช้กำลังจะยืนยันย้ายเข้าถัง (เปิด AlertDialog)
+  const [trashTarget, setTrashTarget] = useState<
+    { campaignId: string; campaignName: string | null } | null
+  >(null);
 
   // Round 7.32: default "เมื่อวาน" — flow พนักงานลงข้อมูลย้อนหลัง 1 วัน
   const [dateRange, setDateRange] = useState<DateRangeInput>({ preset: "yesterday" });
@@ -516,6 +533,31 @@ export default function AdIntelligence() {
     onError: (e, _input, ctx) => {
       if (ctx?.prev !== undefined) utils.deepAds.list.setData(queryInput, ctx.prev);
       toast.error(`บันทึกล้มเหลว: ${e.message}`);
+    },
+    onSettled: () => {
+      utils.deepAds.list.invalidate();
+    },
+  });
+
+  // Phase 4.1: ย้ายแคมเปญเข้าถังเอง (manual trash) — optimistic ลบทุกแถวของ campaignId นั้นออกจากตารางทันที
+  const moveToTrash = trpc.trash.moveToTrash.useMutation({
+    onMutate: async (input) => {
+      await utils.deepAds.list.cancel();
+      const prev = utils.deepAds.list.getData(queryInput);
+      utils.deepAds.list.setData(queryInput, (old) => {
+        if (!old) return old;
+        return old.filter(
+          (row) => String(row.campaignId) !== String(input.campaignId),
+        );
+      });
+      return { prev };
+    },
+    onError: (e, _input, ctx) => {
+      if (ctx?.prev !== undefined) utils.deepAds.list.setData(queryInput, ctx.prev);
+      toast.error(`ย้ายเข้าถังล้มเหลว: ${e.message}`);
+    },
+    onSuccess: () => {
+      toast.success("ย้ายแคมเปญเข้าถังขยะแล้ว");
     },
     onSettled: () => {
       utils.deepAds.list.invalidate();
@@ -940,7 +982,7 @@ export default function AdIntelligence() {
                             {r.pageName ?? "—"}
                           </td>
                           <td className="px-4 py-4 border-t">
-                            <div className="flex items-start gap-2">
+                            <div className="group flex items-start gap-2">
                               <Tooltip>
                                 <TooltipTrigger
                                   className={`text-left leading-snug flex-1 min-w-0 font-medium ${
@@ -989,10 +1031,26 @@ export default function AdIntelligence() {
                               {statusKind === "REJECT" && (
                                 <span
                                   className="neon-blink-reject inline-flex items-center rounded px-1.5 text-[10px] font-bold leading-4 tracking-wider shrink-0 mt-0.5"
-                                  title="ถูก Meta ปฏิเสธ — จะแสดงค้าง 5 วันแล้วลบออก"
+                                  title="ถูก Meta ปฏิเสธ — จะย้ายเข้าถังอัตโนมัติหลัง 5 วัน"
                                 >
                                   REJECT
                                 </span>
+                              )}
+                              {/* Phase 4.1: ปุ่มย้ายเข้าถังเอง (manual) — โผล่ตอน hover, ทุก role ยกเว้น content */}
+                              {canTrash && !isNoSpend && r.campaignId && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setTrashTarget({
+                                      campaignId: String(r.campaignId),
+                                      campaignName: r.campaignName ?? null,
+                                    })
+                                  }
+                                  className="shrink-0 mt-0.5 p-0.5 rounded text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                                  title="ย้ายแคมเปญเข้าถังขยะ"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
                               )}
                             </div>
                           </td>
@@ -1460,6 +1518,36 @@ export default function AdIntelligence() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Phase 4.1: หน้าต่างยืนยันก่อนย้ายแคมเปญเข้าถัง (กันกดผิด) */}
+      <AlertDialog
+        open={!!trashTarget}
+        onOpenChange={(o) => !o && setTrashTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ย้ายแคมเปญเข้าถังขยะ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              แคมเปญ “{trashTarget?.campaignName ?? trashTarget?.campaignId}”
+              จะถูกซ่อนออกจากตารางหลัก สามารถกู้คืนได้ภายหลังที่หน้า “ถังขยะ”
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => {
+                if (trashTarget) {
+                  moveToTrash.mutate({ campaignId: trashTarget.campaignId });
+                  setTrashTarget(null);
+                }
+              }}
+            >
+              ย้ายเข้าถัง
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

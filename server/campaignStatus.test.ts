@@ -181,6 +181,66 @@ describe("reconcileStatus — auto date stamping", () => {
   });
 });
 
+describe("reconcileStatus — Phase 4.1: auto-revive from trash", () => {
+  it("trashed + ACTIVE → revive_from_trash + clear reject/expired + จด approvedAt=today", () => {
+    const r = reconcileStatus({
+      effectiveStatus: "ACTIVE",
+      approvedAt: null,
+      rejectedAt: "2026-06-01",
+      rejectedExpired: false,
+      trashed: true,
+      today: "2026-06-09",
+    });
+    expect(r.action).toBe("revive_from_trash");
+    expect(r.approvedAt).toBe("2026-06-09");
+    expect(r.rejectedAt).toBeNull();
+    expect(r.rejectedExpired).toBe(false);
+    // หลัง revive ต้องขึ้น NEW นับจากวันนี้
+    expect(
+      computeBadge("ACTIVE", r.approvedAt, r.rejectedAt, D("2026-06-09")),
+    ).toBe("NEW");
+  });
+
+  it("trashed + ยัง DISAPPROVED → คงอยู่ในถัง (action none, ไม่แตะค่า)", () => {
+    const r = reconcileStatus({
+      effectiveStatus: "DISAPPROVED",
+      approvedAt: null,
+      rejectedAt: "2026-06-01",
+      rejectedExpired: false,
+      trashed: true,
+      today: "2026-06-09",
+    });
+    expect(r.action).toBe("none");
+    expect(r.rejectedAt).toBe("2026-06-01");
+  });
+
+  it("trashed + WAIT (PENDING_REVIEW) → คงอยู่ในถัง (ยังไม่ active → ไม่ revive)", () => {
+    const r = reconcileStatus({
+      effectiveStatus: "PENDING_REVIEW",
+      approvedAt: null,
+      rejectedAt: null,
+      rejectedExpired: false,
+      trashed: true,
+      today: "2026-06-09",
+    });
+    expect(r.action).toBe("none");
+  });
+
+  it("trashed มาก่อน restored: ถ้า trashed=true ให้หลุด revive_from_trash ก่อน restored guard", () => {
+    // กรณี trashed และ restored ถูกตั้งพร้อมกัน (ไม่ควรเกิด) → trashed มาก่อน
+    const r = reconcileStatus({
+      effectiveStatus: "ACTIVE",
+      approvedAt: null,
+      rejectedAt: null,
+      rejectedExpired: false,
+      trashed: true,
+      restored: true,
+      today: "2026-06-09",
+    });
+    expect(r.action).toBe("revive_from_trash");
+  });
+});
+
 describe("todayString", () => {
   it("formats UTC date as YYYY-MM-DD", () => {
     expect(todayString(D("2026-06-03"))).toBe("2026-06-03");

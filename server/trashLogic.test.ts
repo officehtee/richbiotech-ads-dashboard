@@ -61,7 +61,7 @@ describe("Phase 4: trashed=true → ไม่ reconcile (คงค่า, action
     expect(r.rejectedAt).toBe("2026-06-03");
   });
 
-  it("อยู่ในถัง + status กลับ active → ยังไม่ทำอะไร (ออกจากถังผ่าน restore เท่านั้น)", () => {
+  it("Phase 4.1: อยู่ในถัง + status กลับ active → revive_from_trash อัตโนมัติ", () => {
     const r = reconcileStatus({
       effectiveStatus: "ACTIVE",
       approvedAt: null,
@@ -70,9 +70,10 @@ describe("Phase 4: trashed=true → ไม่ reconcile (คงค่า, action
       trashed: true,
       today: "2026-06-30",
     });
-    expect(r.action).toBe("none");
-    // ไม่จด approvedAt เพราะยังอยู่ในถัง
-    expect(r.approvedAt).toBeNull();
+    expect(r.action).toBe("revive_from_trash");
+    // จด approvedAt=today เพื่อขึ้น NEW นับจากวันดึงกลับ
+    expect(r.approvedAt).toBe("2026-06-30");
+    expect(r.rejectedAt).toBeNull();
   });
 });
 
@@ -117,7 +118,7 @@ describe("Phase 4 (A2): restored=true กันเด้งเข้าถัง
 });
 
 describe("Phase 4: trashed มาก่อน restored (priority)", () => {
-  it("ถ้าทั้ง trashed และ restored เป็น true → trashed ชนะ (ไม่ควรเกิดจริง แต่กันไว้)", () => {
+  it("ถ้าทั้ง trashed และ restored เป็น true + active → trashed ชนะ (revive_from_trash)", () => {
     const r = reconcileStatus({
       effectiveStatus: "ACTIVE",
       approvedAt: null,
@@ -127,6 +128,6 @@ describe("Phase 4: trashed มาก่อน restored (priority)", () => {
       restored: true,
       today: "2026-06-15",
     });
-    expect(r.action).toBe("none");
+    expect(r.action).toBe("revive_from_trash");
   });
 });
