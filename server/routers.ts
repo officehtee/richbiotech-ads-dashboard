@@ -152,7 +152,7 @@ import {
   dateOffsetString,
   resolveResyncRange,
 } from "./deepAdsSync";
-import { syncStandaloneAccounts } from "./standaloneSync";
+import { syncStandaloneAccounts, mapCategoryToTokenStatus } from "./standaloneSync";
 
 const tokenAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
 const generateToken = customAlphabet(tokenAlphabet, 24);
@@ -498,7 +498,17 @@ export const appRouter = router({
             testedAt: Date.now(),
           };
         }
-        return await testAdAccountToken(acc.adAccountId, acc.accessToken);
+        const result = await testAdAccountToken(acc.adAccountId, acc.accessToken);
+        // Prompt F: เขียนผลลง DB ให้คอลัมน์สถานะตรงกับ popup
+        // - เฉพาะบัญชีเดี่ยว (bmId == null) เพราะบัญชีใน BM ใช้สถานะจาก BM ไม่ใช่ tokenStatus
+        // - transient error (rate_limit/network/unknown) → mapped = null → คงสถานะเดิม ไม่เขียนทับ
+        if (acc.bmId == null) {
+          const mapped = mapCategoryToTokenStatus(result.category);
+          if (mapped !== null && mapped !== acc.tokenStatus) {
+            await updateAdAccount(input.id, tid, { tokenStatus: mapped });
+          }
+        }
+        return result;
       }),
     /**
      * Manual trigger: เช็ก Token บัญชีเดี่ยวทั้งหมด "ใน workspace นี้" เดี๋ยวนี้

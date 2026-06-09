@@ -793,3 +793,12 @@
 - [x] BMSection.tsx — เพิ่มคอลัมน์ "เจ้าของ" หลัง BM ID + colSpan 8→9
 - [x] เพิ่ม vitest 4 case (bm.update propagate/null/no-touch + bm.create linkedExisting overwrite)
 - [x] vitest 470/470 ผ่าน, TypeScript clean, build สำเร็จ
+
+## Prompt F: แก้ bug ทดสอบ Token ไม่อัปเดตคอลัมน์สถานะ (บัญชีเดี่ยว)
+- [x] routers.ts testToken — หลังได้ result เขียน tokenStatus ลง DB (เฉพาะ bmId==null + ไม่ใช่ transient null)
+- [x] reuse mapCategoryToTokenStatus จาก standaloneSync (import)
+- [x] บัญชีใน BM (bmId!=null) ไม่แตะ tokenStatus
+- [x] frontend AccountsSettings — testToken mutation invalidate accounts.list onSuccess
+- [x] permission: ไม่ต้องแก้ (ownerProcedure ครอบ supervisor/owner/ceo อยู่แล้ว)
+- [x] เพิ่ม vitest testToken writes tokenStatus (blocked/active/transient/BM no-touch)
+- [x] vitest ผ่านทั้งหมด, TypeScript clean, build สำเร็จ

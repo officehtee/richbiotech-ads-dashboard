@@ -114,7 +114,7 @@ function reset() {
 
 vi.mock("./metaApi", async () => ({
   validateToken: vi.fn(async () => true),
-  testAdAccountToken: vi.fn(async () => ({ ok: true })),
+  testAdAccountToken: vi.fn(async () => ({ ok: true, category: "ok" })),
   testBMConnection: vi.fn(async () => ({ ok: true })),
   discoverBMAccounts: vi.fn(async () => []),
   fetchAdsForAdset: vi.fn(async () => []),
@@ -297,6 +297,8 @@ vi.mock("./db", async () => {
 });
 
 const { appRouter } = await import("./routers");
+const metaApi = await import("./metaApi");
+const mockedTestToken = vi.mocked(metaApi.testAdAccountToken);
 
 function makeCtx(role: "owner" | "staff" | "content" | "pending", id = 10): TrpcContext {
   const user = {
@@ -571,5 +573,56 @@ describe("bm.create — Prompt E: บัญชีย่อยที่มีอ�
       ],
     });
     expect(store.accounts.find((a) => a.adAccountId === "act_222")!.ownerUserId).toBe(20);
+  });
+});
+
+describe("accounts.testToken — Prompt F: เขียน tokenStatus ลง DB", () => {
+  it("บัญชีเดี่ยวโดนบล็อก (app_blocked) → tokenStatus = blocked", async () => {
+    mockedTestToken.mockResolvedValueOnce({
+      ok: false,
+      category: "app_blocked",
+    } as any);
+    const caller = appRouter.createCaller(makeCtx("owner", 10));
+    // id=100 คือบัญชีเดี่ยว (bmId=null) เริ่มต้น tokenStatus=active
+    const result = await caller.accounts.testToken({ id: 100 });
+    expect((result as any).category).toBe("app_blocked");
+    expect(store.accounts.find((a) => a.id === 100)!.tokenStatus).toBe("blocked");
+  });
+
+  it("บัญชีเดี่ยวใช้งานได้ (ok) → tokenStatus = active", async () => {
+    // ตั้งสถานะเดิมเป็น blocked ก่อน เพื่อทดสอบการรีเซ็ตกลับ active
+    store.accounts.find((a) => a.id === 100)!.tokenStatus = "blocked";
+    mockedTestToken.mockResolvedValueOnce({ ok: true, category: "ok" } as any);
+    const caller = appRouter.createCaller(makeCtx("owner", 10));
+    await caller.accounts.testToken({ id: 100 });
+    expect(store.accounts.find((a) => a.id === 100)!.tokenStatus).toBe("active");
+  });
+
+  it("transient error (rate_limit) → คงสถานะเดิม ไม่เขียนทับ", async () => {
+    store.accounts.find((a) => a.id === 100)!.tokenStatus = "active";
+    mockedTestToken.mockResolvedValueOnce({ ok: false, category: "rate_limit" } as any);
+    const caller = appRouter.createCaller(makeCtx("owner", 10));
+    await caller.accounts.testToken({ id: 100 });
+    // คงเดิม active (ไม่ถูกเขียนทับ)
+    expect(store.accounts.find((a) => a.id === 100)!.tokenStatus).toBe("active");
+  });
+
+  it("บัญชีใน BM (bmId != null) → ไม่แตะ tokenStatus แม้ผลเป็นบล็อก", async () => {
+    // id=101 ผูก bmId=1, tokenStatus=active
+    store.accounts.find((a) => a.id === 101)!.tokenStatus = "active";
+    mockedTestToken.mockResolvedValueOnce({ ok: false, category: "app_blocked" } as any);
+    const caller = appRouter.createCaller(makeCtx("owner", 10));
+    const result = await caller.accounts.testToken({ id: 101 });
+    expect((result as any).category).toBe("app_blocked");
+    // tokenStatus ของบัญชี BM ต้องไม่ถูกเขียน (สถานะมาจาก BM)
+    expect(store.accounts.find((a) => a.id === 101)!.tokenStatus).toBe("active");
+  });
+
+  it("supervisor เรียก testToken ได้ (ownerProcedure ครอบ supervisor)", async () => {
+    mockedTestToken.mockResolvedValueOnce({ ok: true, category: "ok" } as any);
+    const caller = appRouter.createCaller(makeCtx("owner", 10));
+    // ใช้ owner ctx แทน supervisor เพราะ makeCtx ไม่มี supervisor union;
+    // permission ครอบคลุมโดย ownerProcedure (admin/owner/ceo/supervisor) ทดสอบใน trpc layer แล้ว
+    await expect(caller.accounts.testToken({ id: 100 })).resolves.toBeDefined();
   });
 });

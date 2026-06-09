@@ -167,7 +167,11 @@ export default function AccountsSettings() {
   const [testFor, setTestFor] = useState<Account | null>(null);
   const [testResult, setTestResult] = useState<any | null>(null);
   const testToken = trpc.accounts.testToken.useMutation({
-    onSuccess: (data) => setTestResult(data),
+    onSuccess: (data) => {
+      setTestResult(data);
+      // Prompt F: รีเฟรชตารางให้คอลัมน์สถานะตรงกับผลทดสอบล่าสุด
+      void utils.accounts.list.invalidate();
+    },
     onError: (e) => toast.error(e.message),
   });
 
