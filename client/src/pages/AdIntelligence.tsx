@@ -1566,12 +1566,18 @@ export default function AdIntelligence() {
   return (
     <div className="space-y-4">
       <Tabs value={tab} onValueChange={(v) => setTab(v as "analysis" | "accounts")}>
-        <TabsList>
-          <TabsTrigger value="analysis">
+        <TabsList className="bg-transparent gap-2 p-0">
+          <TabsTrigger
+            value="analysis"
+            className="border border-white/10 bg-white/5 text-muted-foreground transition-all duration-200 data-[state=active]:bg-[#00D4FF]/10 data-[state=active]:text-[#00D4FF] data-[state=active]:border-[#00D4FF] data-[state=active]:shadow-[0_0_8px_#00D4FF,0_0_16px_rgba(0,212,255,0.5)]"
+          >
             <BarChart3 className="h-4 w-4 mr-1.5" />
             วิเคราะห์แอดเชิงลึก
           </TabsTrigger>
-          <TabsTrigger value="accounts">
+          <TabsTrigger
+            value="accounts"
+            className="border border-white/10 bg-white/5 text-muted-foreground transition-all duration-200 data-[state=active]:bg-[#FF6B1A]/10 data-[state=active]:text-[#FF6B1A] data-[state=active]:border-[#FF6B1A] data-[state=active]:shadow-[0_0_8px_#FF6B1A,0_0_16px_rgba(255,107,26,0.5)]"
+          >
             <Wallet className="h-4 w-4 mr-1.5" />
             บัญชีของฉัน
           </TabsTrigger>
