@@ -104,6 +104,8 @@ export async function syncOneBusinessManager(
         nickname: acc.name,
         pageName: null,
         phaseName: null,
+        ownerUserId: bm.defaultOwnerUserId ?? null, // Prompt A: บัญชีใหม่ที่ discover ได้เจ้าของ default ของ BM
+        tokenStatus: "active",
         roasTarget: 2.0,
         isActive: true,
         bmId: bm.id,

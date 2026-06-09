@@ -68,6 +68,8 @@ import {
   getAccountGroupsByUser,
   getAdAccountById,
   getAdAccountsByUser,
+  getAdAccountsEnriched,
+  listSelectableOwners,
   getAllGroupMembersForUser,
   getCommissionLock,
   getGroupMembers,
@@ -116,6 +118,7 @@ import {
   insertBmDiscoveryLog,
   listBmDiscoveryLogs,
   ensureAccountGroupMember,
+  reassignAccountGroup,
   getDeepAdsRows,
   getScaleAmountMap,
   getCampaignFirstDates,
@@ -134,7 +137,7 @@ import {
   testBMConnection,
   discoverBMAccounts,
 } from "./metaApi";
-import { encrypt as encryptToken, decrypt as decryptToken, maskToken } from "./encryption";
+import { encrypt as encryptToken, decrypt as decryptToken, maskToken, previewTokenPrefix } from "./encryption";
 import { syncOneBusinessManager } from "./bmSync";
 import { computeDeepAdsDerived } from "./deepAdsMetrics";
 import {
@@ -209,6 +212,16 @@ export const appRouter = router({
     list: ownerProcedure.query(async ({ ctx }) => {
       const tid = await tenantId(ctx);
       return listUsersInWorkspace(tid);
+    }),
+    /** Prompt A: รายชื่อเจ้าของบัญชีที่เลือกได้ (ตัด role=pending) — ใช้กับ dropdown เจ้าของ */
+    selectableOwners: ownerProcedure.query(async ({ ctx }) => {
+      const tid = await tenantId(ctx);
+      const owners = await listSelectableOwners(tid);
+      return owners.map((u) => ({
+        id: u.id,
+        nickname: u.nickname ?? u.name ?? `User #${u.id}`,
+        role: u.role,
+      }));
     }),
     setRole: ownerProcedure
       .input(
@@ -352,18 +365,29 @@ export const appRouter = router({
   accounts: router({
     list: protectedProcedure.query(async ({ ctx }) => {
       const tid = await tenantId(ctx);
-      const accounts = await getAdAccountsByUser(tid);
-      return accounts.map((a) => ({ ...a, accessToken: a.accessToken ? "***" : "" }));
+      const accounts = await getAdAccountsEnriched(tid);
+      // Prompt A: บัญชีเดี่ยว (bmId == null) → ส่ง token เต็ม (ผู้ใช้ยอมรับความเสี่ยงเพื่อปุ่ม Copy)
+      //          บัญชีจาก BM → ไม่ส่ง token (ใช้ token ของ BM, คอลัมน์แสดง —)
+      return accounts.map((a) => {
+        const isSingle = a.bmId == null;
+        return {
+          ...a,
+          accessToken: isSingle ? a.accessToken : "",
+          tokenPreview: isSingle ? previewTokenPrefix(a.accessToken) : "",
+        };
+      });
     }),
     create: ownerProcedure
       .input(
         z.object({
           adAccountId: z.string().regex(/^act_\d+$/, "Format: act_123456789"),
           accessToken: z.string().min(20),
+          // Prompt A: ป๊อปเพิ่มบัญชี 6 ฟิลด์ — กลุ่มสินค้า/เจ้าของ/การชำระเงิน/Limit
+          groupId: z.number().int().positive().nullish(),
+          ownerUserId: z.number().int().positive().nullish(),
+          paymentType: z.enum(["card", "prepaid"]).nullish(),
+          limitAmount: z.number().int().min(0).nullish(),
           nickname: z.string().optional(),
-          pageName: z.string().optional(),
-          phaseName: z.string().optional(),
-          roasTarget: z.number().min(0).max(20).optional(),
         }),
       )
       .mutation(async ({ ctx, input }) => {
@@ -375,16 +399,29 @@ export const appRouter = router({
             message: "Token ไม่ถูกต้องหรือไม่มีสิทธิ์เข้าถึง Ad Account นี้",
           });
         }
+        // validate ownerUserId อยู่ใน workspace และไม่ใช่ pending
+        if (input.ownerUserId != null) {
+          const owners = await listSelectableOwners(tid);
+          if (!owners.some((o) => o.id === input.ownerUserId)) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "เจ้าของบัญชีไม่ถูกต้อง" });
+          }
+        }
         const id = await createAdAccount({
           userId: tid,
           adAccountId: input.adAccountId,
           accessToken: input.accessToken,
           nickname: input.nickname ?? null,
-          pageName: input.pageName ?? null,
-          phaseName: input.phaseName ?? null,
-          roasTarget: input.roasTarget ?? 2.0,
+          ownerUserId: input.ownerUserId ?? null,
+          paymentType: input.paymentType ?? null,
+          limitAmount: input.limitAmount ?? null,
+          tokenStatus: "active",
+          roasTarget: 2.0,
           isActive: true,
         });
+        // ผูกเข้ากลุ่มสินค้า (ถ้าเลือก)
+        if (input.groupId != null) {
+          await ensureAccountGroupMember(input.groupId, id);
+        }
         return { id };
       }),
     update: ownerProcedure
@@ -397,12 +434,28 @@ export const appRouter = router({
           roasTarget: z.number().min(0).max(20).optional(),
           accessToken: z.string().optional(),
           isActive: z.boolean().optional(),
+          // Prompt A: แก้ไข เจ้าของ/การชำระเงิน/Limit (รวมถึงบัญชีจาก BM)
+          ownerUserId: z.number().int().positive().nullish(),
+          paymentType: z.enum(["card", "prepaid"]).nullish(),
+          limitAmount: z.number().int().min(0).nullish(),
+          groupId: z.number().int().positive().nullish(),
         }),
       )
       .mutation(async ({ ctx, input }) => {
         const tid = await tenantId(ctx);
-        const { id, ...patch } = input;
+        const { id, groupId, ...patch } = input;
+        // validate owner ถ้ามีการส่งมาและไม่ใช่ null
+        if (patch.ownerUserId != null) {
+          const owners = await listSelectableOwners(tid);
+          if (!owners.some((o) => o.id === patch.ownerUserId)) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "เจ้าของบัญชีไม่ถูกต้อง" });
+          }
+        }
         await updateAdAccount(id, tid, patch);
+        // ย้ายกลุ่มสินค้า (ถ้าส่ง groupId มา — รวมถึง null = ถอดออกทุกกลุ่ม)
+        if (groupId !== undefined) {
+          await reassignAccountGroup(tid, id, groupId ?? null);
+        }
         return { ok: true };
       }),
     remove: ownerProcedure
@@ -457,8 +510,9 @@ export const appRouter = router({
             id: bm.id,
             bmId: bm.bmId,
             name: bm.name,
-            tokenPreview, // มาสก์จาก token จริงที่ decrypt ออกมา
+            tokenPreview, // มาสก์จาก token จริงที่ decrypt ออกมา (ไม่ส่งตัวเต็ม — ใช้ bm.getToken ตอน Copy)
             accountGroupId: bm.accountGroupId,
+            defaultOwnerUserId: bm.defaultOwnerUserId, // Prompt A: ใช้ในป๊อปแก้ไข BM
             status: bm.status,
             lastSyncAt: bm.lastSyncAt,
             tokenExpiresAt: bm.tokenExpiresAt,
@@ -500,6 +554,7 @@ export const appRouter = router({
           name: z.string().min(1),
           accessToken: z.string().min(20),
           accountGroupId: z.number().int().positive(),
+          ownerUserId: z.number().int().positive().nullish(), // Prompt A: เจ้าของ default ของบัญชีย่อยจาก BM
           selectedAccounts: z
             .array(
               z.object({
@@ -527,6 +582,14 @@ export const appRouter = router({
           });
         }
 
+        // validate ownerUserId
+        if (input.ownerUserId != null) {
+          const owners = await listSelectableOwners(tid);
+          if (!owners.some((o) => o.id === input.ownerUserId)) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "เจ้าของบัญชีไม่ถูกต้อง" });
+          }
+        }
+
         // เข้ารหัส token
         const encrypted = encryptToken(input.accessToken);
 
@@ -536,6 +599,7 @@ export const appRouter = router({
           name: input.name,
           accessTokenEncrypted: encrypted,
           accountGroupId: input.accountGroupId,
+          defaultOwnerUserId: input.ownerUserId ?? null, // Prompt A: จำไว้ใส่บัญชีใหม่ตอน sync
           createdBy: ctx.user.id,
           status: "active",
           lastSyncAt: new Date(),
@@ -555,6 +619,8 @@ export const appRouter = router({
               nickname: sel.name,
               pageName: null,
               phaseName: null,
+              ownerUserId: input.ownerUserId ?? null, // Prompt A: บัญชีย่อยทุกตัวได้เจ้าของเดียวกัน
+              tokenStatus: "active",
               roasTarget: sel.roasTarget ?? 2.0,
               isActive: true,
               bmId: newBmId,
@@ -659,6 +725,59 @@ export const appRouter = router({
           removedCount: outcome.removedCount,
           totalFound: outcome.totalFound,
         };
+      }),
+
+    /**
+     * Prompt A: ดึง token เต็มของ BM (decrypt) — ใช้ตอนกดปุ่ม Copy เท่านั้น (ไม่ส่งมากับ bm.list)
+     */
+    getToken: ownerProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        const bm = await getBusinessManagerById(input.id, tid);
+        if (!bm) throw new TRPCError({ code: "NOT_FOUND" });
+        let token = "";
+        try {
+          token = decryptToken(bm.accessTokenEncrypted);
+        } catch {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "ถอดรหัส Token ไม่สำเร็จ" });
+        }
+        return { token };
+      }),
+
+    /**
+     * Prompt A: แก้ไข BM — ชื่อ / Token (re-encrypt) / กลุ่มสินค้า / เจ้าของ default
+     */
+    update: ownerProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          name: z.string().min(1).optional(),
+          accessToken: z.string().min(20).optional(), // ถ้าส่งมา = เปลี่ยน token ใหม่
+          accountGroupId: z.number().int().positive().optional(),
+          defaultOwnerUserId: z.number().int().positive().nullish(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        const bm = await getBusinessManagerById(input.id, tid);
+        if (!bm) throw new TRPCError({ code: "NOT_FOUND" });
+        if (input.defaultOwnerUserId != null) {
+          const owners = await listSelectableOwners(tid);
+          if (!owners.some((o) => o.id === input.defaultOwnerUserId)) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "เจ้าของบัญชีไม่ถูกต้อง" });
+          }
+        }
+        const patch: Record<string, unknown> = {};
+        if (input.name !== undefined) patch.name = input.name;
+        if (input.accountGroupId !== undefined) patch.accountGroupId = input.accountGroupId;
+        if (input.defaultOwnerUserId !== undefined)
+          patch.defaultOwnerUserId = input.defaultOwnerUserId ?? null;
+        if (input.accessToken !== undefined) {
+          patch.accessTokenEncrypted = encryptToken(input.accessToken);
+        }
+        await updateBusinessManager(input.id, patch, tid);
+        return { ok: true };
       }),
 
     delete: ownerProcedure

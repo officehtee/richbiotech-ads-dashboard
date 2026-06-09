@@ -78,6 +78,13 @@
       "when": 1780954797819,
       "tag": "0010_bored_cloak",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1780965792623,
+      "tag": "0011_unique_lady_vermin",
+      "breakpoints": true
     }
   ]
 }

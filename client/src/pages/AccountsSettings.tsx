@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { BMSection } from "@/components/BMSection";
 import { AutoSyncSection } from "@/components/AutoSyncSection";
 import { SyncLogSection } from "@/components/SyncLogSection";
@@ -11,6 +12,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -28,6 +36,7 @@ import {
   AlertTriangle,
   Building2,
   CheckCircle2,
+  Check,
   Clock,
   Copy,
   Loader2,
@@ -35,10 +44,15 @@ import {
   Plug,
   Plus,
   Trash2,
+  Users,
+  X,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+// ───────────────────────────────────────────────────────────────
+// Types
+// ───────────────────────────────────────────────────────────────
 type Account = {
   id: number;
   adAccountId: string;
@@ -48,39 +62,77 @@ type Account = {
   roasTarget: number;
   isActive: boolean;
   accessToken: string;
-  accountName?: string | null;
+  tokenPreview?: string;
+  bmId: number | null;
+  ownerUserId: number | null;
+  ownerNickname: string | null;
+  groupId: number | null;
+  groupName: string | null;
+  paymentType: "card" | "prepaid" | null;
+  limitAmount: number | null;
+  effectiveStatus: "active" | "token_expired" | "blocked" | "revoked";
+  statusSource: "single" | "bm";
 };
+
+const PAYMENT_LABEL: Record<string, string> = {
+  card: "ผูกบัตร",
+  prepaid: "เติมเงิน",
+};
+
+const STATUS_META: Record<
+  Account["effectiveStatus"],
+  { label: string; className: string }
+> = {
+  active: { label: "ใช้งานได้", className: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" },
+  token_expired: { label: "Token หมดอายุ", className: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30" },
+  blocked: { label: "ถูกบล็อก", className: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30" },
+  revoked: { label: "ถูกยกเลิก", className: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30" },
+};
+
+const ALL = "__all__";
+const NONE = "__none__";
 
 export default function AccountsSettings() {
   const accountsQuery = trpc.accounts.list.useQuery();
+  const ownersQuery = trpc.users.selectableOwners.useQuery();
+  const groupsQuery = trpc.groups.list.useQuery();
   const utils = trpc.useUtils();
-  const [open, setOpen] = useState(false);
-  const [edit, setEdit] = useState<Account | null>(null);
 
-  const [form, setForm] = useState({
+  const owners = ownersQuery.data ?? [];
+  const groups = groupsQuery.data ?? [];
+
+  // ── Add dialog ────────────────────────────────────────────────
+  const [open, setOpen] = useState(false);
+  const emptyForm = {
     adAccountId: "",
     accessToken: "",
-    nickname: "",
-    pageName: "",
-    phaseName: "",
-    roasTarget: 2.0,
-  });
+    groupId: "" as string,
+    ownerUserId: "" as string,
+    paymentType: "" as string,
+    limitAmount: "" as string,
+  };
+  const [form, setForm] = useState(emptyForm);
 
   const create = trpc.accounts.create.useMutation({
     onSuccess: async () => {
       toast.success("เพิ่มบัญชีสำเร็จ");
       await utils.accounts.list.invalidate();
       setOpen(false);
-      setForm({ adAccountId: "", accessToken: "", nickname: "", pageName: "", phaseName: "", roasTarget: 2.0 });
+      setForm(emptyForm);
     },
     onError: (e) => toast.error(e.message),
   });
+
+  // ── Edit dialog ───────────────────────────────────────────────
+  const [edit, setEdit] = useState<Account | null>(null);
+  const [editToken, setEditToken] = useState("");
 
   const update = trpc.accounts.update.useMutation({
     onSuccess: async () => {
       toast.success("อัปเดตสำเร็จ");
       await utils.accounts.list.invalidate();
       setEdit(null);
+      setEditToken("");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -93,17 +145,72 @@ export default function AccountsSettings() {
     onError: (e) => toast.error(e.message),
   });
 
-  // ── Test Token state ─────────────────────────────────────────
-  type TestResult = NonNullable<typeof testToken.data>;
+  // ── Test Token state ──────────────────────────────────────────
   const [testOpen, setTestOpen] = useState(false);
   const [testFor, setTestFor] = useState<Account | null>(null);
-  const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [testResult, setTestResult] = useState<any | null>(null);
   const testToken = trpc.accounts.testToken.useMutation({
-    onSuccess: (data) => {
-      setTestResult(data as TestResult);
-    },
+    onSuccess: (data) => setTestResult(data),
     onError: (e) => toast.error(e.message),
   });
+
+  // ── Filters ───────────────────────────────────────────────────
+  const [filterOwner, setFilterOwner] = useState<string>(ALL);
+  const [filterGroup, setFilterGroup] = useState<string>(ALL);
+
+  const allAccounts = (accountsQuery.data ?? []) as unknown as Account[];
+
+  const filtered = useMemo(() => {
+    return allAccounts.filter((a) => {
+      if (filterOwner !== ALL) {
+        if (filterOwner === NONE) {
+          if (a.ownerUserId != null) return false;
+        } else if (String(a.ownerUserId) !== filterOwner) {
+          return false;
+        }
+      }
+      if (filterGroup !== ALL) {
+        if (filterGroup === NONE) {
+          if (a.groupId != null) return false;
+        } else if (String(a.groupId) !== filterGroup) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [allAccounts, filterOwner, filterGroup]);
+
+  // ── Summary: owner -> account count ───────────────────────────
+  const summary = useMemo(() => {
+    const counts = new Map<string, { label: string; count: number }>();
+    for (const a of allAccounts) {
+      const key = a.ownerUserId != null ? String(a.ownerUserId) : NONE;
+      const label = a.ownerUserId != null ? (a.ownerNickname ?? `User #${a.ownerUserId}`) : "ยังไม่ระบุเจ้าของ";
+      const cur = counts.get(key);
+      if (cur) cur.count += 1;
+      else counts.set(key, { label, count: 1 });
+    }
+    return Array.from(counts.values()).sort((x, y) => y.count - x.count);
+  }, [allAccounts]);
+
+  // inline update helper (payment / limit / active)
+  const inlineUpdate = (id: number, patch: Record<string, unknown>) => {
+    update.mutate({ id, ...patch } as any);
+  };
+
+  const copyToken = (token: string) => {
+    if (!token) {
+      toast.error("ไม่มี Token ให้คัดลอก");
+      return;
+    }
+    navigator.clipboard.writeText(token);
+    toast.success("คัดลอก Token แล้ว");
+  };
+
+  const openEdit = (a: Account) => {
+    setEdit(a);
+    setEditToken("");
+  };
 
   return (
     <div className="space-y-6">
@@ -111,7 +218,7 @@ export default function AccountsSettings() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">จัดการบัญชีโฆษณา</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            เพิ่ม/แก้ไข Ads Account, Token, Page Name, Phase Name, ROAS Target
+            จัดการบัญชีเดี่ยว, Business Manager, เจ้าของบัญชี, การชำระเงิน และ Limit
           </p>
         </div>
         <Button onClick={() => setOpen(true)}>
@@ -120,93 +227,143 @@ export default function AccountsSettings() {
         </Button>
       </header>
 
-      {/* Round 7.40 — Auto-sync (Heartbeat cron) */}
+      {/* Auto-sync (Heartbeat cron) */}
       <AutoSyncSection />
 
-      {/* Round 7.44 — ประวัติการซิงค์ */}
+      {/* ประวัติการซิงค์ */}
       <SyncLogSection />
 
-      {/* Round 7.23 — BM Auto-Discovery */}
-      <BMSection />
+      {/* BM Auto-Discovery */}
+      <BMSection owners={owners} groups={groups} />
 
+      {/* ── ตารางสรุป: พนักงานคนไหนมีกี่บัญชี ── */}
+      <Card className="p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Users className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-sm font-semibold">สรุปจำนวนบัญชีต่อเจ้าของ</h2>
+        </div>
+        {summary.length === 0 ? (
+          <p className="text-sm text-muted-foreground">ยังไม่มีบัญชี</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {summary.map((s) => (
+              <div
+                key={s.label}
+                className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-1.5 text-sm"
+              >
+                <span className="font-medium">{s.label}</span>
+                <span className="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-semibold">
+                  {s.count}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* ── ตัวกรอง ── */}
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">กรองตามเจ้าของ</Label>
+          <Select value={filterOwner} onValueChange={setFilterOwner}>
+            <SelectTrigger className="w-48 h-9"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>เจ้าของทั้งหมด</SelectItem>
+              <SelectItem value={NONE}>ยังไม่ระบุเจ้าของ</SelectItem>
+              {owners.map((o) => (
+                <SelectItem key={o.id} value={String(o.id)}>{o.nickname}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">กรองตามกลุ่มสินค้า</Label>
+          <Select value={filterGroup} onValueChange={setFilterGroup}>
+            <SelectTrigger className="w-48 h-9"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>กลุ่มทั้งหมด</SelectItem>
+              <SelectItem value={NONE}>ไม่อยู่ในกลุ่ม</SelectItem>
+              {groups.map((g) => (
+                <SelectItem key={g.id} value={String(g.id)}>{g.groupName}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {(filterOwner !== ALL || filterGroup !== ALL) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9"
+            onClick={() => { setFilterOwner(ALL); setFilterGroup(ALL); }}
+          >
+            <X className="h-3.5 w-3.5 mr-1" />
+            ล้างตัวกรอง
+          </Button>
+        )}
+        <div className="ml-auto text-sm text-muted-foreground self-end">
+          แสดง {filtered.length} จาก {allAccounts.length} บัญชี
+        </div>
+      </div>
+
+      {/* ── ตารางบัญชีย่อย (9 คอลัมน์) ── */}
       <Card>
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Name</TableHead>
               <TableHead>Ads Account ID</TableHead>
-              <TableHead>Nickname</TableHead>
-              <TableHead>Page</TableHead>
-              <TableHead>Phase</TableHead>
-              <TableHead className="text-right">ROAS Target</TableHead>
+              <TableHead>เจ้าของ</TableHead>
+              <TableHead>กลุ่มสินค้า</TableHead>
+              <TableHead>การชำระเงิน</TableHead>
+              <TableHead className="text-right">Limit (บาท)</TableHead>
+              <TableHead>Token</TableHead>
               <TableHead>สถานะ</TableHead>
               <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {accountsQuery.isLoading ? (
-              <TableRow><TableCell colSpan={7} className="h-24 text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></TableCell></TableRow>
-            ) : !accountsQuery.data || accountsQuery.data.length === 0 ? (
+              <TableRow><TableCell colSpan={9} className="h-24 text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></TableCell></TableRow>
+            ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-32 text-center">
+                <TableCell colSpan={9} className="h-32 text-center">
                   <Building2 className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
-                  <p className="text-sm text-muted-foreground">ยังไม่มีบัญชีโฆษณา</p>
+                  <p className="text-sm text-muted-foreground">
+                    {allAccounts.length === 0 ? "ยังไม่มีบัญชีโฆษณา" : "ไม่มีบัญชีตรงกับตัวกรอง"}
+                  </p>
                 </TableCell>
               </TableRow>
             ) : (
-              accountsQuery.data.map((a) => (
-                <TableRow key={a.id}>
-                  <TableCell className="font-mono text-xs">{a.adAccountId}</TableCell>
-                  <TableCell>{a.nickname ?? "—"}</TableCell>
-                  <TableCell>{a.pageName ?? "—"}</TableCell>
-                  <TableCell>
-                    {a.phaseName ? (
-                      <span className="text-xs px-2 py-0.5 rounded bg-secondary">{a.phaseName}</span>
-                    ) : "—"}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-xs">{a.roasTarget?.toFixed(1)}</TableCell>
-                  <TableCell>
-                    <Switch
-                      checked={a.isActive ?? true}
-                      onCheckedChange={(v) => update.mutate({ id: a.id, isActive: v })}
-                    />
-                  </TableCell>
-                  <TableCell className="text-right whitespace-nowrap">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      title="ทดสอบ Token กับ Meta"
-                      onClick={() => {
-                        setTestFor(a as Account);
-                        setTestResult(null);
-                        setTestOpen(true);
-                        testToken.mutate({ id: a.id });
-                      }}
-                    >
-                      <Plug className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setEdit(a as Account)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button size="sm" variant="ghost" className="text-destructive" onClick={() => {
-                      if (confirm(`ลบ ${a.nickname ?? a.adAccountId}?`)) remove.mutate({ id: a.id });
-                    }}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
+              filtered.map((a) => (
+                <AccountRow
+                  key={a.id}
+                  account={a}
+                  onCopyToken={copyToken}
+                  onInlineUpdate={inlineUpdate}
+                  onEdit={() => openEdit(a)}
+                  onTest={() => {
+                    setTestFor(a);
+                    setTestResult(null);
+                    setTestOpen(true);
+                    testToken.mutate({ id: a.id });
+                  }}
+                  onRemove={() => {
+                    if (confirm(`ลบ ${a.nickname ?? a.adAccountId}?`)) remove.mutate({ id: a.id });
+                  }}
+                />
               ))
             )}
           </TableBody>
         </Table>
       </Card>
 
-      {/* Create dialog */}
+      {/* ── Create dialog ── */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>เพิ่มบัญชีโฆษณา</DialogTitle>
             <DialogDescription>
-              Token จะถูกตรวจสอบกับ Meta API ก่อนบันทึก — ดูวิธีรับ Token ได้จากเอกสาร
+              Token จะถูกตรวจสอบกับ Meta API ก่อนบันทึก
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -229,20 +386,49 @@ export default function AccountsSettings() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Nickname</Label>
-                <Input value={form.nickname} onChange={(e) => setForm({ ...form, nickname: e.target.value })} />
+                <Label>กลุ่มสินค้า</Label>
+                <Select value={form.groupId || NONE} onValueChange={(v) => setForm({ ...form, groupId: v === NONE ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="เลือกกลุ่ม" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>ไม่ระบุ</SelectItem>
+                    {groups.map((g) => (
+                      <SelectItem key={g.id} value={String(g.id)}>{g.groupName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Page Name</Label>
-                <Input value={form.pageName} onChange={(e) => setForm({ ...form, pageName: e.target.value })} />
+                <Label>เจ้าของบัญชี</Label>
+                <Select value={form.ownerUserId || NONE} onValueChange={(v) => setForm({ ...form, ownerUserId: v === NONE ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="เลือกเจ้าของ" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>ไม่ระบุ</SelectItem>
+                    {owners.map((o) => (
+                      <SelectItem key={o.id} value={String(o.id)}>{o.nickname}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Phase Name</Label>
-                <Input placeholder="A / B / C" value={form.phaseName} onChange={(e) => setForm({ ...form, phaseName: e.target.value })} />
+                <Label>การชำระเงิน</Label>
+                <Select value={form.paymentType || NONE} onValueChange={(v) => setForm({ ...form, paymentType: v === NONE ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="เลือก" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>ไม่ระบุ</SelectItem>
+                    <SelectItem value="card">ผูกบัตร</SelectItem>
+                    <SelectItem value="prepaid">เติมเงิน</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>ROAS Target</Label>
-                <Input type="number" step="0.1" value={form.roasTarget} onChange={(e) => setForm({ ...form, roasTarget: parseFloat(e.target.value) || 2 })} />
+                <Label>Limit (บาท/วัน)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="ไม่ระบุ"
+                  value={form.limitAmount}
+                  onChange={(e) => setForm({ ...form, limitAmount: e.target.value })}
+                />
               </div>
             </div>
           </div>
@@ -251,12 +437,12 @@ export default function AccountsSettings() {
             <Button
               disabled={create.isPending || !form.adAccountId || !form.accessToken}
               onClick={() => create.mutate({
-                adAccountId: form.adAccountId,
-                accessToken: form.accessToken,
-                nickname: form.nickname || undefined,
-                pageName: form.pageName || undefined,
-                phaseName: form.phaseName || undefined,
-                roasTarget: form.roasTarget,
+                adAccountId: form.adAccountId.trim(),
+                accessToken: form.accessToken.trim(),
+                groupId: form.groupId ? Number(form.groupId) : null,
+                ownerUserId: form.ownerUserId ? Number(form.ownerUserId) : null,
+                paymentType: (form.paymentType || null) as "card" | "prepaid" | null,
+                limitAmount: form.limitAmount ? Number(form.limitAmount) : null,
               })}
             >
               {create.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
@@ -266,7 +452,7 @@ export default function AccountsSettings() {
         </DialogContent>
       </Dialog>
 
-      {/* Test Token dialog */}
+      {/* ── Test Token dialog ── */}
       <Dialog open={testOpen} onOpenChange={(v) => { if (!v) { setTestOpen(false); setTestFor(null); setTestResult(null); } }}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
@@ -275,9 +461,7 @@ export default function AccountsSettings() {
               ผลการทดสอบ Token
             </DialogTitle>
             <DialogDescription>
-              {testFor ? (
-                <span className="font-mono">{testFor.adAccountId}</span>
-              ) : null}
+              {testFor ? <span className="font-mono">{testFor.adAccountId}</span> : null}
               {testFor?.nickname ? <span className="ml-2">• {testFor.nickname}</span> : null}
             </DialogDescription>
           </DialogHeader>
@@ -305,11 +489,17 @@ export default function AccountsSettings() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit dialog */}
-      <Dialog open={edit !== null} onOpenChange={(v) => !v && setEdit(null)}>
+      {/* ── Edit dialog ── */}
+      <Dialog open={edit !== null} onOpenChange={(v) => { if (!v) { setEdit(null); setEditToken(""); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>แก้ไขบัญชี</DialogTitle>
+            <DialogDescription>
+              {edit ? <span className="font-mono text-xs">{edit.adAccountId}</span> : null}
+              {edit?.statusSource === "bm" ? (
+                <span className="ml-2 text-xs">• บัญชีจาก Business Manager</span>
+              ) : null}
+            </DialogDescription>
           </DialogHeader>
           {edit && (
             <div className="space-y-3">
@@ -317,26 +507,76 @@ export default function AccountsSettings() {
                 <Label>Nickname</Label>
                 <Input value={edit.nickname ?? ""} onChange={(e) => setEdit({ ...edit, nickname: e.target.value })} />
               </div>
-              <div className="space-y-1.5">
-                <Label>Page Name</Label>
-                <Input value={edit.pageName ?? ""} onChange={(e) => setEdit({ ...edit, pageName: e.target.value })} />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>เจ้าของบัญชี</Label>
+                  <Select
+                    value={edit.ownerUserId != null ? String(edit.ownerUserId) : NONE}
+                    onValueChange={(v) => setEdit({ ...edit, ownerUserId: v === NONE ? null : Number(v) })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="เลือกเจ้าของ" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>ไม่ระบุ</SelectItem>
+                      {owners.map((o) => (
+                        <SelectItem key={o.id} value={String(o.id)}>{o.nickname}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>กลุ่มสินค้า</Label>
+                  <Select
+                    value={edit.groupId != null ? String(edit.groupId) : NONE}
+                    onValueChange={(v) => setEdit({ ...edit, groupId: v === NONE ? null : Number(v) })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="เลือกกลุ่ม" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>ไม่ระบุ</SelectItem>
+                      {groups.map((g) => (
+                        <SelectItem key={g.id} value={String(g.id)}>{g.groupName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>การชำระเงิน</Label>
+                  <Select
+                    value={edit.paymentType ?? NONE}
+                    onValueChange={(v) => setEdit({ ...edit, paymentType: v === NONE ? null : (v as "card" | "prepaid") })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="เลือก" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>ไม่ระบุ</SelectItem>
+                      <SelectItem value="card">ผูกบัตร</SelectItem>
+                      <SelectItem value="prepaid">เติมเงิน</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Limit (บาท/วัน)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={edit.limitAmount ?? ""}
+                    onChange={(e) => setEdit({ ...edit, limitAmount: e.target.value === "" ? null : Number(e.target.value) })}
+                  />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>Phase Name</Label>
-                <Input value={edit.phaseName ?? ""} onChange={(e) => setEdit({ ...edit, phaseName: e.target.value })} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>ROAS Target</Label>
-                <Input type="number" step="0.1" value={edit.roasTarget} onChange={(e) => setEdit({ ...edit, roasTarget: parseFloat(e.target.value) || 2 })} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Access Token (ใหม่ - ปล่อยว่างถ้าไม่เปลี่ยน)</Label>
-                <Input type="password" placeholder="ปล่อยว่างเพื่อคงค่าเดิม" onChange={(e) => setEdit({ ...edit, accessToken: e.target.value })} />
-              </div>
+              {edit.statusSource === "single" && (
+                <div className="space-y-1.5">
+                  <Label>Access Token (ใหม่ - ปล่อยว่างถ้าไม่เปลี่ยน)</Label>
+                  <Input
+                    type="password"
+                    placeholder="ปล่อยว่างเพื่อคงค่าเดิม"
+                    value={editToken}
+                    onChange={(e) => setEditToken(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEdit(null)}>ยกเลิก</Button>
+            <Button variant="outline" onClick={() => { setEdit(null); setEditToken(""); }}>ยกเลิก</Button>
             <Button
               disabled={update.isPending}
               onClick={() => {
@@ -344,10 +584,11 @@ export default function AccountsSettings() {
                 update.mutate({
                   id: edit.id,
                   nickname: edit.nickname,
-                  pageName: edit.pageName,
-                  phaseName: edit.phaseName,
-                  roasTarget: edit.roasTarget,
-                  ...(edit.accessToken && edit.accessToken !== "***" ? { accessToken: edit.accessToken } : {}),
+                  ownerUserId: edit.ownerUserId,
+                  groupId: edit.groupId,
+                  paymentType: edit.paymentType,
+                  limitAmount: edit.limitAmount,
+                  ...(editToken.trim() ? { accessToken: editToken.trim() } : {}),
                 });
               }}
             >
@@ -361,7 +602,129 @@ export default function AccountsSettings() {
   );
 }
 
-// ── TestResultPanel ──────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────
+// AccountRow — แถวบัญชี + inline edit (การชำระเงิน / Limit)
+// ───────────────────────────────────────────────────────────────
+function AccountRow({
+  account: a,
+  onCopyToken,
+  onInlineUpdate,
+  onEdit,
+  onTest,
+  onRemove,
+}: {
+  account: Account;
+  onCopyToken: (t: string) => void;
+  onInlineUpdate: (id: number, patch: Record<string, unknown>) => void;
+  onEdit: () => void;
+  onTest: () => void;
+  onRemove: () => void;
+}) {
+  const isSingle = a.bmId == null;
+  const status = STATUS_META[a.effectiveStatus] ?? STATUS_META.active;
+
+  // inline limit editing
+  const [editingLimit, setEditingLimit] = useState(false);
+  const [limitDraft, setLimitDraft] = useState<string>(a.limitAmount != null ? String(a.limitAmount) : "");
+
+  const saveLimit = () => {
+    const val = limitDraft === "" ? null : Number(limitDraft);
+    if (val !== a.limitAmount) onInlineUpdate(a.id, { limitAmount: val });
+    setEditingLimit(false);
+  };
+
+  return (
+    <TableRow>
+      <TableCell className="font-medium">{a.nickname ?? "—"}</TableCell>
+      <TableCell className="font-mono text-xs">{a.adAccountId}</TableCell>
+      <TableCell>{a.ownerNickname ?? <span className="text-muted-foreground">—</span>}</TableCell>
+      <TableCell>{a.groupName ?? <span className="text-muted-foreground">—</span>}</TableCell>
+
+      {/* การชำระเงิน — dropdown inline */}
+      <TableCell>
+        <Select
+          value={a.paymentType ?? NONE}
+          onValueChange={(v) => onInlineUpdate(a.id, { paymentType: v === NONE ? null : v })}
+        >
+          <SelectTrigger className="h-8 w-28 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NONE}>—</SelectItem>
+            <SelectItem value="card">ผูกบัตร</SelectItem>
+            <SelectItem value="prepaid">เติมเงิน</SelectItem>
+          </SelectContent>
+        </Select>
+      </TableCell>
+
+      {/* Limit — inline edit */}
+      <TableCell className="text-right">
+        {editingLimit ? (
+          <div className="flex items-center justify-end gap-1">
+            <Input
+              type="number"
+              min={0}
+              autoFocus
+              className="h-8 w-24 text-right text-xs"
+              value={limitDraft}
+              onChange={(e) => setLimitDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") saveLimit(); if (e.key === "Escape") setEditingLimit(false); }}
+            />
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={saveLimit}><Check className="h-3.5 w-3.5" /></Button>
+          </div>
+        ) : (
+          <button
+            className="font-mono text-xs hover:bg-muted/50 rounded px-2 py-1 transition-colors"
+            onClick={() => { setLimitDraft(a.limitAmount != null ? String(a.limitAmount) : ""); setEditingLimit(true); }}
+            title="กดเพื่อแก้ไข"
+          >
+            {a.limitAmount != null ? a.limitAmount.toLocaleString("th-TH") : "—"}
+          </button>
+        )}
+      </TableCell>
+
+      {/* Token */}
+      <TableCell>
+        {isSingle ? (
+          a.accessToken ? (
+            <div className="flex items-center gap-1.5">
+              <span className="font-mono text-xs text-muted-foreground">{a.tokenPreview || "••••"}</span>
+              <Button size="icon" variant="ghost" className="h-6 w-6" title="คัดลอก Token เต็ม" onClick={() => onCopyToken(a.accessToken)}>
+                <Copy className="h-3 w-3" />
+              </Button>
+            </div>
+          ) : (
+            <span className="text-muted-foreground text-xs">—</span>
+          )
+        ) : (
+          <span className="text-muted-foreground text-xs" title="ใช้ Token ของ Business Manager">—</span>
+        )}
+      </TableCell>
+
+      {/* สถานะ */}
+      <TableCell>
+        <Badge variant="outline" className={status.className}>{status.label}</Badge>
+      </TableCell>
+
+      {/* ปุ่ม */}
+      <TableCell className="text-right whitespace-nowrap">
+        {isSingle && (
+          <Button size="sm" variant="ghost" title="ทดสอบ Token กับ Meta" onClick={onTest}>
+            <Plug className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        <Button size="sm" variant="ghost" title="แก้ไข" onClick={onEdit}>
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+        <Button size="sm" variant="ghost" className="text-destructive" title="ลบ" onClick={onRemove}>
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────
+// TestResultPanel
+// ───────────────────────────────────────────────────────────────
 type TestResultLike = {
   ok: boolean;
   category: string;

@@ -68,6 +68,13 @@ export const adAccounts = mysqlTable("adAccounts", {
   sortOrder: int("sortOrder").default(0),
   bmId: int("bmId"), // FK -> businessManagers.id (nullable: บัญชีที่ไม่ผ่าน BM)
   discoveredAt: timestamp("discoveredAt"), // วันที่ discover ครั้งแรกผ่าน BM
+  // ── Prompt A: per-account ownership & payment metadata ──
+  ownerUserId: int("ownerUserId"), // FK → users.id (เจ้าของรายบัญชี — คนละตัวกับ userId ที่เป็น workspace owner)
+  paymentType: mysqlEnum("paymentType", ["card", "prepaid"]), // nullable: การชำระเงิน card=ผูกบัตร, prepaid=เติมเงิน
+  limitAmount: int("limitAmount"), // nullable: วงเงินยิงสูงสุด/วัน (บาท)
+  tokenStatus: mysqlEnum("tokenStatus", ["active", "token_expired", "blocked", "revoked"])
+    .default("active")
+    .notNull(), // สถานะ token บัญชีเดี่ยว (logic เช็คจริงทำใน Prompt B)
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -342,6 +349,8 @@ export const businessManagers = mysqlTable("businessManagers", {
   status: mysqlEnum("status", ["active", "token_expired", "blocked", "revoked"])
     .default("active")
     .notNull(),
+  // ── Prompt A: เจ้าของ default ของ BM — ใช้ใส่ให้บัญชีย่อยใหม่ที่ discover ตอน sync ──
+  defaultOwnerUserId: int("defaultOwnerUserId"), // FK → users.id (nullable)
   createdBy: int("createdBy").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

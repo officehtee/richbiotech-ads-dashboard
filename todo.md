@@ -708,3 +708,37 @@
 
 ### ห้ามแตะ (ยืนยันแล้วว่าไม่ได้แตะ)
 - [x] ไม่แตะ upsertUser, login/OAuth flow, สิทธิ์ role อื่น, Help Center / help-content.ts
+
+
+## Phase A: จัดการบัญชี — โครงสร้าง + UI (Prompt A)
+### A1. Migrate DB (5 field, 2 ตาราง)
+- [x] adAccounts: เพิ่ม ownerUserId (int null), paymentType (enum card/prepaid null), limitAmount (int null), tokenStatus (enum active/token_expired/blocked/revoked, default active)
+- [x] businessManagers: เพิ่ม defaultOwnerUserId (int null)
+- [x] generate migration + apply (0011) สำเร็จ
+
+### A2. Backend (8 จุด)
+- [x] getAdAccountsEnriched(tenantId) — JOIN users/accountGroupMembers/accountGroups/businessManagers
+- [x] bm.getToken(id) ownerProcedure — decrypt ส่ง token เต็ม BM
+- [x] แก้ token mask ใน accounts.list — ส่ง token จริงเฉพาะบัญชีเดี่ยว (bmId IS NULL)
+- [x] bm.create รับ ownerUserId → บันทึก defaultOwnerUserId + ใส่บัญชีย่อยทุกตัว
+- [x] bmSync.ts propagate defaultOwnerUserId ไปบัญชีใหม่
+- [x] bm.update procedure ownerProcedure — ชื่อ/Token(encrypt)/กลุ่ม/defaultOwnerUserId
+- [x] accounts.update + accounts.create เพิ่ม ownerUserId/paymentType/limitAmount/groupId
+- [x] listSelectableOwners helper (ตัด pending) + ใช้ใน users dropdown
+
+### A3. Frontend
+- [x] ตารางบัญชีย่อย 9 คอลัมน์ (Name/ID/เจ้าของ/กลุ่ม/ชำระเงิน dropdown/Limit inline/Token/สถานะ/ปุ่ม) ตัด Page/Phase/ROAS
+- [x] คอลัมน์ Token: เดี่ยวโชว์ย่อ+Copy / BM ขีด —
+- [x] คอลัมน์สถานะ 4 แบบ 2 source (เดี่ยว=tokenStatus, BM=businessManagers.status)
+- [x] ตาราง BM: เพิ่ม Token (ย่อ+Copy ผ่าน bm.getToken) + ปุ่มแก้ไข (ดินสอ)
+- [x] ป๊อปเพิ่มบัญชี: 6 ฟิลด์ (ID/Token/กลุ่ม/เจ้าของ/ชำระเงิน/Limit) ตัด Nickname/Page/Phase/ROAS
+- [x] ป๊อปเชื่อม BM: เพิ่ม dropdown เจ้าของ
+- [x] ป๊อปแก้ไข BM ใหม่ (ชื่อ/Token/กลุ่ม/เจ้าของ default)
+- [x] ป๊อปแก้ไขบัญชี: เพิ่มเจ้าของ/ชำระเงิน/Limit ตัด ROAS
+- [x] ตัวกรองพนักงาน + กลุ่มสินค้า เหนือตาราง
+- [x] ตารางสรุปพนักงานมีกี่บัญชี
+
+### A4. Test
+- [x] vitest accountsManagement.procedure.test.ts (15 tests): selectableOwners กรอง pending, accounts.list token mask, accounts.create/update owner+group, bm.create propagate, bm.getToken decrypt, bm.update re-encrypt
+- [x] vitest รวม 42 ไฟล์ / 430 tests ผ่าน
+- [x] typecheck (tsc) clean + production build ผ่าน

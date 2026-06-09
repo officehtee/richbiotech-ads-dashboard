@@ -47,7 +47,9 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Copy,
   Loader2,
+  Pencil,
   PlugZap,
   Plus,
   RefreshCcw,
@@ -57,6 +59,11 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
+
+export type OwnerOption = { id: number; nickname: string; role: string };
+export type GroupOption = { id: number; groupName: string };
+
+const BM_NONE = "__none__";
 
 type DiscoveredAccount = {
   bmAdAccountId: string;
@@ -126,18 +133,21 @@ function fmtTime(d: unknown): string {
 export function BMWizardDialog({
   open,
   onOpenChange,
+  owners,
+  groups,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  owners: OwnerOption[];
+  groups: GroupOption[];
 }) {
   const utils = trpc.useUtils();
-  const groupsQuery = trpc.groups.list.useQuery();
-  const groups = groupsQuery.data ?? [];
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [bmId, setBmId] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [accountGroupId, setAccountGroupId] = useState<string>("");
+  const [ownerUserId, setOwnerUserId] = useState<string>("");
   const [name, setName] = useState("");
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [discoverResult, setDiscoverResult] = useState<DiscoverResult | null>(null);
@@ -150,6 +160,7 @@ export function BMWizardDialog({
       setBmId("");
       setAccessToken("");
       setAccountGroupId("");
+      setOwnerUserId("");
       setName("");
       setTestResult(null);
       setDiscoverResult(null);
@@ -251,6 +262,7 @@ export function BMWizardDialog({
       name: name.trim() || (discoverResult.bmName ?? `BM ${bmId.trim()}`),
       accessToken: accessToken.trim(),
       accountGroupId: parseInt(accountGroupId, 10),
+      ownerUserId: ownerUserId ? parseInt(ownerUserId, 10) : null,
       selectedAccounts: items,
     });
   };
@@ -321,6 +333,23 @@ export function BMWizardDialog({
                 </Select>
                 <p className="text-[11px] text-muted-foreground">
                   ทุกบัญชีที่เลือกจะถูก auto-assign เข้ากลุ่มนี้
+                </p>
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label>เจ้าของบัญชี (default ของทุกบัญชีย่อยใน BM นี้)</Label>
+                <Select value={ownerUserId || BM_NONE} onValueChange={(v) => setOwnerUserId(v === BM_NONE ? "" : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="เลือกเจ้าของ" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={BM_NONE}>ไม่ระบุ</SelectItem>
+                    {owners.map((o) => (
+                      <SelectItem key={o.id} value={String(o.id)}>{o.nickname}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  เจ้าของนี้จะถูกใส่ให้บัญชีใหม่ที่ค้นพบในรอบ sync ถัดไปด้วย (ตั้งทีหลังได้ในป๊อปแก้ไข BM)
                 </p>
               </div>
             </div>
@@ -435,6 +464,7 @@ export function BMWizardDialog({
               } />
               <SummaryRow label="BM ID" value={<span className="font-mono text-xs">{bmId}</span>} />
               <SummaryRow label="กลุ่มสินค้า" value={<span>{groupName}</span>} />
+              <SummaryRow label="เจ้าของ default" value={<span>{owners.find((o) => String(o.id) === ownerUserId)?.nickname ?? "ไม่ระบุ"}</span>} />
               <SummaryRow label="บัญชีที่จะนำเข้า" value={<span className="font-mono">{selected.size} บัญชี</span>} />
             </div>
 
@@ -546,16 +576,16 @@ function ConnectionResultBanner({ result }: { result: TestResult }) {
 // BM List Section
 // ─────────────────────────────────────────────────────────────────
 
-export function BMSection() {
+export function BMSection({ owners, groups }: { owners: OwnerOption[]; groups: GroupOption[] }) {
   const utils = trpc.useUtils();
   const bmListQuery = trpc.bm.list.useQuery();
-  const groupsQuery = trpc.groups.list.useQuery();
   const [, navigate] = useLocation();
   const [wizardOpen, setWizardOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [editBm, setEditBm] = useState<any | null>(null);
 
   const groupName = (id: number) =>
-    groupsQuery.data?.find((g: any) => g.id === id)?.groupName ?? `#${id}`;
+    groups.find((g) => g.id === id)?.groupName ?? `#${id}`;
 
   const syncMutation = trpc.bm.sync.useMutation({
     onSuccess: async (data: any) => {
@@ -609,6 +639,7 @@ export function BMSection() {
                 <TableHead>BM ID</TableHead>
                 <TableHead>กลุ่มสินค้า</TableHead>
                 <TableHead className="text-right">บัญชี (active/ถอด)</TableHead>
+                <TableHead>Token</TableHead>
                 <TableHead>สถานะ</TableHead>
                 <TableHead>Sync ล่าสุด</TableHead>
                 <TableHead></TableHead>
@@ -617,13 +648,13 @@ export function BMSection() {
             <TableBody>
               {bmListQuery.isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-20 text-center">
+                  <TableCell colSpan={8} className="h-20 text-center">
                     <Loader2 className="h-4 w-4 animate-spin mx-auto" />
                   </TableCell>
                 </TableRow>
               ) : bms.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
+                  <TableCell colSpan={8} className="h-24 text-center">
                     <Building2 className="h-7 w-7 mx-auto text-muted-foreground/50 mb-1.5" />
                     <p className="text-sm text-muted-foreground">ยังไม่มี BM ที่เชื่อมไว้</p>
                   </TableCell>
@@ -643,6 +674,9 @@ export function BMSection() {
                       {bm.removedCount > 0 ? (
                         <span className="text-muted-foreground"> / {bm.removedCount}</span>
                       ) : null}
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <BmTokenCell bmId={bm.id} preview={bm.tokenPreview} />
                     </TableCell>
                     <TableCell>
                       <StatusPill status={bm.status} />
@@ -667,6 +701,14 @@ export function BMSection() {
                       <Button
                         size="sm"
                         variant="ghost"
+                        title="แก้ไข BM"
+                        onClick={() => setEditBm(bm)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
                         className="text-destructive"
                         title="ลบ BM"
                         onClick={() => setConfirmDeleteId(bm.id)}
@@ -682,7 +724,14 @@ export function BMSection() {
         </div>
       </CardContent>
 
-      <BMWizardDialog open={wizardOpen} onOpenChange={setWizardOpen} />
+      <BMWizardDialog open={wizardOpen} onOpenChange={setWizardOpen} owners={owners} groups={groups} />
+
+      <BMEditDialog
+        bm={editBm}
+        owners={owners}
+        groups={groups}
+        onClose={() => setEditBm(null)}
+      />
 
       {/* Delete confirmation */}
       <Dialog
@@ -715,5 +764,158 @@ export function BMSection() {
         </DialogContent>
       </Dialog>
     </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// BmTokenCell — แสดง token ย่อ + ปุ่ม Copy (ดึง token เต็มผ่าน bm.getToken ตอนกด)
+// ─────────────────────────────────────────────────────────────────
+function BmTokenCell({ bmId, preview }: { bmId: number; preview: string }) {
+  const getToken = trpc.bm.getToken.useMutation({
+    onSuccess: (data) => {
+      navigator.clipboard.writeText(data.token);
+      toast.success("คัดลอก Token เต็มแล้ว");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="font-mono text-xs text-muted-foreground">{preview || "•••••"}</span>
+      <Button
+        size="icon"
+        variant="ghost"
+        className="h-6 w-6"
+        title="คัดลอก Token เต็ม"
+        disabled={getToken.isPending}
+        onClick={() => getToken.mutate({ id: bmId })}
+      >
+        {getToken.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Copy className="h-3 w-3" />}
+      </Button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// BMEditDialog — ป๊อปแก้ไข BM (ชื่อ / Token / กลุ่มสินค้า / เจ้าของ default)
+// ─────────────────────────────────────────────────────────────────
+function BMEditDialog({
+  bm,
+  owners,
+  groups,
+  onClose,
+}: {
+  bm: any | null;
+  owners: OwnerOption[];
+  groups: GroupOption[];
+  onClose: () => void;
+}) {
+  const utils = trpc.useUtils();
+  const [name, setName] = useState("");
+  const [groupId, setGroupId] = useState<string>("");
+  const [ownerId, setOwnerId] = useState<string>("");
+  const [newToken, setNewToken] = useState("");
+
+  useEffect(() => {
+    if (bm) {
+      setName(bm.name ?? "");
+      setGroupId(bm.accountGroupId != null ? String(bm.accountGroupId) : "");
+      setOwnerId(bm.defaultOwnerUserId != null ? String(bm.defaultOwnerUserId) : "");
+      setNewToken("");
+    }
+  }, [bm]);
+
+  const update = trpc.bm.update.useMutation({
+    onSuccess: async () => {
+      toast.success("อัปเดต BM สำเร็จ");
+      await utils.bm.list.invalidate();
+      await utils.accounts.list.invalidate();
+      onClose();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open={bm !== null} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Pencil className="h-4 w-4" />
+            แก้ไข Business Manager
+          </DialogTitle>
+          <DialogDescription>
+            {bm ? <span className="font-mono text-xs">BM ID: {bm.bmId}</span> : null}
+          </DialogDescription>
+        </DialogHeader>
+        {bm && (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>ชื่อ BM</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>กลุ่มสินค้า</Label>
+                <Select value={groupId || BM_NONE} onValueChange={(v) => setGroupId(v === BM_NONE ? "" : v)}>
+                  <SelectTrigger><SelectValue placeholder="เลือกกลุ่ม" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={BM_NONE}>ไม่ระบุ</SelectItem>
+                    {groups.map((g) => (
+                      <SelectItem key={g.id} value={String(g.id)}>{g.groupName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>เจ้าของ default</Label>
+                <Select value={ownerId || BM_NONE} onValueChange={(v) => setOwnerId(v === BM_NONE ? "" : v)}>
+                  <SelectTrigger><SelectValue placeholder="เลือกเจ้าของ" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={BM_NONE}>ไม่ระบุ</SelectItem>
+                    {owners.map((o) => (
+                      <SelectItem key={o.id} value={String(o.id)}>{o.nickname}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>System User Token ใหม่ (ปล่อยว่างถ้าไม่เปลี่ยน)</Label>
+              <Input
+                type="password"
+                placeholder="ปล่อยว่างเพื่อคงค่าเดิม"
+                value={newToken}
+                onChange={(e) => setNewToken(e.target.value)}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                ใช้เมื่อ Token หมดอายุ — เปลี่ยนใหม่โดยไม่ต้องลบ BM (จะถูกเข้ารหัสก่อนบันทึก)
+              </p>
+            </div>
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>ยกเลิก</Button>
+          <Button
+            disabled={update.isPending}
+            onClick={() => {
+              if (!bm) return;
+              if (newToken.trim() && newToken.trim().length < 20) {
+                toast.error("Token ใหม่สั้นเกินไป");
+                return;
+              }
+              update.mutate({
+                id: bm.id,
+                name: name.trim() || undefined,
+                accountGroupId: groupId ? Number(groupId) : undefined,
+                defaultOwnerUserId: ownerId ? Number(ownerId) : null,
+                ...(newToken.trim() ? { accessToken: newToken.trim() } : {}),
+              });
+            }}
+          >
+            {update.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+            บันทึก
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

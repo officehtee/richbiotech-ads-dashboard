@@ -157,6 +157,15 @@ export async function listUsersInWorkspace(tenantId: number): Promise<User[]> {
   return [...owner, ...members];
 }
 
+/**
+ * Prompt A: รายชื่อผู้ใช้ที่เลือกเป็น "เจ้าของบัญชี" ได้ — ตัด role=pending ออก
+ * ใช้กับ dropdown เจ้าของทุกที่ (ป๊อปเพิ่มบัญชี / เชื่อม BM / แก้ไขบัญชี / แก้ไข BM)
+ */
+export async function listSelectableOwners(tenantId: number): Promise<User[]> {
+  const all = await listUsersInWorkspace(tenantId);
+  return all.filter((u) => u.role !== "pending");
+}
+
 export async function setUserRole(
   userId: number,
   role: User["role"],
@@ -270,6 +279,69 @@ export async function getAdAccountsByUser(tenantId: number): Promise<AdAccount[]
     .from(adAccounts)
     .where(eq(adAccounts.userId, tenantId))
     .orderBy(asc(adAccounts.sortOrder), asc(adAccounts.id));
+}
+
+/**
+ * Prompt A: รายการ ad account พร้อมข้อมูลประกอบสำหรับตารางจัดการบัญชี
+ * JOIN: users (ownerUserId→nickname), accountGroupMembers+accountGroups (groupName),
+ *       businessManagers (status ของบัญชีจาก BM)
+ * หมายเหตุ: ทำ in-memory join เพื่อความชัดเจนและรองรับ 1 บัญชีอยู่หลายกลุ่ม (ใช้กลุ่มแรก)
+ */
+export type EnrichedAdAccount = AdAccount & {
+  ownerNickname: string | null;
+  groupId: number | null;
+  groupName: string | null;
+  effectiveStatus: "active" | "token_expired" | "blocked" | "revoked";
+  statusSource: "single" | "bm";
+};
+
+export async function getAdAccountsEnriched(
+  tenantId: number,
+): Promise<EnrichedAdAccount[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const accounts = await db
+    .select()
+    .from(adAccounts)
+    .where(eq(adAccounts.userId, tenantId))
+    .orderBy(asc(adAccounts.sortOrder), asc(adAccounts.id));
+  if (accounts.length === 0) return [];
+
+  // owner nickname map
+  const workspaceUsers = await listUsersInWorkspace(tenantId);
+  const userMap = new Map<number, User>(workspaceUsers.map((u) => [u.id, u]));
+
+  // group membership map (account -> first group)
+  const members = await getAllGroupMembersForUser(tenantId);
+  const groups = await getAccountGroupsByUser(tenantId);
+  const groupMap = new Map<number, AccountGroup>(groups.map((g) => [g.id, g]));
+  const acctToGroup = new Map<number, number>();
+  for (const m of members) {
+    if (!acctToGroup.has(m.accountId)) acctToGroup.set(m.accountId, m.groupId);
+  }
+
+  // BM status map (businessManagers.id -> status)
+  const bms = await listBusinessManagers(tenantId);
+  const bmStatusMap = new Map<number, BusinessManager["status"]>(
+    bms.map((b) => [b.id, b.status]),
+  );
+
+  return accounts.map((a) => {
+    const gId = acctToGroup.get(a.id) ?? null;
+    const owner = a.ownerUserId != null ? userMap.get(a.ownerUserId) : undefined;
+    const fromBm = a.bmId != null;
+    const effectiveStatus = fromBm
+      ? (bmStatusMap.get(a.bmId as number) ?? "active")
+      : a.tokenStatus;
+    return {
+      ...a,
+      ownerNickname: owner?.nickname ?? owner?.name ?? null,
+      groupId: gId,
+      groupName: gId != null ? (groupMap.get(gId)?.groupName ?? null) : null,
+      effectiveStatus,
+      statusSource: fromBm ? ("bm" as const) : ("single" as const),
+    };
+  });
 }
 
 export async function getAdAccountById(id: number, tenantId: number) {
@@ -896,10 +968,15 @@ export async function insertBusinessManager(input: InsertBusinessManager): Promi
 export async function updateBusinessManager(
   id: number,
   patch: Partial<InsertBusinessManager>,
+  userId?: number,
 ): Promise<void> {
   const db = await getDb();
   if (!db) return;
-  await db.update(businessManagers).set(patch).where(eq(businessManagers.id, id));
+  const where =
+    userId !== undefined
+      ? and(eq(businessManagers.id, id), eq(businessManagers.userId, userId))
+      : eq(businessManagers.id, id);
+  await db.update(businessManagers).set(patch).where(where);
 }
 
 export async function deleteBusinessManager(id: number, userId: number): Promise<void> {
@@ -1028,6 +1105,40 @@ export async function ensureAccountGroupMember(
   const db = await getDb();
   if (!db) return;
   await db.insert(accountGroupMembers).values({ groupId, accountId: accountDbId });
+}
+
+/**
+ * Prompt A: ย้ายบัญชีไปกลุ่มสินค้าใหม่ — ลบสมาชิกเดิมของบัญชีใน workspace แล้วใส่กลุ่มใหม่
+ * targetGroupId == null → ถอดออกจากทุกกลุ่ม (ไม่อยู่กลุ่มใด)
+ * จำกัดเฉพาะกลุ่มของ tenant นี้เท่านั้น (tenant isolation)
+ */
+export async function reassignAccountGroup(
+  tenantId: number,
+  accountDbId: number,
+  targetGroupId: number | null,
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const groups = await getAccountGroupsByUser(tenantId);
+  const groupIds = groups.map((g) => g.id);
+  if (groupIds.length === 0) {
+    if (targetGroupId != null) {
+      await db.insert(accountGroupMembers).values({ groupId: targetGroupId, accountId: accountDbId });
+    }
+    return;
+  }
+  // ลบ membership ของบัญชีนี้เฉพาะในกลุ่มของ tenant
+  await db
+    .delete(accountGroupMembers)
+    .where(
+      and(
+        eq(accountGroupMembers.accountId, accountDbId),
+        inArray(accountGroupMembers.groupId, groupIds),
+      ),
+    );
+  if (targetGroupId != null && groupIds.includes(targetGroupId)) {
+    await db.insert(accountGroupMembers).values({ groupId: targetGroupId, accountId: accountDbId });
+  }
 }
 
 

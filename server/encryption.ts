@@ -72,3 +72,13 @@ export function maskToken(token: string): string {
   if (token.length <= 8) return "****";
   return `****${token.slice(-4)}`;
 }
+
+/**
+ * Prompt A: แสดง token แบบย่อบนจอ — 8 ตัวแรก + "..." (ไม่เปิดเผยตัวเต็ม)
+ * ใช้ในคอลัมน์ Token ของตารางบัญชีย่อย/BM
+ */
+export function previewTokenPrefix(token: string): string {
+  if (!token) return "";
+  if (token.length <= 8) return `${token}...`;
+  return `${token.slice(0, 8)}...`;
+}
