@@ -784,3 +784,12 @@
 - [x] คง selectableOwners เดิมไว้ (หน้าจัดการบัญชียังใช้)
 - [x] เพิ่ม vitest ownerOptions 5 case (owner/staff/content เรียกได้ + ตัด pending + id/nickname เท่านั้น + fallback)
 - [x] vitest 466/466 ผ่าน, TypeScript clean, build สำเร็จ
+
+## Prompt E: คอลัมน์เจ้าของในตาราง BM + propagate เจ้าของ BM ลงบัญชีย่อย (ตัวเลือก A)
+- [x] db.ts — เพิ่ม helper setOwnerForBmAccounts(bmId, tid, ownerUserId) bulk update adAccounts.ownerUserId ตาม bmId
+- [x] routers.ts bm.update — เมื่อแก้ defaultOwnerUserId ให้ทับ ownerUserId บัญชีย่อยทุกตัวที่ผูก BM (A)
+- [x] routers.ts bm.create — linkedExisting ให้ทับ ownerUserId ด้วย (สอดคล้อง A)
+- [x] bmSync.ts — existingCount ให้ทับ ownerUserId = bm.defaultOwnerUserId ด้วย
+- [x] BMSection.tsx — เพิ่มคอลัมน์ "เจ้าของ" หลัง BM ID + colSpan 8→9
+- [x] เพิ่ม vitest 4 case (bm.update propagate/null/no-touch + bm.create linkedExisting overwrite)
+- [x] vitest 470/470 ผ่าน, TypeScript clean, build สำเร็จ

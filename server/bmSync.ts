@@ -15,6 +15,7 @@
  */
 import {
   createAdAccount,
+  updateAdAccount,
   ensureAccountGroupMember,
   findAdAccountByMetaId,
   insertBmDiscoveryLog,
@@ -114,6 +115,10 @@ export async function syncOneBusinessManager(
       dbAcct = { id: acctId } as any;
       newCount += 1;
     } else {
+      // Prompt E (ตัวเลือก A): บัญชีเดิมก็ทับเจ้าของตาม default owner ของ BM
+      await updateAdAccount((dbAcct as any).id, tenantId, {
+        ownerUserId: bm.defaultOwnerUserId ?? null,
+      });
       existingCount += 1;
     }
 

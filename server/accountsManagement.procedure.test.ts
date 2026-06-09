@@ -198,6 +198,13 @@ vi.mock("./db", async () => {
       const a = store.accounts.find((x) => x.id === id && x.userId === tid);
       if (a) Object.assign(a, patch);
     }),
+    setOwnerForBmAccounts: vi.fn(
+      async (bmDbId: number, tid: number, ownerUserId: number | null) => {
+        for (const a of store.accounts) {
+          if (a.bmId === bmDbId && a.userId === tid) a.ownerUserId = ownerUserId;
+        }
+      },
+    ),
     deleteAdAccount: vi.fn(async () => undefined),
     ensureAccountGroupMember: vi.fn(async (groupId: number, accountId: number) => {
       if (!store.groupMembers.some((m) => m.groupId === groupId && m.accountId === accountId))
@@ -521,5 +528,48 @@ describe("bm.update", () => {
     await caller.bm.update({ id: 1, name: "เปลี่ยนแค่ชื่อ" });
     const b = store.bms.find((x) => x.id === 1)!;
     expect(b.accessTokenEncrypted).toBe("ENC(BM_TOKEN_REAL)");
+  });
+
+  // Prompt E (ตัวเลือก A): แก้ default owner → ทับ ownerUserId บัญชีย่อยทุกตัว
+  it("Prompt E: เปลี่ยน defaultOwnerUserId → ทับ ownerUserId บัญชีย่อยที่ผูก BM", async () => {
+    const caller = appRouter.createCaller(makeCtx("owner", 10));
+    // ก่อนแก้: บัญชี 101 (bmId=1) มี ownerUserId=21
+    expect(store.accounts.find((a) => a.id === 101)!.ownerUserId).toBe(21);
+    await caller.bm.update({ id: 1, defaultOwnerUserId: 20 });
+    // หลังแก้: บัญชีย่อยทุกตัวของ BM 1 ต้องเป็น 20
+    const subs = store.accounts.filter((a) => a.bmId === 1);
+    expect(subs.length).toBeGreaterThan(0);
+    expect(subs.every((s) => s.ownerUserId === 20)).toBe(true);
+  });
+
+  it("Prompt E: ล้าง defaultOwnerUserId (null) → บัญชีย่อย ownerUserId = null", async () => {
+    const caller = appRouter.createCaller(makeCtx("owner", 10));
+    await caller.bm.update({ id: 1, defaultOwnerUserId: null });
+    const subs = store.accounts.filter((a) => a.bmId === 1);
+    expect(subs.every((s) => s.ownerUserId === null)).toBe(true);
+  });
+
+  it("Prompt E: ไม่ส่ง defaultOwnerUserId → ไม่แตะ ownerUserId บัญชีย่อย", async () => {
+    const caller = appRouter.createCaller(makeCtx("owner", 10));
+    await caller.bm.update({ id: 1, name: "แก้แค่ชื่อ" });
+    expect(store.accounts.find((a) => a.id === 101)!.ownerUserId).toBe(21);
+  });
+});
+
+describe("bm.create — Prompt E: บัญชีย่อยที่มีอยู่แล้วถูกทับเจ้าของ", () => {
+  it("linkedExisting ทับ ownerUserId ตาม default ของ BM", async () => {
+    const caller = appRouter.createCaller(makeCtx("owner", 10));
+    // act_222 (id=101) มีอยู่แล้ว ownerUserId=21 → สร้าง BM ใหม่ที่ครอบบัญชีนี้
+    await caller.bm.create({
+      bmId: "999000",
+      name: "BM ครอบบัญชีเดิม",
+      accessToken: "BM_NEW_TOKEN_1234567890",
+      accountGroupId: 5,
+      ownerUserId: 20,
+      selectedAccounts: [
+        { bmAdAccountId: "act_222", name: "บัญชีจาก BM", ownership: "owned", accountStatus: 1 },
+      ],
+    });
+    expect(store.accounts.find((a) => a.adAccountId === "act_222")!.ownerUserId).toBe(20);
   });
 });

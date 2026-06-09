@@ -105,6 +105,7 @@ import {
   upsertScaleSettings,
   listBusinessManagers,
   getBusinessManagerById,
+  setOwnerForBmAccounts,
   findBusinessManagerByBmId,
   insertBusinessManager,
   updateBusinessManager,
@@ -648,6 +649,12 @@ export const appRouter = router({
             acct = { id: acctId } as any;
             createdAccounts += 1;
           } else {
+            // Prompt E (ตัวเลือก A): บัญชีเดิมก็ทับเจ้าของตาม default ของ BM
+            if (input.ownerUserId !== undefined) {
+              await updateAdAccount((acct as any).id, tid, {
+                ownerUserId: input.ownerUserId ?? null,
+              });
+            }
             linkedExisting += 1;
           }
 
@@ -796,6 +803,10 @@ export const appRouter = router({
           patch.accessTokenEncrypted = encryptToken(input.accessToken);
         }
         await updateBusinessManager(input.id, patch, tid);
+        // Prompt E (ตัวเลือก A): ถ้าแก้ default owner → ทับ ownerUserId ของบัญชีย่อยทุกตัวที่ผูก BM นี้
+        if (input.defaultOwnerUserId !== undefined) {
+          await setOwnerForBmAccounts(input.id, tid, input.defaultOwnerUserId ?? null);
+        }
         return { ok: true };
       }),
 

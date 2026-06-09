@@ -376,6 +376,24 @@ export async function updateAdAccount(
     .where(and(eq(adAccounts.id, id), eq(adAccounts.userId, tenantId)));
 }
 
+/**
+ * Prompt E (ตัวเลือก A): ตั้งเจ้าของให้บัญชีย่อยทุกตัวที่ผูกกับ BM (ทับของเดิม)
+ * อัปเดต adAccounts.ownerUserId ของทุกบัญชีที่ bmId = bmDbId ภายใน tenant เดียวกัน
+ * คืนจำนวนแถวที่อัปเดต (best-effort; ไม่ทุกไดรเวอร์รองรับ rowsAffected)
+ */
+export async function setOwnerForBmAccounts(
+  bmDbId: number,
+  tenantId: number,
+  ownerUserId: number | null,
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(adAccounts)
+    .set({ ownerUserId })
+    .where(and(eq(adAccounts.bmId, bmDbId), eq(adAccounts.userId, tenantId)));
+}
+
 /* ---------- Prompt B: standalone account token sync ---------- */
 
 /**

@@ -587,6 +587,10 @@ export function BMSection({ owners, groups }: { owners: OwnerOption[]; groups: G
   const groupName = (id: number) =>
     groups.find((g) => g.id === id)?.groupName ?? `#${id}`;
 
+  // Prompt E: ชื่อเจ้าของ default ของ BM (จาก defaultOwnerUserId)
+  const ownerName = (id: number | null | undefined) =>
+    id == null ? "—" : owners.find((o) => o.id === id)?.nickname ?? `#${id}`;
+
   const syncMutation = trpc.bm.sync.useMutation({
     onSuccess: async (data: any) => {
       if (data?.ok === false && data?.error) {
@@ -637,6 +641,7 @@ export function BMSection({ owners, groups }: { owners: OwnerOption[]; groups: G
               <TableRow>
                 <TableHead>ชื่อ BM</TableHead>
                 <TableHead>BM ID</TableHead>
+                <TableHead>เจ้าของ</TableHead>
                 <TableHead>กลุ่มสินค้า</TableHead>
                 <TableHead className="text-right">บัญชี (active/ถอด)</TableHead>
                 <TableHead>Token</TableHead>
@@ -648,13 +653,13 @@ export function BMSection({ owners, groups }: { owners: OwnerOption[]; groups: G
             <TableBody>
               {bmListQuery.isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-20 text-center">
+                  <TableCell colSpan={9} className="h-20 text-center">
                     <Loader2 className="h-4 w-4 animate-spin mx-auto" />
                   </TableCell>
                 </TableRow>
               ) : bms.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">
+                  <TableCell colSpan={9} className="h-24 text-center">
                     <Building2 className="h-7 w-7 mx-auto text-muted-foreground/50 mb-1.5" />
                     <p className="text-sm text-muted-foreground">ยังไม่มี BM ที่เชื่อมไว้</p>
                   </TableCell>
@@ -668,6 +673,7 @@ export function BMSection({ owners, groups }: { owners: OwnerOption[]; groups: G
                   >
                     <TableCell className="font-medium">{bm.name}</TableCell>
                     <TableCell className="font-mono text-xs">{bm.bmId}</TableCell>
+                    <TableCell>{ownerName(bm.defaultOwnerUserId)}</TableCell>
                     <TableCell>{groupName(bm.accountGroupId)}</TableCell>
                     <TableCell className="text-right font-mono text-xs">
                       {bm.accountCount}
