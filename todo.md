@@ -818,3 +818,16 @@
 - [x] backend: เพิ่ม syncLog insert ใน Alerts handler (checkAlerts scheduled job) jobType=alerts
 - [x] frontend: เปลี่ยนชื่อปุ่ม "เช็ก Token เดี๋ยวนี้" → "ตรวจสอบ Token บัญชีเดี่ยว" + ปรับ tooltip
 - [x] vitest ครอบ BM/Alerts status logic + tsc clean + test ผ่าน 493 เคส
+
+
+## Prompt I: หน้า "บัญชีของฉัน" สำหรับ staff (เฟส 1.6)
+
+- [x] backend: accounts.myAccounts (protectedProcedure) — กรอง ownerUserId=ctx.user.id + tenant ผ่าน getMyAccountsEnriched, ตัด accessToken ออก
+- [x] backend: accounts.updateMyAccount (protectedProcedure) — รับแค่ id/paymentType/limitAmount, เช็ค ownerUserId===ctx.user.id + tenant ก่อนแก้ ไม่ใช่ → FORBIDDEN
+- [x] backend: ไม่แตะ accounts.update เดิม (ownerProcedure คงไว้)
+- [x] frontend: สร้าง MyAccounts.tsx — ตาราง 6 คอลัมน์ (ชื่อบัญชี/Ad ID/กลุ่มสินค้า/การชำระเงิน*/Limit*/สถานะ), inline edit 2 field
+- [x] frontend: ตัวกรองกลุ่มสินค้า + กรองการชำระเงิน + เรียง Limit (null อยู่ท้าย) — ทำงานร่วมกันได้
+- [x] frontend: empty state + ไม่มี Token/ปุ่มเพิ่ม-ลบ-BM/คอลัมน์เจ้าของ
+- [x] sidebar: เพิ่มเมนู "บัญชีของฉัน" path /my-accounts roles:["staff"]
+- [x] route + frontend guard: role อื่นเข้า URL ตรง → ไม่มีสิทธิ์ (วางหลัง hooks ทั้งหมด)
+- [x] vitest ครอบ security (myAccounts กรองถูก, updateMyAccount reject บัญชีคนอื่น) 9 เคส + tsc clean + test ผ่าน 502 เคส

@@ -356,6 +356,72 @@ export async function getAdAccountById(id: number, tenantId: number) {
   return r[0];
 }
 
+/**
+ * Prompt I (เฟส 1.6): บัญชีของพนักงาน (staff) — กรองตาม ownerUserId ภายใน tenant เดียวกัน
+ * ต่างจาก getAdAccountsEnriched: รองรับ 1 บัญชีอยู่หลายกลุ่ม (คืน groupNames เป็น array) + ตัด accessToken ออก
+ * ยังคง 1 บัญชี = 1 แถว (ไม่ join ตรง — ทำ in-memory join กันแถวซ้ำ)
+ */
+export type MyAccount = {
+  id: number;
+  nickname: string | null;
+  adAccountId: string;
+  bmId: number | null;
+  paymentType: "card" | "prepaid" | null;
+  limitAmount: number | null;
+  groupNames: string[];
+  effectiveStatus: "active" | "token_expired" | "blocked" | "revoked";
+  statusSource: "single" | "bm";
+};
+export async function getMyAccountsEnriched(
+  tenantId: number,
+  ownerUserId: number,
+): Promise<MyAccount[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const accounts = await db
+    .select()
+    .from(adAccounts)
+    .where(and(eq(adAccounts.userId, tenantId), eq(adAccounts.ownerUserId, ownerUserId)))
+    .orderBy(asc(adAccounts.sortOrder), asc(adAccounts.id));
+  if (accounts.length === 0) return [];
+  // group membership (account -> all groups)
+  const members = await getAllGroupMembersForUser(tenantId);
+  const groups = await getAccountGroupsByUser(tenantId);
+  const groupMap = new Map<number, AccountGroup>(groups.map((g) => [g.id, g]));
+  const acctToGroups = new Map<number, number[]>();
+  for (const m of members) {
+    const arr = acctToGroups.get(m.accountId) ?? [];
+    if (!arr.includes(m.groupId)) arr.push(m.groupId);
+    acctToGroups.set(m.accountId, arr);
+  }
+  // BM status map
+  const bms = await listBusinessManagers(tenantId);
+  const bmStatusMap = new Map<number, BusinessManager["status"]>(
+    bms.map((b) => [b.id, b.status]),
+  );
+  return accounts.map((a) => {
+    const gIds = acctToGroups.get(a.id) ?? [];
+    const groupNames = gIds
+      .map((gid) => groupMap.get(gid)?.groupName)
+      .filter((n): n is string => !!n);
+    const fromBm = a.bmId != null;
+    const effectiveStatus = fromBm
+      ? (bmStatusMap.get(a.bmId as number) ?? "active")
+      : a.tokenStatus;
+    return {
+      id: a.id,
+      nickname: a.nickname ?? null,
+      adAccountId: a.adAccountId,
+      bmId: a.bmId ?? null,
+      paymentType: a.paymentType ?? null,
+      limitAmount: a.limitAmount ?? null,
+      groupNames,
+      effectiveStatus,
+      statusSource: fromBm ? ("bm" as const) : ("single" as const),
+    };
+  });
+}
+
 export async function createAdAccount(input: InsertAdAccount): Promise<number> {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");

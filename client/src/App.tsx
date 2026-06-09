@@ -16,6 +16,7 @@ import CommissionPersonal from "./pages/CommissionPersonal";
 import CommissionSettings from "./pages/CommissionSettings";
 import CommissionTable from "./pages/CommissionTable";
 import GroupOverview from "./pages/GroupOverview";
+import MyAccounts from "./pages/MyAccounts";
 import GroupsSettings from "./pages/GroupsSettings";
 import HelpCenter from "./pages/HelpCenter";
 import HubDashboard from "./pages/HubDashboard";
@@ -162,6 +163,11 @@ function Router() {
       <Route path="/accounts">
         <ProtectedShell>
           <AccountsSettings />
+        </ProtectedShell>
+      </Route>
+      <Route path="/my-accounts">
+        <ProtectedShell>
+          <MyAccounts />
         </ProtectedShell>
       </Route>
       <Route path="/groups">

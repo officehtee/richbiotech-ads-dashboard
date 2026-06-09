@@ -69,6 +69,7 @@ import {
   getAdAccountById,
   getAdAccountsByUser,
   getAdAccountsEnriched,
+  getMyAccountsEnriched,
   listSelectableOwners,
   getAllGroupMembersForUser,
   getCommissionLock,
@@ -544,6 +545,43 @@ export const appRouter = router({
       }
       return summary;
     }),
+    /**
+     * Prompt I (เฟส 1.6): หน้า "บัญชีของฉัน" สำหรับพนักงาน (staff)
+     * กรองเฉพาะบัญชีที่ ownerUserId === ctx.user.id ภายใน tenant เดียวกัน
+     * ไม่ส่ง accessToken กลับไปฝั่ง client เด็ดขาด
+     */
+    myAccounts: protectedProcedure.query(async ({ ctx }) => {
+      const tid = await tenantId(ctx);
+      return getMyAccountsEnriched(tid, ctx.user.id);
+    }),
+    /**
+     * Prompt I: แก้เฉพาะ "การชำระเงิน" + "Limit" ของบัญชีตัวเองเท่านั้น
+     * Security guard: ต้องเป็นเจ้าของ (ownerUserId === ctx.user.id) และอยู่ใน tenant เดียวกัน
+     * มิฉะนั้น FORBIDDEN — ไม่แตะ field อื่น (nickname/token/owner/group ฯลฯ)
+     */
+    updateMyAccount: protectedProcedure
+      .input(
+        z.object({
+          id: z.number().int().positive(),
+          paymentType: z.enum(["card", "prepaid"]).nullish(),
+          limitAmount: z.number().int().min(0).nullish(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        const target = await getAdAccountById(input.id, tid);
+        if (!target || target.ownerUserId !== ctx.user.id) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "คุณไม่มีสิทธิ์แก้ไขบัญชีนี้",
+          });
+        }
+        await updateAdAccount(input.id, tid, {
+          paymentType: input.paymentType ?? null,
+          limitAmount: input.limitAmount ?? null,
+        });
+        return { ok: true };
+      }),
   }),
 
   /* ----- Business Managers (Round 7.23 — Auto-Discovery) ----- */
