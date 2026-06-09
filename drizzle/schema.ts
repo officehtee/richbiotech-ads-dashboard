@@ -80,6 +80,8 @@ export const adAccounts = mysqlTable("adAccounts", {
 
 export type AdAccount = typeof adAccounts.$inferSelect;
 export type InsertAdAccount = typeof adAccounts.$inferInsert;
+/** สถานะ token ของบัญชีเดี่ยว (Prompt B) */
+export type AdAccountTokenStatus = "active" | "token_expired" | "blocked" | "revoked";
 
 /**
  * Account Groups — group accounts by product category

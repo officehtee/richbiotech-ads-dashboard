@@ -17,6 +17,7 @@ import {
 } from "../db";
 import { syncOneBusinessManager, shouldNotifyOwner, summarizeOutcome } from "../bmSync";
 import { syncAdInsightsForAccounts, dateOffsetString } from "../deepAdsSync";
+import { syncStandaloneAccounts } from "../standaloneSync";
 import { notifyOwner } from "./notification";
 import { sdk } from "./sdk";
 import { createContext } from "./context";
@@ -233,6 +234,26 @@ async function startServer() {
       return res.json({ ok: true, tenants: tenants.length, triggered: totalTriggered });
     } catch (e: any) {
       console.error("[checkAlerts] failed", e);
+      return res.status(500).json({
+        error: e?.message ?? String(e),
+        stack: e?.stack,
+        context: { url: req.url },
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Scheduled: เช็ก token บัญชีเดี่ยว (bmId=null) ทุก 6 ชม. (cron-only) — Prompt B
+  app.post("/api/scheduled/syncStandalone", async (req, res) => {
+    try {
+      const user = await sdk.authenticateRequest(req as any);
+      if (!user?.isCron) {
+        return res.status(403).json({ error: "cron-only" });
+      }
+      const summary = await syncStandaloneAccounts();
+      return res.json({ ok: true, ...summary });
+    } catch (e: any) {
+      console.error("[syncStandalone] failed", e);
       return res.status(500).json({
         error: e?.message ?? String(e),
         stack: e?.stack,

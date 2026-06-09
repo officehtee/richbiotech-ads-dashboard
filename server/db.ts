@@ -1,9 +1,10 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   AccountGroup,
   AccountGroupMember,
   AdAccount,
+  AdAccountTokenStatus,
   CommissionGrade,
   CommissionLock,
   CommissionStaff,
@@ -373,6 +374,42 @@ export async function updateAdAccount(
     .update(adAccounts)
     .set(patch)
     .where(and(eq(adAccounts.id, id), eq(adAccounts.userId, tenantId)));
+}
+
+/* ---------- Prompt B: standalone account token sync ---------- */
+
+/**
+ * อัปเดต tokenStatus ของบัญชีเดี่ยว (อ้างอิงด้วย id ตรง — cron รันข้าม tenant)
+ * ใช้โดย syncStandaloneAccounts เท่านั้น
+ */
+export async function updateAdAccountTokenStatus(
+  id: number,
+  status: AdAccountTokenStatus,
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(adAccounts).set({ tokenStatus: status }).where(eq(adAccounts.id, id));
+}
+
+/**
+ * ดึงบัญชีเดี่ยว (bmId IS NULL) ที่ isActive=true ของทุก tenant (global query)
+ * — ไม่กรองตาม tokenStatus เพื่อให้ token ที่เคยเสียถูกเช็กซ้ำได้เมื่อกลับมาใช้ได้
+ * — ใช้ใน scheduled job syncStandalone (คล้าย listAllActiveBusinessManagers)
+ */
+export async function listStandaloneActiveAccounts(): Promise<
+  Array<{ id: number; accessToken: string; adAccountId: string }>
+> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .select({
+      id: adAccounts.id,
+      accessToken: adAccounts.accessToken,
+      adAccountId: adAccounts.adAccountId,
+    })
+    .from(adAccounts)
+    .where(and(isNull(adAccounts.bmId), eq(adAccounts.isActive, true)));
+  return rows;
 }
 
 export async function deleteAdAccount(id: number, tenantId: number): Promise<void> {

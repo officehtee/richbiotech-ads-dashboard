@@ -742,3 +742,23 @@
 - [x] vitest accountsManagement.procedure.test.ts (15 tests): selectableOwners กรอง pending, accounts.list token mask, accounts.create/update owner+group, bm.create propagate, bm.getToken decrypt, bm.update re-encrypt
 - [x] vitest รวม 42 ไฟล์ / 430 tests ผ่าน
 - [x] typecheck (tsc) clean + production build ผ่าน
+
+
+## Phase B: sync Token บัญชีเดี่ยว (standalone)
+
+### B1. db helpers
+- [x] updateAdAccountTokenStatus(id, status) — อัปเดต adAccounts.tokenStatus (by id)
+- [x] listStandaloneActiveAccounts() — global ทุก tenant: bmId IS NULL + isActive=true คืน id+accessToken+adAccountId + AdAccountTokenStatus type
+
+### B2. standaloneSync.ts + endpoint
+- [x] syncStandaloneAccounts(): loop + testAdAccountToken + map + delay 300ms (ไม่ delay หลังตัวสุดท้าย) + try/catch ต่อบัญชี + progress log + summary
+- [x] mapCategoryToTokenStatus ครบ 10 category (null = คงสถานะเดิมสำหรับ rate_limit/network_error/unknown) + exhaustive default
+- [x] endpoint /api/scheduled/syncStandalone (cron-only, try/catch, JSON error)
+- [x] ไม่แตะ syncBM เดิม / ไม่แตะบัญชี BM (listStandaloneActiveAccounts กรอง bmId IS NULL)
+
+### B3. test
+- [x] standaloneSync.test.ts (14 tests): mapping 10 category + active/token_expired/blocked/revoked + transient คงสถานะเดิม + try/catch ต่อบัญชี + empty list
+- [x] vitest รวม 43 ไฟล์ / 444 tests ผ่าน + typecheck clean + production build ผ่าน
+
+### B4. deploy + cron
+- [ ] checkpoint → แจ้งให้ Deploy → manus-heartbeat create syncStandalone ทุก 6 ชม.
