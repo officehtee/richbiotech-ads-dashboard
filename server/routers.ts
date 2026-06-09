@@ -128,6 +128,8 @@ import {
   getAccountGroupMap,
   getLatestSyncedAt,
   upsertAdManualMetric,
+  updateCampaignQuality,
+  updateAdPostType,
   listSyncLogs,
   insertSyncLog,
 } from "./db";
@@ -1293,6 +1295,8 @@ export const appRouter = router({
             effectiveStatus: cs?.effectiveStatus ?? null,
             approvedAt: cs?.approvedAt ?? null,
             rejectedAt: cs?.rejectedAt ?? null,
+            // Phase 5: คุณภาพ ads ระดับแคมเปญ (จาก campaignStatus.quality)
+            campaignQuality: cs?.quality ?? null,
             isNoSpendRow: false as const,
           };
         });
@@ -1372,6 +1376,8 @@ export const appRouter = router({
               costPerMessage: null,
               purchaseRoas: null,
               previewCachedUrl: null,
+              // Phase 5: synthetic row ไม่มี adId จริง → postType = null
+              postType: null,
               pageName: acc?.pageName ?? null,
               syncedAt: cs.syncedAt,
               accountId: cs.accountId,
@@ -1403,6 +1409,8 @@ export const appRouter = router({
               effectiveStatus: cs.effectiveStatus ?? null,
               approvedAt: cs.approvedAt ?? null,
               rejectedAt: cs.rejectedAt ?? null,
+              // Phase 5: คุณภาพ ads ของแคมเปญ (จาก campaignStatus ตัวเดียวกับ synthetic row)
+              campaignQuality: cs.quality ?? null,
               isNoSpendRow: true as any,
             });
           }
@@ -1440,6 +1448,38 @@ export const appRouter = router({
           patch[input.field] = num;
         }
         await upsertAdManualMetric(patch as any);
+        return { ok: true };
+      }),
+    /**
+     * Phase 5: ตั้งค่า "คุณภาพ ads" ระดับแคมเปญ (staff แก้ได้ + tenant isolation)
+     * เก็บใน campaignStatus.quality — 1 ค่าต่อแคมเปญ ใช้ร่วมทุกแอด/ทุกวันในแคมเปญนั้น
+     */
+    updateCampaignQuality: protectedProcedure
+      .input(
+        z.object({
+          campaignId: z.string().min(1),
+          quality: z.enum(["angel", "rising", "testing", "tested"]).nullable(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        await updateCampaignQuality(tid, input.campaignId, input.quality);
+        return { ok: true };
+      }),
+    /**
+     * Phase 5: ตั้งค่า "ประเภทโพส" ระดับแอด (staff แก้ได้ + tenant isolation)
+     * เก็บใน adInsightsDaily.postType — propagate ทุกแถวของ adId
+     */
+    updateAdPostType: protectedProcedure
+      .input(
+        z.object({
+          adId: z.string().min(1),
+          postType: z.enum(["main", "support"]).nullable(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        await updateAdPostType(tid, input.adId, input.postType);
         return { ok: true };
       }),
     syncNow: ownerProcedure

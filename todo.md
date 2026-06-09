@@ -837,3 +837,23 @@
 - [x] เพิ่ม displayLimit local state ใน AccountRow ให้แสดงค่าทันทีตอน commit + sync ตาม prop ด้วย useEffect
 - [x] commitLimit/cancel/edit ใช้ displayLimit แทน prop a.limitAmount (ไม่ค้างค่าเดิม)
 - [x] tsc clean + vitest 502 tests ผ่าน
+
+## Phase 5 — คุณภาพ ads + ประเภทโพส (Ad Intelligence)
+- [x] Migrate: campaignStatus.quality (enum angel/rising/testing/tested, nullable)
+- [x] Migrate: adInsightsDaily.postType (enum main/support, nullable)
+- [x] db.ts: updateCampaignQuality (upsert ถ้าแถวยังไม่มี)
+- [x] db.ts: updateAdPostType (propagate ทุกแถวของ adId)
+- [x] db.ts: getDeepAdsRows เพิ่ม postType ใน SELECT
+- [x] db.ts: upsertCampaignStatus ไม่ทับ quality (ตรวจ updateSet)
+- [x] db.ts: upsertAdInsightsDaily ไม่ทับ postType (ตรวจ updateSet)
+- [x] routers.ts: enrich เพิ่ม campaignQuality จาก cs.quality
+- [x] routers.ts: synthetic rows เพิ่ม campaignQuality + postType:null
+- [x] routers.ts: deepAds.updateCampaignQuality (protectedProcedure + tenant)
+- [x] routers.ts: deepAds.updateAdPostType (protectedProcedure + tenant)
+- [x] FE: คอลัมน์ คุณภาพ ads (dropdown 4 ค่า) inline
+- [x] FE: คอลัมน์ ประเภทโพส (dropdown หลัก/รุม) inline
+- [x] FE: ไฮไลต์ชื่อแคมเปญตาม quality (isReject ก่อน)
+- [x] FE: optimistic update แคมเปญ (ทุกแถว campaignId) + แอด (ทุกแถว adId)
+- [x] FE: colSpan 10->12 (thead tier-1 + tfoot)
+- [x] FE: CSV เพิ่ม 2 คอลัมน์ (ค่าไทย)
+- [x] vitest ครอบ helper/synthetic rows + tsc ผ่าน

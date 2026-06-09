@@ -85,6 +85,13 @@
       "when": 1780965792623,
       "tag": "0011_unique_lady_vermin",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1780986119177,
+      "tag": "0012_public_lifeguard",
+      "breakpoints": true
     }
   ]
 }

@@ -1373,6 +1373,55 @@ export async function updatePageNameForAd(
 }
 
 /**
+ * Phase 5: ตั้งค่า postType (main/support) ให้ทุกแถวของ adId หนึ่ง
+ * propagate ทุกวันของ adId (เหมือน updatePageNameForAd) — ค่าเก็บใน DB ไม่ดึงจาก Meta
+ */
+export async function updateAdPostType(
+  userId: number,
+  adId: string,
+  postType: "main" | "support" | null,
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(adInsightsDaily)
+    .set({ postType })
+    .where(and(eq(adInsightsDaily.userId, userId), eq(adInsightsDaily.adId, adId)));
+}
+
+/**
+ * Phase 5: ตั้งค่า quality (คุณภาพ ads) ระดับแคมเปญ ใน campaignStatus
+ * ถ้ายังไม่มีแถวของ campaignId นั้น → upsert สร้างใหม่ (ไม่งั้น UPDATE ไม่โดนอะไร)
+ * ใช้ onDuplicateKeyUpdate set เฉพาะ quality (ไม่ทับ field สถานะอื่น)
+ */
+export async function updateCampaignQuality(
+  userId: number,
+  campaignId: string,
+  quality: "angel" | "rising" | "testing" | "tested" | null,
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  // หา accountId เดิม (ถ้ามีแถวอยู่แล้ว) เพื่อใช้ตอน insert fallback
+  const existing = await db
+    .select({ accountId: campaignStatus.accountId })
+    .from(campaignStatus)
+    .where(and(eq(campaignStatus.userId, userId), eq(campaignStatus.campaignId, campaignId)))
+    .limit(1);
+  if (existing.length > 0) {
+    await db
+      .update(campaignStatus)
+      .set({ quality })
+      .where(and(eq(campaignStatus.userId, userId), eq(campaignStatus.campaignId, campaignId)));
+    return;
+  }
+  // ยังไม่มีแถว → สร้างใหม่ (accountId = 0 เป็น placeholder; จะถูกเติมค่าจริงตอน sync รอบถัดไป)
+  await db
+    .insert(campaignStatus)
+    .values({ userId, accountId: 0, campaignId, quality })
+    .onDuplicateKeyUpdate({ set: { quality } });
+}
+
+/**
  * Round 7.48: คืน adId (distinct) ของบัญชีหนึ่งที่ pageName ยังเป็น NULL
  * ใช้ให้ sync ดึงชื่อเพจเฉพาะแอดที่ยังขาด (ไม่ผูกกับ preview freshness)
  */
@@ -1584,6 +1633,8 @@ export async function getDeepAdsRows(
       costPerMessage: adInsightsDaily.costPerMessage,
       purchaseRoas: adInsightsDaily.purchaseRoas,
       previewCachedUrl: adInsightsDaily.previewCachedUrl,
+      // Phase 5: ประเภทโพส (ระดับแอด) — main/support หรือ null
+      postType: adInsightsDaily.postType,
       // Round 7.48: fallback ชื่อเพจจากระดับบัญชี (adAccounts.pageName) เมื่อแถวยังไม่มี
       pageName: sql<string | null>`COALESCE(${adInsightsDaily.pageName}, ${adAccounts.pageName})`,
       syncedAt: adInsightsDaily.syncedAt,
@@ -1809,6 +1860,7 @@ export async function upsertCampaignStatus(
         rejectedAt: row.rejectedAt ?? null,
         rejectedExpired: row.rejectedExpired ?? false,
         syncedAt: new Date(),
+        // Phase 5: ห้ามใส่ quality ใน set นี้ — sync ไม่ควรทับค่าคุณภาพที่ผู้ใช้ตั้งไว้
       },
     });
 }

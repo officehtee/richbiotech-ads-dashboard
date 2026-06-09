@@ -420,6 +420,8 @@ export const adInsightsDaily = mysqlTable("adInsightsDaily", {
   campaignName: varchar("campaignName", { length: 512 }),
   groupId: int("groupId"), // FK → accountGroups.id (denormalized for fast filter)
   pageName: varchar("pageName", { length: 255 }),
+  // Phase 5: ประเภทโพส (ระดับแอด) — main=หลัก / support=รุม. เก็บใน DB, ไม่ดึงจาก Meta, propagate ทุกแถวของ adId
+  postType: mysqlEnum("postType", ["main", "support"]),
   date: varchar("date", { length: 10 }).notNull(), // YYYY-MM-DD
   spend: double("spend").default(0).notNull(),
   impressions: int("impressions").default(0).notNull(),
@@ -489,6 +491,8 @@ export const campaignStatus = mysqlTable("campaignStatus", {
   approvedAt: varchar("approvedAt", { length: 10 }), // YYYY-MM-DD
   rejectedAt: varchar("rejectedAt", { length: 10 }), // YYYY-MM-DD
   rejectedExpired: boolean("rejectedExpired").default(false).notNull(),
+  // Phase 5: คุณภาพ ads (ระดับแคมเปญ) — angel=นางฟ้า / rising=กำลังจะเป็นนางฟ้า / testing=กำลังเทส / tested=ผ่านการเทส. เก็บใน DB, ไม่ดึงจาก Meta
+  quality: mysqlEnum("quality", ["angel", "rising", "testing", "tested"]),
   syncedAt: timestamp("syncedAt").defaultNow().notNull(),
 }, (t) => [
   uniqueIndex("campaignStatus_userId_campaignId_unique").on(t.userId, t.campaignId),

@@ -139,6 +139,30 @@ export function isCampaignNew(
   return days >= 0 && days <= 3;
 }
 
+// ===== Phase 5: คุณภาพ ads (ระดับแคมเปญ) + ประเภทโพส (ระดับแอด) =====
+export type QualityKey = "angel" | "rising" | "testing" | "tested";
+export type PostTypeKey = "main" | "support";
+
+export const QUALITY_LABEL: Record<QualityKey, string> = {
+  angel: "นางฟ้า",
+  rising: "กำลังจะเป็นนางฟ้า",
+  testing: "กำลังเทส",
+  tested: "ผ่านการเทส",
+};
+
+export const POSTTYPE_LABEL: Record<PostTypeKey, string> = {
+  main: "หลัก",
+  support: "รุม",
+};
+
+// สีไฮไลต์ชื่อแคมเปญตามคุณภาพ (angel=เขียว / rising=ส้ม / testing=ฟ้า / tested=เหลือง)
+export const QUALITY_TEXT_CLASS: Record<QualityKey, string> = {
+  angel: "text-emerald-600 dark:text-emerald-400",
+  rising: "text-orange-500 dark:text-orange-400",
+  testing: "text-sky-600 dark:text-sky-400",
+  tested: "text-yellow-600 dark:text-yellow-400",
+};
+
 export default function AdIntelligence() {
   const { user } = useAuth();
   const isOwner =
@@ -169,15 +193,21 @@ export default function AdIntelligence() {
     [dateRange],
   );
 
-  const listQuery = trpc.deepAds.list.useQuery({
-    dateFrom,
-    dateTo,
-    search: search.trim() || undefined,
-    accountId: accountFilter === "all" ? undefined : parseInt(accountFilter, 10),
-    groupId: groupFilter === "all" ? undefined : parseInt(groupFilter, 10),
-    // Prompt D: ตัวกรองเจ้าของบัญชี
-    ownerUserId: ownerFilter === "all" ? undefined : parseInt(ownerFilter, 10),
-  });
+  // Phase 5: query key กลางที่ครบทุก field (รวม ownerUserId) — ใช้ร่วมกันทั้ง query + optimistic setData
+  // ไม่งั้น setData จะไม่โดน cache ที่ถูกตอนมี ownerFilter
+  const queryInput = useMemo(
+    () => ({
+      dateFrom,
+      dateTo,
+      search: search.trim() || undefined,
+      accountId: accountFilter === "all" ? undefined : parseInt(accountFilter, 10),
+      groupId: groupFilter === "all" ? undefined : parseInt(groupFilter, 10),
+      ownerUserId: ownerFilter === "all" ? undefined : parseInt(ownerFilter, 10),
+    }),
+    [dateFrom, dateTo, search, accountFilter, groupFilter, ownerFilter],
+  );
+
+  const listQuery = trpc.deepAds.list.useQuery(queryInput);
 
   // Round 7.32 / 7.41: แสดง "อัปเดตล่าสุด: HH:MM" (server cron sync ทุก 1 ชั่วโมง)
   const statusQuery = trpc.deepAds.syncStatus.useQuery(undefined, {
@@ -336,7 +366,9 @@ export default function AdIntelligence() {
         "ROAS เป้า",
         "Page",
         "Campaign",
+        "คุณภาพ ads",
         "Ad",
+        "ประเภทโพส",
         "ค่า ADS",
         "CTR%",
         "การเข้าถึง",
@@ -369,7 +401,9 @@ export default function AdIntelligence() {
           (r as any).roasTarget ?? "",
           r.pageName ?? "",
           r.campaignName ?? "",
+          QUALITY_LABEL[(r as any).campaignQuality as QualityKey] ?? "",
           r.adName ?? "",
+          POSTTYPE_LABEL[(r as any).postType as PostTypeKey] ?? "",
           r.spend ?? 0,
           r.ctr ?? 0,
           r.reach ?? 0,
@@ -402,22 +436,10 @@ export default function AdIntelligence() {
       // ยกเลิก query ที่กำลัง in-flight เพื่อไม่ให้ overwrite optimistic
       await utils.deepAds.list.cancel();
       // snapshot ค่าเดิมไว้ rollback
-      const prev = utils.deepAds.list.getData({
-        dateFrom,
-        dateTo,
-        search: search.trim() || undefined,
-        accountId: accountFilter === "all" ? undefined : parseInt(accountFilter, 10),
-        groupId: groupFilter === "all" ? undefined : parseInt(groupFilter, 10),
-      });
+      const prev = utils.deepAds.list.getData(queryInput);
       // อัพ cache ทันที
       utils.deepAds.list.setData(
-        {
-          dateFrom,
-          dateTo,
-          search: search.trim() || undefined,
-          accountId: accountFilter === "all" ? undefined : parseInt(accountFilter, 10),
-          groupId: groupFilter === "all" ? undefined : parseInt(groupFilter, 10),
-        },
+        queryInput,
         (old) => {
           if (!old) return old;
           return old.map((row) => {
@@ -444,21 +466,58 @@ export default function AdIntelligence() {
     onError: (e, _input, ctx) => {
       // revert กลับค่าเดิม
       if (ctx?.prev !== undefined) {
-        utils.deepAds.list.setData(
-          {
-            dateFrom,
-            dateTo,
-            search: search.trim() || undefined,
-            accountId: accountFilter === "all" ? undefined : parseInt(accountFilter, 10),
-            groupId: groupFilter === "all" ? undefined : parseInt(groupFilter, 10),
-          },
-          ctx.prev,
-        );
+        utils.deepAds.list.setData(queryInput, ctx.prev);
       }
       toast.error(`บันทึกล้มเหลว: ${e.message}`);
     },
     onSettled: () => {
       // sync กับ server เสมอหลัง mutation เสร็จ (ทั้ง success + error)
+      utils.deepAds.list.invalidate();
+    },
+  });
+
+  // Phase 5: optimistic update — คุณภาพ ads (ระดับแคมเปญ) → อัปเดตทุกแถวที่ campaignId เดียวกัน
+  const updateCampaignQuality = trpc.deepAds.updateCampaignQuality.useMutation({
+    onMutate: async (input) => {
+      await utils.deepAds.list.cancel();
+      const prev = utils.deepAds.list.getData(queryInput);
+      utils.deepAds.list.setData(queryInput, (old) => {
+        if (!old) return old;
+        return old.map((row) =>
+          String(row.campaignId) === String(input.campaignId)
+            ? { ...row, campaignQuality: input.quality }
+            : row,
+        );
+      });
+      return { prev };
+    },
+    onError: (e, _input, ctx) => {
+      if (ctx?.prev !== undefined) utils.deepAds.list.setData(queryInput, ctx.prev);
+      toast.error(`บันทึกล้มเหลว: ${e.message}`);
+    },
+    onSettled: () => {
+      utils.deepAds.list.invalidate();
+    },
+  });
+
+  // Phase 5: optimistic update — ประเภทโพส (ระดับแอด) → อัปเดตทุกแถวที่ adId เดียวกัน
+  const updateAdPostType = trpc.deepAds.updateAdPostType.useMutation({
+    onMutate: async (input) => {
+      await utils.deepAds.list.cancel();
+      const prev = utils.deepAds.list.getData(queryInput);
+      utils.deepAds.list.setData(queryInput, (old) => {
+        if (!old) return old;
+        return old.map((row) =>
+          row.adId === input.adId ? { ...row, postType: input.postType } : row,
+        );
+      });
+      return { prev };
+    },
+    onError: (e, _input, ctx) => {
+      if (ctx?.prev !== undefined) utils.deepAds.list.setData(queryInput, ctx.prev);
+      toast.error(`บันทึกล้มเหลว: ${e.message}`);
+    },
+    onSettled: () => {
       utils.deepAds.list.invalidate();
     },
   });
@@ -643,7 +702,7 @@ export default function AdIntelligence() {
               {/* Tier 1: column group headers */}
               <tr className="text-center text-[11px] uppercase tracking-wider text-muted-foreground">
                 <th
-                  colSpan={10}
+                  colSpan={12}
                   className="px-3 py-2 bg-muted/80 border-b border-r border-border font-semibold"
                 >
                   มิติ (Dimensions)
@@ -681,7 +740,10 @@ export default function AdIntelligence() {
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[100px]">Limit (บาท)</th>
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[100px]">ROAS เป้า</th>
                 <th className="px-4 py-3 whitespace-nowrap min-w-[140px]">Page</th>
-                <th className="px-4 py-3 whitespace-nowrap min-w-[320px] border-r border-border">Campaign</th>
+                <th className="px-4 py-3 whitespace-nowrap min-w-[320px]">Campaign</th>
+                {/* Phase 5: คุณภาพ ads (ระดับแคมเปญ) + ประเภทโพส (ระดับแอด) */}
+                <th className="px-4 py-3 whitespace-nowrap min-w-[150px]">คุณภาพ ads</th>
+                <th className="px-4 py-3 whitespace-nowrap min-w-[110px] border-r border-border">ประเภทโพส</th>
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[110px]">
                   <SortBtn k="spend" label="ค่า ADS" />
                 </th>
@@ -733,7 +795,7 @@ export default function AdIntelligence() {
               {listQuery.isLoading
                 ? Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i} className="border-t">
-                      <td colSpan={25} className="px-4 py-4">
+                      <td colSpan={27} className="px-4 py-4">
                         <Skeleton className="h-9 w-full" />
                       </td>
                     </tr>
@@ -742,7 +804,7 @@ export default function AdIntelligence() {
                   ? (
                     <tr>
                       <td
-                        colSpan={25}
+                        colSpan={27}
                         className="px-4 py-16 text-center text-sm text-muted-foreground"
                       >
                         ไม่มีข้อมูล — กดปุ่ม "Sync Now" เพื่อดึงจาก Meta หรือลองเลือกช่วงวันที่อื่น
@@ -877,14 +939,16 @@ export default function AdIntelligence() {
                           <td className="px-4 py-4 whitespace-nowrap border-t">
                             {r.pageName ?? "—"}
                           </td>
-                          <td className="px-4 py-4 border-t border-r border-border">
+                          <td className="px-4 py-4 border-t">
                             <div className="flex items-start gap-2">
                               <Tooltip>
                                 <TooltipTrigger
-                                  className={`text-left leading-snug flex-1 min-w-0 ${
+                                  className={`text-left leading-snug flex-1 min-w-0 font-medium ${
                                     isReject
                                       ? "text-red-600 dark:text-red-400 font-semibold"
-                                      : ""
+                                      : (r as any).campaignQuality
+                                        ? QUALITY_TEXT_CLASS[(r as any).campaignQuality as QualityKey]
+                                        : ""
                                   }`}
                                 >
                                   {r.campaignName ?? "—"}
@@ -931,6 +995,60 @@ export default function AdIntelligence() {
                                 </span>
                               )}
                             </div>
+                          </td>
+                          {/* Phase 5: คุณภาพ ads (ระดับแคมเปญ) — dropdown แก้ได้ทันที (optimistic) */}
+                          <td className="px-3 py-4 border-t">
+                            <Select
+                              value={(r as any).campaignQuality ?? "none"}
+                              onValueChange={(v) =>
+                                updateCampaignQuality.mutate({
+                                  campaignId: String(r.campaignId),
+                                  quality: v === "none" ? null : (v as QualityKey),
+                                })
+                              }
+                            >
+                              <SelectTrigger
+                                className={`h-8 w-full text-xs ${
+                                  (r as any).campaignQuality
+                                    ? QUALITY_TEXT_CLASS[(r as any).campaignQuality as QualityKey] + " font-medium"
+                                    : "text-muted-foreground"
+                                }`}
+                              >
+                                <SelectValue placeholder="—" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">— ไม่ระบุ</SelectItem>
+                                <SelectItem value="angel">{QUALITY_LABEL.angel}</SelectItem>
+                                <SelectItem value="rising">{QUALITY_LABEL.rising}</SelectItem>
+                                <SelectItem value="testing">{QUALITY_LABEL.testing}</SelectItem>
+                                <SelectItem value="tested">{QUALITY_LABEL.tested}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </td>
+                          {/* Phase 5: ประเภทโพส (ระดับแอด) — synthetic row ไม่มี adId จริง → disable */}
+                          <td className="px-3 py-4 border-t border-r border-border">
+                            {isNoSpend ? (
+                              <span className="text-muted-foreground text-xs">—</span>
+                            ) : (
+                              <Select
+                                value={(r as any).postType ?? "none"}
+                                onValueChange={(v) =>
+                                  updateAdPostType.mutate({
+                                    adId: r.adId,
+                                    postType: v === "none" ? null : (v as PostTypeKey),
+                                  })
+                                }
+                              >
+                                <SelectTrigger className="h-8 w-full text-xs">
+                                  <SelectValue placeholder="—" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">— ไม่ระบุ</SelectItem>
+                                  <SelectItem value="main">{POSTTYPE_LABEL.main}</SelectItem>
+                                  <SelectItem value="support">{POSTTYPE_LABEL.support}</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
                           </td>
                           <td className="px-4 py-4 text-right tabular-nums border-t text-orange-600 dark:text-orange-400 font-medium">
                             {isNoSpend ? (
@@ -1060,7 +1178,7 @@ export default function AdIntelligence() {
                 <tr className="border-t-2">
                   <td
                     className="px-4 py-3 sticky left-0 bg-muted/70 z-10 border-t-2"
-                    colSpan={10}
+                    colSpan={12}
                   >
                     รวม ({sorted.length}) — ตัวชี้วัดรวม
                   </td>
