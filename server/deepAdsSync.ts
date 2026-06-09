@@ -30,6 +30,8 @@ import {
   getCampaignStatusMap,
   upsertCampaignStatus,
   hardDeleteCampaignData,
+  moveCampaignToTrash,
+  clearRestoredCampaign,
 } from "./db";
 import { cacheAdPreview, isPreviewFresh } from "./previewCache";
 import { reconcileStatus, todayString } from "./campaignStatus";
@@ -122,13 +124,22 @@ export async function syncAdInsightsForAccount(
     const today = todayString();
     for (const cs of campaignStatuses) {
       const prev = statusMap.get(cs.campaign_id);
+      const isTrashed = prev?.trashedAt != null;
+      const isRestored = prev?.restoredAt != null;
       const result = reconcileStatus({
         effectiveStatus: cs.effective_status,
         approvedAt: prev?.approvedAt ?? null,
         rejectedAt: prev?.rejectedAt ?? null,
         rejectedExpired: prev?.rejectedExpired ?? false,
+        trashed: isTrashed,
+        restored: isRestored,
         today,
       });
+      // ถ้ายังอยู่ในถัง: ไม่แตะสถานะ (คง trashedAt/effectiveStatus เดิมไว้) — ข้ามไป
+      if (isTrashed) {
+        campaignsReconciled += 1;
+        continue;
+      }
       await upsertCampaignStatus({
         userId: tenantId,
         accountId: account.id,
@@ -140,13 +151,24 @@ export async function syncAdInsightsForAccount(
         rejectedExpired: result.rejectedExpired,
       });
       campaignsReconciled += 1;
-      if (result.action === "hard_delete") {
+      // Phase 4: REJECT ครบ 5 วัน → ย้ายเข้าถังขยะ (soft delete) แทนลบจริง
+      if (result.action === "move_to_trash") {
         try {
-          await hardDeleteCampaignData(tenantId, cs.campaign_id);
+          await moveCampaignToTrash(tenantId, cs.campaign_id, "auto_reject");
           campaignsDeleted += 1;
         } catch (e) {
           console.warn(
-            `[deepAdsSync] hardDelete fail campaign=${cs.campaign_id}:`,
+            `[deepAdsSync] moveToTrash fail campaign=${cs.campaign_id}:`,
+            (e as Error).message,
+          );
+        }
+      } else if (result.action === "clear_restored") {
+        // A2: status กลับ active → เคลียร์ restoredAt เพื่อเริ่มนับรอบใหม่ได้
+        try {
+          await clearRestoredCampaign(tenantId, cs.campaign_id);
+        } catch (e) {
+          console.warn(
+            `[deepAdsSync] clearRestored fail campaign=${cs.campaign_id}:`,
             (e as Error).message,
           );
         }

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, isNotNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   AccountGroup,
@@ -1861,6 +1861,7 @@ export async function upsertCampaignStatus(
         rejectedExpired: row.rejectedExpired ?? false,
         syncedAt: new Date(),
         // Phase 5: ห้ามใส่ quality ใน set นี้ — sync ไม่ควรทับค่าคุณภาพที่ผู้ใช้ตั้งไว้
+        // Phase 4: ห้ามใส่ trashedAt/trashedReason/restoredAt — sync ไม่ควรแตะสถานะถังขยะ (จัดการผ่าน helper เฉพาะ)
       },
     });
 }
@@ -1953,4 +1954,153 @@ export async function hardDeleteCampaignData(
       ),
     );
   return Number(res?.[0]?.affectedRows ?? adRows.length ?? 0);
+}
+
+/* ============================================================
+ * Phase 4 — ระบบถังขยะ (soft delete) DB helpers
+ * ============================================================ */
+
+/**
+ * ย้ายแคมเปญเข้าถังขยะ (soft delete) — ตั้ง trashedAt + trashedReason
+ * ไม่ลบข้อมูล insights/manual — แค่ซ่อนจากตารางหลักด้วย guard trashedAt
+ * คืนค่า restoredAt → null (ถ้าเคยกู้มาก่อน)
+ */
+export async function moveCampaignToTrash(
+  userId: number,
+  campaignId: string,
+  reason: "auto_reject" | "manual",
+): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const res: any = await db
+    .update(campaignStatus)
+    .set({
+      trashedAt: new Date(),
+      trashedReason: reason,
+      restoredAt: null,
+    })
+    .where(
+      and(
+        eq(campaignStatus.userId, userId),
+        eq(campaignStatus.campaignId, campaignId),
+      ),
+    );
+  return Number(res?.[0]?.affectedRows ?? 0) > 0;
+}
+
+/**
+ * กู้แคมเปญจากถัง (A2):
+ *  - clear trashedAt + trashedReason
+ *  - reset rejectedAt = null (หยุดนับ 5 วันใหม่ — ไม่เด้งเข้าถังทันที)
+ *  - clear rejectedExpired (backward-compat)
+ *  - ตั้ง restoredAt = now → reconcileStatus จะไม่เด้งเข้าถังซ้ำจนกว่า status จะเปลี่ยน
+ */
+export async function restoreCampaign(
+  userId: number,
+  campaignId: string,
+): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const res: any = await db
+    .update(campaignStatus)
+    .set({
+      trashedAt: null,
+      trashedReason: null,
+      rejectedAt: null,
+      rejectedExpired: false,
+      restoredAt: new Date(),
+    })
+    .where(
+      and(
+        eq(campaignStatus.userId, userId),
+        eq(campaignStatus.campaignId, campaignId),
+      ),
+    );
+  return Number(res?.[0]?.affectedRows ?? 0) > 0;
+}
+
+/**
+ * เคลียร์ restoredAt — ใช้ตอน status ของแคมเปญที่กู้มากลับไป active (A2 หมดอายุ) → เริ่มนับ 5 วันได้ใหม่
+ */
+export async function clearRestoredCampaign(
+  userId: number,
+  campaignId: string,
+): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const res: any = await db
+    .update(campaignStatus)
+    .set({ restoredAt: null })
+    .where(
+      and(
+        eq(campaignStatus.userId, userId),
+        eq(campaignStatus.campaignId, campaignId),
+      ),
+    );
+  return Number(res?.[0]?.affectedRows ?? 0) > 0;
+}
+
+/**
+ * ลบถาวร — ลบจริงทั้ง insights + manual + campaignStatus row (กู้ไม่ได้อีก)
+ * รวม hardDeleteCampaignData + DELETE campaignStatus row (กันค้างใน statusMap)
+ */
+export async function deleteCampaignPermanently(
+  userId: number,
+  campaignId: string,
+): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const deleted = await hardDeleteCampaignData(userId, campaignId);
+  await db
+    .delete(campaignStatus)
+    .where(
+      and(
+        eq(campaignStatus.userId, userId),
+        eq(campaignStatus.campaignId, campaignId),
+      ),
+    );
+  return deleted;
+}
+
+/**
+ * รายการแคมเปญในถังขยะของ tenant (trashedAt IS NOT NULL) เรียงตามวันเข้าถังล่าสุด
+ */
+export async function listTrashedCampaigns(
+  userId: number,
+): Promise<CampaignStatus[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .select()
+    .from(campaignStatus)
+    .where(
+      and(
+        eq(campaignStatus.userId, userId),
+        isNotNull(campaignStatus.trashedAt),
+      ),
+    )
+    .orderBy(desc(campaignStatus.trashedAt));
+  return rows;
+}
+
+/**
+ * Set ของ campaignId ที่อยู่ในถังขยะของ tenant — ใช้ guard กรองออกจากตารางหลัก
+ */
+export async function getTrashedCampaignIdSet(
+  userId: number,
+): Promise<Set<string>> {
+  const db = await getDb();
+  const set = new Set<string>();
+  if (!db) return set;
+  const rows = await db
+    .select({ campaignId: campaignStatus.campaignId })
+    .from(campaignStatus)
+    .where(
+      and(
+        eq(campaignStatus.userId, userId),
+        isNotNull(campaignStatus.trashedAt),
+      ),
+    );
+  for (const r of rows) set.add(String(r.campaignId));
+  return set;
 }

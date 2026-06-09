@@ -13,6 +13,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import {
   commissionViewProcedure,
+  nonContentProcedure,
   ownerProcedure,
   protectedProcedure,
   publicProcedure,
@@ -130,6 +131,9 @@ import {
   upsertAdManualMetric,
   updateCampaignQuality,
   updateAdPostType,
+  listTrashedCampaigns,
+  restoreCampaign,
+  deleteCampaignPermanently,
   listSyncLogs,
   insertSyncLog,
 } from "./db";
@@ -1259,8 +1263,18 @@ export const appRouter = router({
         const todayObj = new Date();
         const today = todayString(todayObj);
 
+        // Phase 4: ชุด campaignId ที่อยู่ในถังขยะ (trashedAt != null) — ต้องกรองออกจากตารางหลัก
+        const trashedSet = new Set<string>();
+        for (const cs of Array.from(statusMap.values())) {
+          if (cs.trashedAt != null) trashedSet.add(String(cs.campaignId));
+        }
+        // กรองจุด 1/2: real rows (spend>0) ที่แคมเปญอยู่ในถัง → ไม่แสดง
+        const visibleRows = rows.filter(
+          (r) => !(r.campaignId && trashedSet.has(String(r.campaignId))),
+        );
+
         // enrich each real (spend>0) row with derived fields + status badge
-        const enriched = rows.map((r) => {
+        const enriched = visibleRows.map((r) => {
           // Orders / ยอดขาย / ROAS ดึงจาก Meta อัตโนมัติ (omni_purchase / purchase value)
           // Round 7.36: ค่าคลิก = cost_per_action_type, ROAS = purchase_roas (จาก Meta โดยตรง)
           const derived = computeDeepAdsDerived({
@@ -1318,7 +1332,8 @@ export const appRouter = router({
         if (showToday) {
           let synthId = -1;
           for (const cs of Array.from(statusMap.values())) {
-            if (cs.rejectedExpired) continue; // ถูกลบแล้ว + ยัง reject → ไม่ดึงกลับ
+            // กรองจุด 2/2: แคมเปญที่อยู่ในถังขยะ → ไม่สร้าง synthetic row
+            if (cs.trashedAt != null) continue;
             const kind = classifyMetaStatus(cs.effectiveStatus);
             const isWait = kind === "wait";
             const isReject = shouldShowRejectRow(
@@ -1573,6 +1588,40 @@ export const appRouter = router({
       const at = await getLatestSyncedAt(tid);
       return { latestSyncedAt: at };
     }),
+  }),
+
+  /* ----- Phase 4: ระบบถังขยะ (soft delete) — ทุก role ยกเว้น content ----- */
+  trash: router({
+    /** รายการแคมเปญในถังขยะของ tenant */
+    list: nonContentProcedure.query(async ({ ctx }) => {
+      const tid = await tenantId(ctx);
+      const rows = await listTrashedCampaigns(tid);
+      return rows.map((r) => ({
+        campaignId: String(r.campaignId),
+        campaignName: r.campaignName ?? null,
+        accountId: r.accountId,
+        effectiveStatus: r.effectiveStatus ?? null,
+        trashedAt: r.trashedAt,
+        trashedReason: r.trashedReason ?? null,
+        rejectedAt: r.rejectedAt ?? null,
+      }));
+    }),
+    /** กู้แคมเปญกลับตารางหลัก (A2: reset rejectedAt + ตั้ง restoredAt) */
+    restore: nonContentProcedure
+      .input(z.object({ campaignId: z.string().min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        const ok = await restoreCampaign(tid, input.campaignId);
+        return { ok };
+      }),
+    /** ลบถาวร (ลบจริง insights + manual + campaignStatus row) — กู้ไม่ได้อีก */
+    deletePermanent: nonContentProcedure
+      .input(z.object({ campaignId: z.string().min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        const deleted = await deleteCampaignPermanently(tid, input.campaignId);
+        return { ok: true, deleted };
+      }),
   }),
 
   /* ----- Sync Logs (Round 7.44) — owner/ceo ดูประวัติการ sync ----- */

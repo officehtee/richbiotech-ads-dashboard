@@ -111,7 +111,7 @@ describe("reconcileStatus — auto date stamping", () => {
     expect(r2.approvedAt).toBe("2026-06-03");
   });
 
-  it("เคส 2: ถูกปฏิเสธ จด rejectedAt; ครบ 5 วัน → hard_delete + expired", () => {
+  it("เคส 2 (Phase 4): ถูกปฏิเสธ จด rejectedAt; ครบ 5 วัน → move_to_trash (ไม่ set expired อีกต่อไป)", () => {
     const stamp = reconcileStatus({
       effectiveStatus: "DISAPPROVED",
       approvedAt: null,
@@ -123,7 +123,7 @@ describe("reconcileStatus — auto date stamping", () => {
     expect(stamp.action).toBe("none");
     expect(stamp.rejectedExpired).toBe(false);
 
-    // วันที่ 8 (ครบ 5 วัน) → ลบ + mark expired
+    // วันที่ 8 (ครบ 5 วัน) → ย้ายเข้าถังขยะ (soft delete) ไม่ set expired
     const del = reconcileStatus({
       effectiveStatus: "DISAPPROVED",
       approvedAt: null,
@@ -131,8 +131,8 @@ describe("reconcileStatus — auto date stamping", () => {
       rejectedExpired: false,
       today: "2026-06-08",
     });
-    expect(del.action).toBe("hard_delete");
-    expect(del.rejectedExpired).toBe(true);
+    expect(del.action).toBe("move_to_trash");
+    expect(del.rejectedExpired).toBe(false);
   });
 
   it("เคส 3: ถูกลบแล้ว (expired) → ยัง reject ข้ามไป / กลับ active → revive เป็น NEW", () => {

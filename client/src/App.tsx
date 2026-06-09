@@ -33,6 +33,7 @@ import ShareView from "./pages/ShareView";
 import SingleDashboard from "./pages/SingleDashboard";
 import SmartScaling from "./pages/SmartScaling";
 import UserManagement from "./pages/UserManagement";
+import Trash from "./pages/Trash";
 
 function ProtectedShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -178,6 +179,11 @@ function Router() {
       <Route path="/users">
         <ProtectedShell>
           <UserManagement />
+        </ProtectedShell>
+      </Route>
+      <Route path="/trash">
+        <ProtectedShell>
+          <Trash />
         </ProtectedShell>
       </Route>
       <Route path="/profile">

@@ -73,3 +73,18 @@ export const commissionViewProcedure = t.procedure.use(
     return next({ ctx: { ...ctx, user: ctx.user } });
   }),
 );
+
+/** Phase 4: ทุก role ยกเว้น content (admin / owner / ceo / supervisor / staff) — ใช้กับถังขยะ */
+export const NON_CONTENT_ROLES = ['admin', 'owner', 'ceo', 'supervisor', 'staff'];
+export const nonContentProcedure = t.procedure.use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+    if (!ctx.user) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
+    }
+    if (!NON_CONTENT_ROLES.includes(ctx.user.role)) {
+      throw new TRPCError({ code: "FORBIDDEN", message: NOT_OWNER_ERR_MSG });
+    }
+    return next({ ctx: { ...ctx, user: ctx.user } });
+  }),
+);

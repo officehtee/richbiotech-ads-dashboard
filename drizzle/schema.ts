@@ -493,6 +493,10 @@ export const campaignStatus = mysqlTable("campaignStatus", {
   rejectedExpired: boolean("rejectedExpired").default(false).notNull(),
   // Phase 5: คุณภาพ ads (ระดับแคมเปญ) — angel=นางฟ้า / rising=กำลังจะเป็นนางฟ้า / testing=กำลังเทส / tested=ผ่านการเทส. เก็บใน DB, ไม่ดึงจาก Meta
   quality: mysqlEnum("quality", ["angel", "rising", "testing", "tested"]),
+  // Phase 4: ระบบถังขยะ (soft delete แทน hard delete) — guard เดียวแทน rejectedExpired (ทาง A)
+  trashedAt: timestamp("trashedAt"), // null = ไม่อยู่ในถัง / มีค่า = อยู่ในถังขยะ
+  trashedReason: mysqlEnum("trashedReason", ["auto_reject", "manual"]), // auto_reject=ครบ 5 วันอัตโนมัติ / manual=คนกดย้ายเอง
+  restoredAt: timestamp("restoredAt"), // เวลากู้กลับ — กันเด้งเข้าถังซ้ำ (A2) จนกว่า effectiveStatus เปลี่ยน
   syncedAt: timestamp("syncedAt").defaultNow().notNull(),
 }, (t) => [
   uniqueIndex("campaignStatus_userId_campaignId_unique").on(t.userId, t.campaignId),

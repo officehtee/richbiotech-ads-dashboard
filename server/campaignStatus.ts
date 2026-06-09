@@ -123,7 +123,7 @@ export function computeBadge(
 }
 
 /**
- * REJECT ครบ 5 วันแล้วหรือยัง → ควร hard-delete
+ * REJECT ครบ 5 วันแล้วหรือยัง → ควรย้ายเข้าถังขยะ (Phase 4: เดิมชื่อ shouldHardDelete — คงชื่อไว้เพื่อ backward-compat)
  * เงื่อนไข: ยังเป็น reject status + (today - rejectedAt) ≥ 5
  */
 export function shouldHardDelete(
@@ -158,6 +158,10 @@ export type ReconcileInput = {
   approvedAt: string | null | undefined;
   rejectedAt: string | null | undefined;
   rejectedExpired: boolean;
+  /** Phase 4: อยู่ในถังขยะแล้วหรือยัง (trashedAt IS NOT NULL) */
+  trashed?: boolean;
+  /** Phase 4 (A2): ถูกกู้คืนแล้วหรือยัง (restoredAt IS NOT NULL) — กันย้ายเข้าถังซ้ำจนกว่า status เปลี่ยน */
+  restored?: boolean;
   /** วันนี้ (string YYYY-MM-DD) */
   today: string;
 };
@@ -166,8 +170,13 @@ export type ReconcileOutput = {
   approvedAt: string | null;
   rejectedAt: string | null;
   rejectedExpired: boolean;
-  /** action ที่ต้องทำเพิ่ม */
-  action: "none" | "hard_delete" | "revive";
+  /**
+   * action ที่ต้องทำเพิ่ม
+   * - move_to_trash: REJECT ครบ 5 วัน → ย้ายเข้าถังขยะ (soft delete) — Phase 4 แทน hard_delete
+   * - revive: แก้จนผ่าน (ACTIVE) → ดึงกลับ (ใช้กับ expired เก่า, คงไว้ backward-compat)
+   * - clear_restored: status เปลี่ยนไป active → clear restoredAt (เริ่มนับใหม่ได้)
+   */
+  action: "none" | "move_to_trash" | "revive" | "clear_restored";
 };
 
 /**
@@ -190,7 +199,26 @@ export function reconcileStatus(input: ReconcileInput): ReconcileOutput {
   let rejectedExpired = input.rejectedExpired;
   let action: ReconcileOutput["action"] = "none";
 
-  // กรณี 4: เคยถูกลบ (rejected_expired)
+  // Phase 4 กรณีอยู่ในถังขยะ (trashed): ถ้ายังอยู่ในถัง ไม่ต้อง reconcile — คงค่าไว้
+  // (การออกจากถังทำผ่าน restoreCampaign เท่านั้น)
+  if (input.trashed) {
+    return { approvedAt, rejectedAt, rejectedExpired, action: "none" };
+  }
+
+  // Phase 4 (A2) กรณีถูกกู้คืน (restored): กันไม่ให้เด้งเข้าถังซ้ำ
+  if (input.restored) {
+    if (kind === "active") {
+      // status เปลี่ยนเป็น active → รีเซ็ตการกู้คืน + เริ่มนับ NEW ใหม่
+      if (!approvedAt) approvedAt = today;
+      if (rejectedAt) rejectedAt = null;
+      action = "clear_restored";
+      return { approvedAt, rejectedAt, rejectedExpired, action };
+    }
+    // ยัง reject/wait/other เหมือนตอนกู้ → คงอยู่ในตารางหลัก ไม่เด้งเข้าถัง (A2)
+    return { approvedAt, rejectedAt, rejectedExpired, action: "none" };
+  }
+
+  // กรณี 4 (เดิม): เคยถูกลบ (rejected_expired) — คง backward-compat สำหรับ row เก่าที่ยัง expired → active
   if (rejectedExpired) {
     if (kind === "active") {
       // revive: แก้จนผ่าน → ดึงกลับ + ขึ้น NEW นับจากวันนี้
@@ -214,11 +242,10 @@ export function reconcileStatus(input: ReconcileInput): ReconcileOutput {
   // กรณี 2: REJECT → จด rejectedAt ครั้งเดียว
   if (kind === "reject") {
     if (!rejectedAt) rejectedAt = today;
-    // กรณี 5: ครบ 5 วัน → hard delete + mark expired
+    // กรณี 5: ครบ 5 วัน → ย้ายเข้าถังขยะ (Phase 4: move_to_trash แทน hard_delete) — ไม่ set rejectedExpired อีกต่อไป
     const d = daysSince(rejectedAt, new Date(`${today}T00:00:00Z`));
     if (d != null && d >= 5) {
-      rejectedExpired = true;
-      action = "hard_delete";
+      action = "move_to_trash";
     }
   }
 

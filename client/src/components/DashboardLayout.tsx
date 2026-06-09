@@ -40,6 +40,7 @@ import {
   Users,
   HelpCircle,
   Wallet,
+  Trash2,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -53,6 +54,8 @@ import { Button } from "./ui/button";
 const ALL_ROLES = ["admin", "owner", "ceo", "supervisor", "content", "staff"];
 const OWNER_ROLES = ["admin", "owner", "ceo", "supervisor"];
 const COMMISSION_VIEW_ROLES = ["admin", "owner", "ceo", "supervisor", "content"];
+// Phase 4: ถังขยะ — ทุก role ยกเว้น content
+const NON_CONTENT_ROLES = ["admin", "owner", "ceo", "supervisor", "staff"];
 
 const menuSections: SidebarSection[] = [
   {
@@ -98,6 +101,7 @@ const menuSections: SidebarSection[] = [
       { icon: Building2, label: "จัดการบัญชี", path: "/accounts", roles: OWNER_ROLES },
       { icon: Folder, label: "กลุ่มสินค้า", path: "/groups", roles: OWNER_ROLES },
       { icon: Users, label: "จัดการผู้ใช้", path: "/users", roles: OWNER_ROLES },
+      { icon: Trash2, label: "ถังขยะ", path: "/trash", roles: NON_CONTENT_ROLES },
     ],
   },
 ];

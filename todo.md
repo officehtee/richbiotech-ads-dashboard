@@ -857,3 +857,16 @@
 - [x] FE: colSpan 10->12 (thead tier-1 + tfoot)
 - [x] FE: CSV เพิ่ม 2 คอลัมน์ (ค่าไทย)
 - [x] vitest ครอบ helper/synthetic rows + tsc ผ่าน
+
+## Phase 4 — ระบบถังขยะ (soft delete + กู้กลับ)
+- [x] Migrate: campaignStatus.trashedAt (timestamp nullable)
+- [x] Migrate: campaignStatus.trashedReason (enum auto_reject/manual nullable)
+- [x] Migrate: campaignStatus.restoredAt (timestamp nullable)
+- [x] reconcileStatus: hard_delete -> move_to_trash + เคารพ restoredAt (A2)
+- [x] deepAdsSync: เรียก moveCampaignToTrash แทน hardDeleteCampaignData
+- [x] db helper: moveCampaignToTrash / restoreCampaign / deleteCampaignPermanently / listTrashedCampaigns
+- [x] กรอง trashedAt: getDeepAdsRows (subquery campaignStatus) + synthetic loop guard
+- [x] nonContentProcedure + NON_CONTENT_ROLES
+- [x] trash router: list / restore / deletePermanent
+- [x] Trash.tsx + route /trash + เมนู + content role guard
+- [x] อัปเดต campaignStatus.test.ts + เขียน vitest ถังขยะ
