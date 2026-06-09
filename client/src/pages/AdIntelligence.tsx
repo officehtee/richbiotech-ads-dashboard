@@ -161,7 +161,8 @@ export default function AdIntelligence() {
   const accountsQuery = trpc.accounts.list.useQuery();
   const groupsQuery = trpc.groups.list.useQuery();
   // Prompt D: รายชื่อเจ้าของบัญชี (สำหรับ dropdown ตัวกรอง)
-  const ownersQuery = trpc.users.selectableOwners.useQuery();
+  // Prompt D-fix: ใช้ ownerOptions (protectedProcedure) เพื่อให้ทุก role ใช้ตัวกรองพนักงานได้
+  const ownersQuery = trpc.users.ownerOptions.useQuery();
 
   const { dateFrom, dateTo } = useMemo(
     () => presetToDateRange(dateRange.preset, dateRange.since, dateRange.until),

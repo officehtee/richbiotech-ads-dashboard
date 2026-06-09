@@ -777,3 +777,10 @@
 - [x] client/src/pages/AdIntelligence.tsx — เพิ่ม ownerFilter state + ownersQuery + dropdown + 4 คอลัมน์ใหม่ + อัปเดต colSpan (6→10, 21→25) + CSV export
 - [x] server/deepAdsOwnerFilter.test.ts — vitest 18 case ครอบคลุม filter logic / synthetic row fields / schema / paymentType label / roasTarget display
 - [x] vitest 461/461 ผ่าน, build สำเร็จ, TypeScript clean
+
+## Prompt D-fix: ตัวกรองพนักงานใช้ได้ทุก role (ownerOptions)
+- [x] routers.ts — เพิ่ม users.ownerOptions (protectedProcedure) คืนเฉพาะ {id, nickname} ตัด pending
+- [x] AdIntelligence.tsx — เปลี่ยน ownersQuery จาก selectableOwners → ownerOptions (บรรทัด 165)
+- [x] คง selectableOwners เดิมไว้ (หน้าจัดการบัญชียังใช้)
+- [x] เพิ่ม vitest ownerOptions 5 case (owner/staff/content เรียกได้ + ตัด pending + id/nickname เท่านั้น + fallback)
+- [x] vitest 466/466 ผ่าน, TypeScript clean, build สำเร็จ

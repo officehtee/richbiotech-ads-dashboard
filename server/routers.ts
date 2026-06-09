@@ -214,6 +214,15 @@ export const appRouter = router({
       const tid = await tenantId(ctx);
       return listUsersInWorkspace(tid);
     }),
+    /** Prompt D-fix: รายชื่อเจ้าของบัญชี สำหรับ dropdown ตัวกรองพนักงาน — ทุก role ใช้ได้ คืนเฉพาะ id+nickname (ไม่เปิด sensitive) */
+    ownerOptions: protectedProcedure.query(async ({ ctx }) => {
+      const tid = await tenantId(ctx);
+      const owners = await listSelectableOwners(tid);
+      return owners.map((u) => ({
+        id: u.id,
+        nickname: u.nickname ?? u.name ?? `User #${u.id}`,
+      }));
+    }),
     /** Prompt A: รายชื่อเจ้าของบัญชีที่เลือกได้ (ตัด role=pending) — ใช้กับ dropdown เจ้าของ */
     selectableOwners: ownerProcedure.query(async ({ ctx }) => {
       const tid = await tenantId(ctx);

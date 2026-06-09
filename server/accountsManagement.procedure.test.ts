@@ -291,7 +291,7 @@ vi.mock("./db", async () => {
 
 const { appRouter } = await import("./routers");
 
-function makeCtx(role: "owner" | "staff" | "pending", id = 10): TrpcContext {
+function makeCtx(role: "owner" | "staff" | "content" | "pending", id = 10): TrpcContext {
   const user = {
     id,
     openId: `o${id}`,
@@ -326,6 +326,48 @@ describe("users.selectableOwners", () => {
   it("non-owner ถูกบล็อก", async () => {
     const caller = appRouter.createCaller(makeCtx("staff", 20));
     await expect(caller.users.selectableOwners()).rejects.toThrow();
+  });
+});
+
+// Prompt D-fix: ownerOptions — protectedProcedure ทุก role ใช้ได้ คืนเฉพาะ id+nickname
+describe("users.ownerOptions", () => {
+  it("owner เรียกได้ คืนเฉพาะ user ที่ role != pending", async () => {
+    const caller = appRouter.createCaller(makeCtx("owner", 10));
+    const owners = await caller.users.ownerOptions();
+    const ids = owners.map((o) => o.id).sort();
+    expect(ids).toEqual([10, 20, 21]);
+    expect(owners.some((o) => o.id === 22)).toBe(false); // pending ถูกตัด
+  });
+
+  it("staff เรียกได้ (ไม่ reject) — แก้ bug เดิมที่ dropdown ว่าง", async () => {
+    const caller = appRouter.createCaller(makeCtx("staff", 20));
+    const owners = await caller.users.ownerOptions();
+    const ids = owners.map((o) => o.id).sort();
+    expect(ids).toEqual([10, 20, 21]);
+  });
+
+  it("content เรียกได้ (ไม่ reject)", async () => {
+    const caller = appRouter.createCaller(makeCtx("content", 21));
+    const owners = await caller.users.ownerOptions();
+    expect(owners.length).toBe(3);
+  });
+
+  it("คืนเฉพาะ field id+nickname ไม่เปิด role/email (ไม่ sensitive)", async () => {
+    const caller = appRouter.createCaller(makeCtx("staff", 20));
+    const owners = await caller.users.ownerOptions();
+    for (const o of owners) {
+      expect(Object.keys(o).sort()).toEqual(["id", "nickname"]);
+      expect((o as any).role).toBeUndefined();
+      expect((o as any).email).toBeUndefined();
+    }
+  });
+
+  it("nickname null -> fallback เป็น name", async () => {
+    store.users.push({ id: 23, role: "staff", ownerId: 10, nickname: null, name: "NoNick" });
+    const caller = appRouter.createCaller(makeCtx("owner", 10));
+    const owners = await caller.users.ownerOptions();
+    const u23 = owners.find((o) => o.id === 23);
+    expect(u23?.nickname).toBe("NoNick");
   });
 });
 
