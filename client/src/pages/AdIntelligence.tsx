@@ -10,7 +10,8 @@
  */
 import DateRangePicker from "@/components/DateRangePicker";
 import AccountsTab from "@/components/AccountsTab";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsContent } from "@/components/ui/tabs";
+import { NeonTabTrigger } from "@/components/NeonTabTrigger";
 import { BarChart3, Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1566,21 +1567,21 @@ export default function AdIntelligence() {
   return (
     <div className="space-y-4">
       <Tabs value={tab} onValueChange={(v) => setTab(v as "analysis" | "accounts")}>
-        <TabsList className="bg-transparent gap-2 p-0">
-          <TabsTrigger
+        <TabsList className="h-auto bg-transparent gap-3 p-0">
+          <NeonTabTrigger
             value="analysis"
-            className="border border-white/10 bg-white/5 text-muted-foreground transition-all duration-200 data-[state=active]:bg-[#00D4FF]/10 data-[state=active]:text-[#00D4FF] data-[state=active]:border-[#00D4FF] data-[state=active]:shadow-[0_0_8px_#00D4FF,0_0_16px_rgba(0,212,255,0.5)]"
-          >
-            <BarChart3 className="h-4 w-4 mr-1.5" />
-            วิเคราะห์แอดเชิงลึก
-          </TabsTrigger>
-          <TabsTrigger
+            tone="cyan"
+            active={tab === "analysis"}
+            icon={<BarChart3 className="h-4 w-4" />}
+            label="วิเคราะห์แอดเชิงลึก"
+          />
+          <NeonTabTrigger
             value="accounts"
-            className="border border-white/10 bg-white/5 text-muted-foreground transition-all duration-200 data-[state=active]:bg-[#FF6B1A]/10 data-[state=active]:text-[#FF6B1A] data-[state=active]:border-[#FF6B1A] data-[state=active]:shadow-[0_0_8px_#FF6B1A,0_0_16px_rgba(255,107,26,0.5)]"
-          >
-            <Wallet className="h-4 w-4 mr-1.5" />
-            บัญชีของฉัน
-          </TabsTrigger>
+            tone="orange"
+            active={tab === "accounts"}
+            icon={<Wallet className="h-4 w-4" />}
+            label="บัญชีของฉัน"
+          />
         </TabsList>
         {/* conditional mount — ไม่ render อีก tab เพื่อให้ unmount state/timer จริง */}
         <TabsContent value="analysis" className="mt-4">
