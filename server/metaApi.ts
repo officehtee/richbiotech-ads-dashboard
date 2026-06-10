@@ -445,6 +445,28 @@ export async function validateToken(adAccountId: string, accessToken: string): P
 }
 
 /**
+ * Fetch token expiry date from Meta /debug_token endpoint.
+ * Returns Date object if token has expiry, or null for non-expiring (system user) tokens.
+ * Graceful: returns undefined on network/API error (caller should skip storing).
+ */
+export async function fetchTokenExpiresAt(
+  accessToken: string,
+): Promise<Date | null | undefined> {
+  try {
+    const url = `${META_BASE}/debug_token?input_token=${encodeURIComponent(accessToken)}&access_token=${encodeURIComponent(accessToken)}`;
+    const res = await fetch(url);
+    if (!res.ok) return undefined; // API error → skip
+    const body = await res.json().catch(() => null);
+    const expiresAt: number | undefined = body?.data?.expires_at;
+    if (expiresAt === undefined) return undefined;
+    if (expiresAt === 0) return null; // 0 = non-expiring (system user)
+    return new Date(expiresAt * 1000);
+  } catch {
+    return undefined; // network error → skip
+  }
+}
+
+/**
  * Hourly insights breakdown (24 buckets per day, 0-23).
  * Returns rows with `date` (YYYY-MM-DD) and `hour` (0-23).
  * Used for Live Activity Hero + Hourly Heatmap.

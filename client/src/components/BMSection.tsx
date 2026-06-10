@@ -127,6 +127,44 @@ function fmtTime(d: unknown): string {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// TokenAgeCell — shared by BM table and standalone table
+// ─────────────────────────────────────────────────────────────────
+export function TokenAgeCell({ expiresAt }: { expiresAt: Date | string | null | undefined }) {
+  if (expiresAt === null) {
+    return <span className="text-xs text-muted-foreground">ไม่หมดอายุ</span>;
+  }
+  if (!expiresAt) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+  const ts = expiresAt instanceof Date ? expiresAt.getTime() : Date.parse(expiresAt as string);
+  if (!Number.isFinite(ts)) return <span className="text-xs text-muted-foreground">—</span>;
+  const now = Date.now();
+  const diffMs = ts - now;
+  const diffDays = Math.floor(diffMs / 86_400_000);
+  const dateStr = new Date(ts).toLocaleDateString("th-TH", { dateStyle: "short" });
+  if (diffMs < 0) {
+    // expired
+    return (
+      <span className="text-xs font-medium text-red-500" title={`หมดอายุ: ${dateStr}`}>
+        หมดอายุแล้ว
+      </span>
+    );
+  }
+  if (diffDays <= 7) {
+    return (
+      <span className="text-xs font-medium text-amber-500" title={`หมดอายุ: ${dateStr}`}>
+        {diffDays === 0 ? "วันนี้" : `อีก ${diffDays} วัน`}
+      </span>
+    );
+  }
+  return (
+    <span className="text-xs text-muted-foreground" title={`หมดอายุ: ${dateStr}`}>
+      {dateStr}
+    </span>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
 // Wizard Dialog
 // ─────────────────────────────────────────────────────────────────
 
@@ -645,6 +683,7 @@ export function BMSection({ owners, groups }: { owners: OwnerOption[]; groups: G
                 <TableHead>กลุ่มสินค้า</TableHead>
                 <TableHead className="text-right">บัญชี (active/ถอด)</TableHead>
                 <TableHead>Token</TableHead>
+                <TableHead>อายุ Token</TableHead>
                 <TableHead>สถานะ</TableHead>
                 <TableHead>Sync ล่าสุด</TableHead>
                 <TableHead></TableHead>
@@ -653,13 +692,13 @@ export function BMSection({ owners, groups }: { owners: OwnerOption[]; groups: G
             <TableBody>
               {bmListQuery.isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="h-20 text-center">
+                  <TableCell colSpan={10} className="h-20 text-center">
                     <Loader2 className="h-4 w-4 animate-spin mx-auto" />
                   </TableCell>
                 </TableRow>
               ) : bms.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="h-24 text-center">
+                  <TableCell colSpan={10} className="h-24 text-center">
                     <Building2 className="h-7 w-7 mx-auto text-muted-foreground/50 mb-1.5" />
                     <p className="text-sm text-muted-foreground">ยังไม่มี BM ที่เชื่อมไว้</p>
                   </TableCell>
@@ -683,6 +722,9 @@ export function BMSection({ owners, groups }: { owners: OwnerOption[]; groups: G
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <BmTokenCell bmId={bm.id} preview={bm.tokenPreview} />
+                    </TableCell>
+                    <TableCell className="text-xs whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <TokenAgeCell expiresAt={bm.tokenExpiresAt} />
                     </TableCell>
                     <TableCell>
                       <StatusPill status={bm.status} />

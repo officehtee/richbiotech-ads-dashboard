@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BMSection } from "@/components/BMSection";
+import { BMSection, TokenAgeCell } from "@/components/BMSection";
 import { AutoSyncSection } from "@/components/AutoSyncSection";
 import { SyncLogSection } from "@/components/SyncLogSection";
 import {
@@ -73,6 +73,7 @@ type Account = {
   limitAmount: number | null;
   effectiveStatus: "active" | "token_expired" | "blocked" | "revoked";
   statusSource: "single" | "bm";
+  tokenExpiresAt?: Date | string | null;
 };
 
 const PAYMENT_LABEL: Record<string, string> = {
@@ -388,6 +389,7 @@ export default function AccountsSettings() {
               <TableHead>การชำระเงิน</TableHead>
               <TableHead className="text-right">Limit (บาท)</TableHead>
               <TableHead>Token</TableHead>
+              <TableHead>อายุ Token</TableHead>
               <TableHead>สถานะ</TableHead>
               <TableHead></TableHead>
             </TableRow>
@@ -767,6 +769,15 @@ function AccountRow({
           )
         ) : (
           <span className="text-muted-foreground text-xs" title="ใช้ Token ของ Business Manager">—</span>
+        )}
+      </TableCell>
+
+      {/* อายุ Token */}
+      <TableCell className="text-xs whitespace-nowrap">
+        {isSingle ? (
+          <TokenAgeCell expiresAt={a.tokenExpiresAt} />
+        ) : (
+          <span className="text-muted-foreground text-xs" title="อายุ Token จาก Business Manager">—</span>
         )}
       </TableCell>
 

@@ -77,6 +77,7 @@ export const adAccounts = mysqlTable("adAccounts", {
     .notNull(), // สถานะ token บัญชีเดี่ยว (logic เช็คจริงทำใน Prompt B)
   // ── เฟส 6: ข้อมูลเติมเงิน (topup) สำหรับบัญชี prepaid — 1 ชุดต่อบัญชี ──
   // ผลลัพธ์ "ต้องเติม" ไม่เก็บใน DB → คำนวณ on-the-fly ตอนแสดง
+  tokenExpiresAt: timestamp("tokenExpiresAt"), // null = system user (ไม่หมดอายุ) | วันหมดอายุ token บัญชีเดี่ยว
   topupLastDate: timestamp("topupLastDate"), // วันที่เติมล่าสุด (เก็บ UTC timestamp, แสดง local-date)
   topupDailySpend: int("topupDailySpend"), // ยอดยิงต่อวัน (บาท)
   topupUsed: int("topupUsed"), // ใช้ไป (บาท)

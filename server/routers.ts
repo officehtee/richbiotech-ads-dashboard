@@ -149,6 +149,7 @@ import {
   fetchAdsetDailyInsights,
   testAdAccountToken,
   validateToken,
+  fetchTokenExpiresAt,
   testBMConnection,
   discoverBMAccounts,
 } from "./metaApi";
@@ -441,6 +442,8 @@ export const appRouter = router({
             throw new TRPCError({ code: "BAD_REQUEST", message: "เจ้าของบัญชีไม่ถูกต้อง" });
           }
         }
+        // Fetch token expiry from Meta (graceful: undefined = skip)
+        const tokenExpiresAt = await fetchTokenExpiresAt(input.accessToken);
         const id = await createAdAccount({
           userId: tid,
           adAccountId: input.adAccountId,
@@ -450,6 +453,7 @@ export const appRouter = router({
           paymentType: input.paymentType ?? null,
           limitAmount: input.limitAmount ?? null,
           tokenStatus: "active",
+          tokenExpiresAt: tokenExpiresAt ?? undefined,
           roasTarget: 2.0,
           isActive: true,
         });
@@ -539,8 +543,15 @@ export const appRouter = router({
         // - transient error (rate_limit/network/unknown) → mapped = null → คงสถานะเดิม ไม่เขียนทับ
         if (acc.bmId == null) {
           const mapped = mapCategoryToTokenStatus(result.category);
-          if (mapped !== null && mapped !== acc.tokenStatus) {
-            await updateAdAccount(input.id, tid, { tokenStatus: mapped });
+          const updates: Record<string, unknown> = {};
+          if (mapped !== null && mapped !== acc.tokenStatus) updates.tokenStatus = mapped;
+          // Refresh tokenExpiresAt when token is still valid
+          if (result.ok) {
+            const exp = await fetchTokenExpiresAt(acc.accessToken);
+            if (exp !== undefined) updates.tokenExpiresAt = exp;
+          }
+          if (Object.keys(updates).length > 0) {
+            await updateAdAccount(input.id, tid, updates as any);
           }
         }
         return result;

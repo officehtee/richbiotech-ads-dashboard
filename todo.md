@@ -1001,3 +1001,14 @@
 ### ส่วนที่ 7 — regression + ปิดงาน
 - [x] regression ผ่านหมด: 52 test files / 618 tests passed (รวมของเดิมไม่พัง)
 - [x] tsc clean (EXIT=0) + lsp no errors + checkpoint + รายงาน
+
+
+## Token Expiry Column (migration 0017 + TokenAgeCell)
+- [x] migration 0017: เพิ่ม `tokenExpiresAt` (datetime null) ใน adAccounts + apply SQL
+- [x] `fetchTokenExpiresAt` ใน metaApi.ts (เรียก /debug_token → data.expires_at)
+- [x] บันทึก tokenExpiresAt ตอน adAccounts.add + checkToken ใน routers.ts
+- [x] `getAdAccountsEnriched` spread `...a` → tokenExpiresAt ไหลผ่านอัตโนมัติ
+- [x] `TokenAgeCell` component (exported จาก BMSection.tsx) — null="ไม่หมดอายุ", expired=red, ≤7d=amber, >7d=date
+- [x] BM table: เพิ่มคอลัมน์ "อายุ Token" ก่อน "สถานะ" + colSpan 9→10 (BMSection.tsx)
+- [x] Standalone table: เพิ่มคอลัมน์ "อายุ Token" ก่อน "สถานะ" (isSingle ? TokenAgeCell : "—") (AccountsSettings.tsx)
+- [x] tsc 0 errors, checkpoint saved
