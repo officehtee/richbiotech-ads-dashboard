@@ -137,6 +137,7 @@ import {
   deleteCampaignPermanently,
   moveCampaignToTrash,
   getCampaignStatusOne,
+  ensureCampaignStatusRow,
   listSyncLogs,
   insertSyncLog,
 } from "./db";
@@ -1681,14 +1682,19 @@ export const appRouter = router({
       .input(z.object({ campaignId: z.string().min(1) }))
       .mutation(async ({ ctx, input }) => {
         const tid = await tenantId(ctx);
-        const existing = await getCampaignStatusOne(tid, input.campaignId);
+        let existing = await getCampaignStatusOne(tid, input.campaignId);
         if (!existing) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "ไม่พบแคมเปญนี้",
-          });
+          // 3A.1: แถว insights-based ที่ status sync ยังมาไม่ถึง → auto-create จาก insights แล้ว trash
+          const created = await ensureCampaignStatusRow(tid, input.campaignId);
+          if (!created) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "ไม่พบแคมเปญนี้",
+            });
+          }
+          existing = await getCampaignStatusOne(tid, input.campaignId);
         }
-        if (existing.trashedAt != null) {
+        if (existing && existing.trashedAt != null) {
           // อยู่ในถังอยู่แล้ว — idempotent ไม่ถือเป็น error
           return { ok: true, alreadyTrashed: true as const };
         }

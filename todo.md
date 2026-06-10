@@ -927,3 +927,9 @@
 - [x] เพิ่มใน CSV (header + value) ถัดจาก Campaign
 - [x] unit test mapping (pure)
 - [x] tsc + vitest ผ่าน, save checkpoint
+
+## Phase 3A.1 — ปุ่มถังขยะทุกแถวที่มี campaignId
+- [x] FE: ปุ่มถังโผล่ทุกแถวที่มี campaignId (ตัดเงื่อนไข !isNoSpend ออก)
+- [x] BE: moveToTrash auto-create campaignStatus row ถ้ายังไม่มี (ensureCampaignStatusRow จาก insights)
+- [x] BE: idempotent guard ปรับให้รองรับ existing อาจ null หลัง create
+- [x] รัน vitest 582/582 ผ่าน (regression) — ensureCampaignStatusRow เป็น DB I/O ล้วน ทดสอบจริงผ่าน UI

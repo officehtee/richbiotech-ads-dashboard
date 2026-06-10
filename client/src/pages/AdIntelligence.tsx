@@ -1062,8 +1062,9 @@ function AdAnalysisTab() {
                                   ปิดแล้ว
                                 </span>
                               )}
-                              {/* Phase 4.1: ปุ่มย้ายเข้าถังเอง (manual) — โผล่ตอน hover, ทุก role ยกเว้น content */}
-                              {canTrash && !isNoSpend && r.campaignId && (
+                              {/* Phase 4.1 + 3A.1: ปุ่มย้ายเข้าถังเอง (manual) — โผล่ตอน hover, ทุก role ยกเว้น content */}
+                              {/* 3A.1: โผล่ทุกแถวที่มี campaignId (รวม synthetic/no-spend เช่น ปิดแล้ว/WAIT) */}
+                              {canTrash && r.campaignId && (
                                 <button
                                   type="button"
                                   onClick={() =>

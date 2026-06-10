@@ -2016,6 +2016,47 @@ export async function hardDeleteCampaignData(
  * ไม่ลบข้อมูล insights/manual — แค่ซ่อนจากตารางหลักด้วย guard trashedAt
  * คืนค่า restoredAt → null (ถ้าเคยกู้มาก่อน)
  */
+/**
+ * 3A.1: ถ้ายังไม่มี campaignStatus row ของแคมเปญนี้ → สร้างขึ้นจากข้อมูลใน adInsightsDaily
+ * ใช้ก่อน trash เพื่อรองรับแถว insights-based ที่ status sync ยังมาไม่ถึง (cs undefined)
+ * คืนค่า true ถ้ามี row อยู่แล้วหรือสร้างสำเร็จ, false ถ้าหาข้อมูลต้นทางไม่ได้
+ */
+export async function ensureCampaignStatusRow(
+  userId: number,
+  campaignId: string,
+): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  // มีอยู่แล้ว?
+  const existing = await getCampaignStatusOne(userId, campaignId);
+  if (existing) return true;
+  // หา accountId + campaignName จาก insights
+  const ins = await db
+    .select({
+      accountId: adInsightsDaily.accountId,
+      campaignName: adInsightsDaily.campaignName,
+    })
+    .from(adInsightsDaily)
+    .where(
+      and(
+        eq(adInsightsDaily.userId, userId),
+        eq(adInsightsDaily.campaignId, campaignId),
+      ),
+    )
+    .limit(1);
+  const found = ins[0];
+  if (!found || found.accountId == null) return false;
+  await db.insert(campaignStatus).values({
+    userId,
+    accountId: found.accountId,
+    campaignId,
+    campaignName: found.campaignName ?? null,
+    effectiveStatus: null,
+    syncedAt: new Date(),
+  } as InsertCampaignStatus);
+  return true;
+}
+
 export async function moveCampaignToTrash(
   userId: number,
   campaignId: string,
