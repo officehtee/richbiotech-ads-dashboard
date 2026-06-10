@@ -53,11 +53,11 @@ describe("encryption helper", () => {
 });
 
 describe("maskToken", () => {
-  it("masks long tokens to last 4 chars", () => {
-    expect(maskToken("EAABwzLixnjYBO1234567890abcd")).toBe("****abcd");
+  it("masks long tokens to last 8 chars (4 stars + last 8)", () => {
+    expect(maskToken("EAABwzLixnjYBO1234567890abcd")).toBe("****7890abcd");
   });
 
-  it("returns **** for short tokens", () => {
+  it("returns **** for short tokens (<= 8 chars)", () => {
     expect(maskToken("abc")).toBe("****");
     expect(maskToken("12345678")).toBe("****");
   });

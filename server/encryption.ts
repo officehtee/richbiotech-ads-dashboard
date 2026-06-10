@@ -65,12 +65,13 @@ export function decrypt(encoded: string): string {
 }
 
 /**
- * Mask token for display (only show last 4 chars)
+ * Mask token for display.
+ * แสดง 12 ตัวท้าย: 4 ตัวแรกของส่วนนั้นปิดด้วย "*" + เปิด 8 ตัวท้ายจริง → "****XXXXXXXX"
  */
 export function maskToken(token: string): string {
   if (!token) return "";
   if (token.length <= 8) return "****";
-  return `****${token.slice(-4)}`;
+  return `****${token.slice(-8)}`;
 }
 
 /**
