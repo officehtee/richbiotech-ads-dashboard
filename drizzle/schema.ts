@@ -545,3 +545,30 @@ export const syncLogs = mysqlTable("syncLogs", {
 
 export type SyncLog = typeof syncLogs.$inferSelect;
 export type InsertSyncLog = typeof syncLogs.$inferInsert;
+
+/**
+ * Phase 3C — Ad Status (ad-level) — 1 row per adId × tenant
+ * เก็บสถานะ + เหตุผลปฏิเสธ (issues_info) ระดับ ad จาก Meta
+ * - ใช้สำหรับ (A) roll-up ad→campaign และ (B) แสดงเหตุผลปฏิเสธในหน้า UI
+ * - effectiveStatus: สถานะ ad-level (DISAPPROVED / WITH_ISSUES / PENDING_REVIEW ...)
+ * - issuesJson: JSON.stringify(issues_info[]) — null ถ้า ad ไม่มี issues
+ * - เป็น snapshot: ทุก sync เขียนใหม่ + ลบ row ที่ไม่อยู่ใน snapshot (clearStaleAdStatus)
+ *   เพื่อกัน issues ค้างหลัง ad ถูกแก้แล้ว
+ */
+export const adStatus = mysqlTable("adStatus", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(), // workspace owner (tenant)
+  accountId: int("accountId").notNull(), // FK → adAccounts.id
+  adId: varchar("adId", { length: 64 }).notNull(),
+  campaignId: varchar("campaignId", { length: 64 }), // index ใช้ join/roll-up
+  effectiveStatus: varchar("effectiveStatus", { length: 64 }), // ad-level status
+  issuesJson: text("issuesJson"), // JSON.stringify(issues_info[]) — null ถ้าไม่มี
+  syncedAt: timestamp("syncedAt").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("adStatus_userId_adId_unique").on(t.userId, t.adId),
+  index("adStatus_userId_campaignId_idx").on(t.userId, t.campaignId),
+  index("adStatus_accountId_idx").on(t.accountId),
+]);
+
+export type AdStatus = typeof adStatus.$inferSelect;
+export type InsertAdStatus = typeof adStatus.$inferInsert;

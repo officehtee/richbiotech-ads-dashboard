@@ -2238,3 +2238,177 @@ export async function getTrashedCampaignIdSet(
   for (const r of rows) set.add(String(r.campaignId));
   return set;
 }
+
+
+/* ============================================================
+ * Phase 3C — adStatus (ad-level) helpers (B)
+ * เก็บ/ดึง/เคลียร์ snapshot ของ ad-level status + issues_info
+ * ============================================================ */
+
+import {
+  adStatus,
+  type AdStatus,
+  type InsertAdStatus,
+} from "../drizzle/schema";
+import { notInArray } from "drizzle-orm";
+
+/** ค่าที่ caller ส่งให้ upsertAdStatus (1 ad) */
+export type UpsertAdStatusInput = {
+  adId: string;
+  campaignId: string;
+  effectiveStatus: string;
+  /** issues_info[] — จะถูก JSON.stringify; ว่าง/undefined → null */
+  issues?: unknown[] | null;
+};
+
+/**
+ * Upsert ad-level status rows (UNIQUE userId+adId).
+ * - issues ว่าง → issuesJson = null
+ * - ไม่ลบ row ที่ไม่อยู่ในชุดนี้ (หน้าที่ของ clearStaleAdStatus)
+ */
+export async function upsertAdStatus(
+  userId: number,
+  accountId: number,
+  ads: UpsertAdStatusInput[],
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  if (!ads.length) return;
+  for (const ad of ads) {
+    if (!ad.adId) continue;
+    const issuesJson =
+      Array.isArray(ad.issues) && ad.issues.length > 0
+        ? JSON.stringify(ad.issues)
+        : null;
+    const row: InsertAdStatus = {
+      userId,
+      accountId,
+      adId: ad.adId,
+      campaignId: ad.campaignId || null,
+      effectiveStatus: ad.effectiveStatus || null,
+      issuesJson,
+    };
+    await db
+      .insert(adStatus)
+      .values(row)
+      .onDuplicateKeyUpdate({
+        set: {
+          accountId,
+          campaignId: row.campaignId ?? null,
+          effectiveStatus: row.effectiveStatus ?? null,
+          issuesJson,
+          syncedAt: new Date(),
+        },
+      });
+  }
+}
+
+/**
+ * ดึง issues ของ campaign หนึ่ง (เฉพาะ row ที่มี issuesJson ไม่ว่าง).
+ * คืน array ของ { adId, effectiveStatus, issues[] } (parse JSON แล้ว).
+ */
+export async function getAdIssuesByCampaign(
+  userId: number,
+  campaignId: string,
+): Promise<
+  Array<{
+    adId: string;
+    effectiveStatus: string | null;
+    issues: Array<{
+      level: string;
+      error_code: number;
+      error_summary: string;
+      error_message: string;
+    }>;
+  }>
+> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .select()
+    .from(adStatus)
+    .where(
+      and(
+        eq(adStatus.userId, userId),
+        eq(adStatus.campaignId, campaignId),
+        isNotNull(adStatus.issuesJson),
+      ),
+    );
+  const out: Array<{
+    adId: string;
+    effectiveStatus: string | null;
+    issues: any[];
+  }> = [];
+  for (const r of rows) {
+    let parsed: any[] = [];
+    try {
+      const p = r.issuesJson ? JSON.parse(r.issuesJson) : [];
+      if (Array.isArray(p)) parsed = p;
+    } catch {
+      parsed = [];
+    }
+    if (parsed.length === 0) continue; // กัน row ที่ issuesJson = "[]" หลุดมา
+    out.push({
+      adId: String(r.adId),
+      effectiveStatus: r.effectiveStatus ?? null,
+      issues: parsed.map((it: any) => ({
+        level: String(it?.level ?? ""),
+        error_code: Number(it?.error_code ?? 0),
+        error_summary: String(it?.error_summary ?? ""),
+        error_message: String(it?.error_message ?? ""),
+      })),
+    });
+  }
+  return out;
+}
+
+/**
+ * Set ของ campaignId (ของ tenant) ที่มี ad ใดมี issues — ใช้ append hasIssues ลงแถว.
+ */
+export async function getCampaignIdsWithIssues(
+  userId: number,
+): Promise<Set<string>> {
+  const db = await getDb();
+  const set = new Set<string>();
+  if (!db) return set;
+  const rows = await db
+    .select({ campaignId: adStatus.campaignId })
+    .from(adStatus)
+    .where(and(eq(adStatus.userId, userId), isNotNull(adStatus.issuesJson)));
+  for (const r of rows) {
+    if (r.campaignId) set.add(String(r.campaignId));
+  }
+  return set;
+}
+
+/**
+ * ⚠️ จุด 3 ⭐ — เคลียร์ stale: ลบ row adStatus ของ account ที่ "ไม่อยู่ใน snapshot รอบนี้"
+ * (ad ที่กลับ active แล้ว / ถูกแก้แล้ว Meta ไม่ส่งมา → ลบ issues เก่าออก).
+ *
+ * caller ต้องเรียกเฉพาะเมื่อ fetchAdStatuses สำเร็จ (ok===true) เท่านั้น —
+ * ห้ามเรียกตอน fail (ads=[] เพราะ network error) ไม่งั้นจะลบ issues ทิ้งหมดทั้งบัญชี.
+ *
+ * - currentAdIds ว่าง (ดึงสำเร็จแต่ไม่มี ad ผิดเลย) → ลบ row ทั้งหมดของ account (ถูกต้อง: ไม่มี issues แล้ว)
+ * - currentAdIds มีค่า → ลบเฉพาะ row ที่ adId ไม่อยู่ในชุดนี้
+ */
+export async function clearStaleAdStatus(
+  userId: number,
+  accountId: number,
+  currentAdIds: string[],
+): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const cond =
+    currentAdIds.length > 0
+      ? and(
+          eq(adStatus.userId, userId),
+          eq(adStatus.accountId, accountId),
+          notInArray(adStatus.adId, currentAdIds),
+        )
+      : and(
+          eq(adStatus.userId, userId),
+          eq(adStatus.accountId, accountId),
+        );
+  const res: any = await db.delete(adStatus).where(cond);
+  return Number(res?.[0]?.affectedRows ?? 0);
+}

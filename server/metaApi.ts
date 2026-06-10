@@ -7,6 +7,8 @@
  * All errors are caught and logged so the dashboard never crashes.
  */
 
+import { classifyMetaStatus } from "./campaignStatus";
+
 const META_API_VERSION = "v22.0";
 const META_BASE = `https://graph.facebook.com/${META_API_VERSION}`;
 
@@ -1340,4 +1342,137 @@ export async function fetchCampaignStatuses(
     );
     return [];
   }
+}
+
+/* ============================================================
+ * Phase 3C — Ad-level status + issues_info (roll-up A + reason B)
+ * ============================================================ */
+
+/** 1 รายการใน issues_info[] ของ ad (Meta) */
+export type MetaAdIssue = {
+  level: string;
+  error_code: number;
+  error_summary: string;
+  error_message: string;
+};
+
+/** ad-level status พร้อม issues (ถ้ามี) */
+export type MetaAdStatus = {
+  adId: string;
+  campaignId: string;
+  effectiveStatus: string;
+  issuesInfo: MetaAdIssue[]; // [] ถ้า ad ไม่มี issues (active)
+};
+
+/**
+ * ผลลัพธ์ fetchAdStatuses — แยก "ดึงไม่ได้ (fail)" ออกจาก "ดึงได้แต่ว่าง (empty)"
+ * ⚠️ จุด 3 — caller ต้องใช้ ok แยกว่าจะ clearStaleAdStatus ได้หรือไม่:
+ *   - ok=true  → ดึงสำเร็จ (ads อาจว่างได้ → clear ได้)
+ *   - ok=false → ดึงล้มเหลว (ห้าม clear — ไม่งั้นลบ issues ทิ้งหมด)
+ */
+export type FetchAdStatusesResult = {
+  ok: boolean;
+  ads: MetaAdStatus[];
+};
+
+/**
+ * Fetch ad-level effective_status + issues_info จาก /{adAccountId}/ads
+ *
+ * - filtering: ดึงเฉพาะ ad "ไม่ปกติ" (reject/wait) — ad ACTIVE ไม่ดึง (ลด rate limit)
+ *   campaign-level ครอบ active อยู่แล้ว
+ * - paged ผ่าน fetchAllPages (เดิม)
+ * - graceful: fail/timeout → { ok:false, ads:[] } — ห้าม throw (pattern เดียว fetchCampaignStatuses)
+ * - ⚠️ filtering syntax รอ verify หลังปลด token
+ */
+export async function fetchAdStatuses(
+  adAccountId: string,
+  accessToken: string,
+): Promise<FetchAdStatusesResult> {
+  const fields =
+    "id,campaign_id,effective_status,issues_info{level,error_code,error_summary,error_message}";
+  // ดึงเฉพาะ ad ที่อาจถูกปฏิเสธ/รอรีวิว (active ไม่ต้อง)
+  const filtering = JSON.stringify([
+    {
+      field: "ad.effective_status",
+      operator: "IN",
+      value: [
+        "DISAPPROVED",
+        "WITH_ISSUES",
+        "PENDING_REVIEW",
+        "ADSET_DISAPPROVED",
+        "CAMPAIGN_DISAPPROVED",
+      ],
+    },
+  ]);
+  const url =
+    `${META_BASE}/${adAccountId}/ads?fields=${fields}` +
+    `&filtering=${encodeURIComponent(filtering)}` +
+    `&limit=200&access_token=${encodeURIComponent(accessToken)}`;
+  try {
+    const rows = await fetchAllPages(url, 25);
+    const ads: MetaAdStatus[] = rows
+      .filter((r: any) => r && r.id)
+      .map((r: any) => {
+        // issues_info: ad active = ไม่มี field (ไม่ใช่ null) → เช็ค ?.length
+        const rawIssues: any[] = Array.isArray(r.issues_info?.data)
+          ? r.issues_info.data // บาง SDK ห่อ data
+          : Array.isArray(r.issues_info)
+            ? r.issues_info
+            : [];
+        const issuesInfo: MetaAdIssue[] = rawIssues.map((it: any) => ({
+          level: String(it?.level ?? ""),
+          error_code: Number(it?.error_code ?? 0),
+          error_summary: String(it?.error_summary ?? ""),
+          error_message: String(it?.error_message ?? ""),
+        }));
+        return {
+          adId: String(r.id),
+          campaignId: String(r.campaign_id ?? ""),
+          effectiveStatus: String(r.effective_status ?? "UNKNOWN"),
+          issuesInfo,
+        };
+      });
+    return { ok: true, ads };
+  } catch (err: any) {
+    console.warn(
+      `[MetaAPI] fetchAdStatuses failed for ${adAccountId}: ${err?.message ?? err}`,
+    );
+    return { ok: false, ads: [] };
+  }
+}
+
+/**
+ * Pure: roll-up ad-level status → campaign-level (A)
+ * ลำดับชี้ขาด: reject ชนะ → active → wait → (ไม่มีไหนเข้าข่าย → ไม่ set → caller fallback campaign-level)
+ * - closed/other ไม่ set ค่า → ปล่อยให้ fallback (จุด 1)
+ * - คืน Map<campaignId, effectiveStatus> — เฉพาะ campaign ที่ roll-up ได้ข้อสรุปชัดเจน
+ * - ใช้ classifyMetaStatus (logic เดียว) — ไม่แตะ REJECT_STATUSES
+ */
+export function rollUpAdStatusToCampaign(
+  ads: { campaignId: string; effectiveStatus: string }[],
+): Map<string, string> {
+  // group flags per campaign
+  const flags = new Map<
+    string,
+    { reject: boolean; active: boolean; wait: boolean }
+  >();
+  for (const ad of ads) {
+    const cid = ad.campaignId;
+    if (!cid) continue;
+    const kind = classifyMetaStatus(ad.effectiveStatus);
+    const cur = flags.get(cid) ?? { reject: false, active: false, wait: false };
+    if (kind === "reject") cur.reject = true;
+    else if (kind === "active") cur.active = true;
+    else if (kind === "wait") cur.wait = true;
+    // closed/other: ไม่ set flag ใด → ถ้าไม่มี reject/active/wait เลย → ไม่ set → fallback
+    flags.set(cid, cur);
+  }
+  const out = new Map<string, string>();
+  flags.forEach((f, cid) => {
+    if (f.reject) out.set(cid, "DISAPPROVED"); // reject ชนะ
+    else if (f.active) out.set(cid, "ACTIVE");
+    else if (f.wait) out.set(cid, "PENDING_REVIEW");
+    // else: ทุก ad เป็น closed/other → ไม่ set → caller fallback campaign-level
+  });
+  return out;
 }

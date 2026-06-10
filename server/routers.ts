@@ -127,6 +127,8 @@ import {
   getScaleAmountMap,
   getCampaignFirstDates,
   getCampaignStatusMap,
+  getCampaignIdsWithIssues,
+  getAdIssuesByCampaign,
   getAccountGroupMap,
   getLatestSyncedAt,
   upsertAdManualMetric,
@@ -1304,7 +1306,7 @@ export const appRouter = router({
       )
       .query(async ({ ctx, input }) => {
         const tid = await tenantId(ctx);
-        const [rows, scaleMap, campaignFirstDates, statusMap, accounts, groups, groupMap] =
+        const [rows, scaleMap, campaignFirstDates, statusMap, accounts, groups, groupMap, campaignsWithIssues] =
           await Promise.all([
             getDeepAdsRows(tid, input.dateFrom, input.dateTo, {
               search: input.search,
@@ -1318,6 +1320,8 @@ export const appRouter = router({
             getAdAccountsByUser(tid),
             getAccountGroupsByUser(tid),
             getAccountGroupMap(tid),
+            // Phase 3C (B): ชุด campaignId ที่มี ad ใดมี issues → ใช้ append hasIssues
+            getCampaignIdsWithIssues(tid),
           ]);
         const todayObj = new Date();
         const today = todayString(todayObj);
@@ -1368,6 +1372,10 @@ export const appRouter = router({
             effectiveStatus: cs?.effectiveStatus ?? null,
             approvedAt: cs?.approvedAt ?? null,
             rejectedAt: cs?.rejectedAt ?? null,
+            // Phase 3C (B): มี ad-level issues ของ campaign นี้ไหม → โชว์ไอคอน (i)
+            hasIssues: r.campaignId
+              ? campaignsWithIssues.has(String(r.campaignId))
+              : false,
             // เฟส 3B: สถานะคำขอโฆษณา (toggle) — แถวจริงก็มีได้ (ถ้าถูก reject)
             requestReviewAt: cs?.requestReviewAt ?? null,
             // Phase 5: คุณภาพ ads ระดับแคมเปญ (จาก campaignStatus.quality)
@@ -1487,6 +1495,10 @@ export const appRouter = router({
               effectiveStatus: cs.effectiveStatus ?? null,
               approvedAt: cs.approvedAt ?? null,
               rejectedAt: cs.rejectedAt ?? null,
+              // Phase 3C (B): synthetic row ก็โชว์ไอคอน (i) ได้ ถ้า campaign มี ad issues
+              hasIssues: cs.campaignId
+                ? campaignsWithIssues.has(String(cs.campaignId))
+                : false,
               // เฟส 3B: สถานะคำขอโฆษณา (toggle) — synthetic row มีปุ่มได้ (ส่วนใหญ่ reject/wait)
               requestReviewAt: cs.requestReviewAt ?? null,
               // Phase 5: คุณภาพ ads ของแคมเปญ (จาก campaignStatus ตัวเดียวกับ synthetic row)
@@ -1589,6 +1601,33 @@ export const appRouter = router({
           });
         }
         return { ok: true, requestReviewAt: input.requested ? today : null };
+      }),
+    /**
+     * Phase 3C (B): ดึงเหตุผลที่โฆษณาถูกปฏิเสธ (issues_info) ระดับ ad ของ campaign หนึ่ง
+     * — ใช้ตอนคลิกไอคอน (i) เพื่อเปิด dialog
+     * guard: nonContent (content ถูกบล็อก) + per-account (staff ดูได้เฉพาะบัญชีตน) + tenant isolation
+     */
+    getCampaignIssues: nonContentProcedure
+      .input(z.object({ campaignId: z.string().min(1) }))
+      .query(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        // ownership guard: แคมเปญต้องอยู่ใน tenant นี้ + (ถ้า staff) ต้องเป็นบัญชีของตน
+        const cs = await getCampaignStatusOne(tid, input.campaignId);
+        if (cs && cs.accountId) {
+          const acc = await getAdAccountById(cs.accountId, tid);
+          if (
+            acc &&
+            !isOwnerRole(ctx.user.role) &&
+            acc.ownerUserId !== ctx.user.id
+          ) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "ไม่มีสิทธิ์ดูแคมเปญนี้",
+            });
+          }
+        }
+        const ads = await getAdIssuesByCampaign(tid, input.campaignId);
+        return { campaignId: input.campaignId, ads };
       }),
     /**
      * Phase 5: ตั้งค่า "ประเภทโพส" ระดับแอด (staff แก้ได้ + tenant isolation)

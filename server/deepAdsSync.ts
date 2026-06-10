@@ -18,6 +18,8 @@ import {
   fetchAdPreviewThumb,
   fetchPageName,
   fetchCampaignStatuses,
+  fetchAdStatuses,
+  rollUpAdStatusToCampaign,
 } from "./metaApi";
 import {
   upsertAdInsightsDaily,
@@ -33,6 +35,8 @@ import {
   moveCampaignToTrash,
   clearRestoredCampaign,
   restoreCampaign,
+  upsertAdStatus,
+  clearStaleAdStatus,
 } from "./db";
 import { cacheAdPreview, isPreviewFresh } from "./previewCache";
 import { reconcileStatus, todayString } from "./campaignStatus";
@@ -91,6 +95,30 @@ export function resolvePageName(
 }
 
 /**
+ * Phase 3C (pure): ตัดสินว่าจะจัดการ ad-level snapshot อย่างไร—แยก fail vs empty (จุด 3 ★)
+ *
+ * อินพุต: ผลลัพธ์ fetchAdStatuses { ok, ads }
+ * ผลลัพธ์:
+ *   - applyRollup: ควร override campaign status จาก roll-up ไหม (A)
+ *   - writeIssues:  ควร upsert issues ลง adStatus ไหม (B)
+ *   - clearStale:   ควรลบ row นอก snapshot ไหม (B) — ⚠️ true เฉพาะเมื่อ ok===true
+ *
+ * กฎ:
+ *   - ok===false (ดึงไม่ได้)  → ไม่ทำอะไรเลย (A fallback campaign-level / B คงค่าเดิม) — ห้าม clear
+ *   - ok===true (ดึงได้)        → applyRollup + writeIssues + clearStale (แม้ ads ว่าง = ล้างหมด)
+ */
+export function decideAdStatusActions(result: {
+  ok: boolean;
+}): { applyRollup: boolean; writeIssues: boolean; clearStale: boolean } {
+  if (!result.ok) {
+    // ดึงไม่ได้ → คงสถานะเดิมทั้ง A และ B (ห้ามลบ issues ทิ้ง)
+    return { applyRollup: false, writeIssues: false, clearStale: false };
+  }
+  // ดึงได้ → ทำครบ (clearStale ได้แม้ ads ว่าง = ไม่มี ad ผิดแล้ว)
+  return { applyRollup: true, writeIssues: true, clearStale: true };
+}
+
+/**
  * Sync one ad account for a given date range.
  *
  * - Does not throw — captures errors per-account
@@ -104,16 +132,25 @@ export async function syncAdInsightsForAccount(
 ): Promise<DeepSyncResult> {
   try {
     const token = account.accessToken;
-    const [insights, budgets, groupMap, campaignStatuses, statusMap] =
+    const [insights, budgets, groupMap, campaignStatuses, statusMap, adStatusResult] =
       await Promise.all([
         fetchAdInsightsDaily(account.adAccountId, token, { since, until }),
         fetchAdsetDailyBudgetMap(account.adAccountId, token),
         getAccountGroupMap(tenantId),
         fetchCampaignStatuses(account.adAccountId, token),
         getCampaignStatusMap(tenantId),
+        // Phase 3C (A+B): ดึง ad-level status + issues_info ครั้งเดียว (graceful: { ok, ads })
+        fetchAdStatuses(account.adAccountId, token),
       ]);
 
     const groupId = groupMap.get(account.id) ?? null;
+
+    // ----- Phase 3C: ตัดสิน action ของ ad-level snapshot (จุด 3 ⭐ — fail → ไม่แตะ) -----
+    const adActions = decideAdStatusActions(adStatusResult);
+    // (A) roll-up ad-level → campaign-level override map (ใช้เฉพาะเมื่อ applyRollup)
+    const adRollupMap = adActions.applyRollup
+      ? rollUpAdStatusToCampaign(adStatusResult.ads)
+      : new Map<string, string>();
     let rowsSynced = 0;
     let previewsRefreshed = 0;
     let campaignsReconciled = 0;
@@ -127,8 +164,13 @@ export async function syncAdInsightsForAccount(
       const prev = statusMap.get(cs.campaign_id);
       const isTrashed = prev?.trashedAt != null;
       const isRestored = prev?.restoredAt != null;
+      // Phase 3C (A): ถ้า ad-level roll-up บอกสถานะของ campaign นี้ → override
+      //   (เฉพาะ campaign ที่ roll-up ได้ข้อสรุป reject/active/wait; closed/ไม่มี → fallback campaign-level)
+      //   จุดมุ่ง: แก้ช่องโหว่ campaign ACTIVE ขณะ ad ถูก reject
+      const overriddenStatus =
+        adRollupMap.get(cs.campaign_id) ?? cs.effective_status;
       const result = reconcileStatus({
-        effectiveStatus: cs.effective_status,
+        effectiveStatus: overriddenStatus,
         approvedAt: prev?.approvedAt ?? null,
         rejectedAt: prev?.rejectedAt ?? null,
         rejectedExpired: prev?.rejectedExpired ?? false,
@@ -153,7 +195,7 @@ export async function syncAdInsightsForAccount(
               campaignId: cs.campaign_id,
               campaignName:
                 cs.campaign_name || prev?.campaignName || null,
-              effectiveStatus: cs.effective_status,
+              effectiveStatus: overriddenStatus,
               approvedAt: result.approvedAt,
               rejectedAt: result.rejectedAt,
               rejectedExpired: result.rejectedExpired,
@@ -173,7 +215,7 @@ export async function syncAdInsightsForAccount(
         accountId: account.id,
         campaignId: cs.campaign_id,
         campaignName: cs.campaign_name || prev?.campaignName || null,
-        effectiveStatus: cs.effective_status,
+        effectiveStatus: overriddenStatus,
         approvedAt: result.approvedAt,
         rejectedAt: result.rejectedAt,
         rejectedExpired: result.rejectedExpired,
@@ -313,6 +355,38 @@ export async function syncAdInsightsForAccount(
       await backfillPageName(account.adAccountId, pageNameCache);
     } catch (e) {
       console.warn(`[deepAdsSync] backfillPageName fail:`, (e as Error).message);
+    }
+
+    // ----- Phase 3C (B): เก็บ/ล้าง ad-level issues snapshot (จุด 3 ⭐ — guarded) -----
+    // ทำเฉพาะเมื่อ fetchAdStatuses สำเร็จ (ok===true):
+    //   - writeIssues: upsert ad-level status + issues_info
+    //   - clearStale:  ลบ row ad ที่ไม่อยู่ใน snapshot รอบนี้ (ad ถูกแก้ / active แล้ว)
+    //     ถ้า currentAdIds ว่าง (ok=true แต่ไม่มี ad ผิด) → ล้าง issues ทั้ง account (ถูกต้อง)
+    // ⚠️ ok===false (ดึงไม่ได้): ไม่เข้า block นี้เลย → คง issues เดิมไว้ (ไม่ลบทิ้ง)
+    if (adActions.writeIssues || adActions.clearStale) {
+      try {
+        if (adActions.writeIssues) {
+          await upsertAdStatus(
+            tenantId,
+            account.id,
+            adStatusResult.ads.map((a) => ({
+              adId: a.adId,
+              campaignId: a.campaignId,
+              effectiveStatus: a.effectiveStatus,
+              issues: a.issuesInfo,
+            })),
+          );
+        }
+        if (adActions.clearStale) {
+          const currentAdIds = adStatusResult.ads.map((a) => a.adId);
+          await clearStaleAdStatus(tenantId, account.id, currentAdIds);
+        }
+      } catch (e) {
+        console.warn(
+          `[deepAdsSync] ad-level issues snapshot fail account=${account.id}:`,
+          (e as Error).message,
+        );
+      }
     }
 
     return {

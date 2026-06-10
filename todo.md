@@ -974,3 +974,30 @@
 ## UI Tweaks (10/06 รอบใหม่)
 - [x] คอลัมน์ "การชำระเงิน" (AdIntelligence): icon Banknote "เติมเงิน" / icon CreditCard "ผูกบัตร" + สีตัวอักษร text-foreground (ไม่เขียว)
 - [x] แท็บ "บัญชีของฉัน": ห่อด้วย wrapper bg-primary/[0.06] + border-primary/15 (ส้มอ่อนทึบกลืน bg แต่แยกชัด)
+
+## Phase 3C: ad-level roll-up (A) + เก็บ/แสดงเหตุผลปฏิเสธ issues_info (B)
+> เขียนครบ + mock test ตอนนี้ ใช้ได้ทันทีหลังปลด token. handle 4 จุดเสี่ยง
+### ส่วนที่ 1 — Migration ตาราง adStatus (B)
+- [x] เพิ่มตาราง adStatus (id/userId/accountId/adId/campaignId/effectiveStatus/issuesJson/syncedAt) UNIQUE(userId,adId) INDEX(userId,campaignId)
+- [x] generate migration (0016) + apply SQL + query ได้ (cnt=0)
+### ส่วนที่ 2 — fetchAdStatuses + rollUpAdStatusToCampaign (A)
+- [x] fetchAdStatuses(adAccountId, token): /{id}/ads + fields issues_info + filtering (reject/wait) + paged + graceful → คืน {ok, ads[]} แยก fail vs empty (จุด 3)
+- [x] rollUpAdStatusToCampaign(ads) pure: reject ชนะ → active → wait → fallback (closed/อื่นๆ → fallback) (จุด 1)
+- [x] tests: pure roll-up 11 เคส (reject ชนะ / ทุก active → ACTIVE / ทุก closed → fallback / empty → fallback / mix) (จุด 1,2) — adStatusRollup.test.ts
+### ส่วนที่ 3 — db helper (B) + กัน clear ตอน fail (จุด 3 ⭐)
+- [x] upsertAdStatus(userId, accountId, ads[]) onDuplicateKeyUpdate by adId
+- [x] getAdIssuesByCampaign(userId, campaignId) เฉพาะ issuesJson ไม่ว่าง + getCampaignIdsWithIssues
+- [x] clearStaleAdStatus(userId, accountId, currentAdIds[]) ลบ row นอก snapshot (empty=ล้างทั้ง account)
+- [x] decideAdStatusActions (pure) แยก fail vs empty + tests 3 เคส (จุด 3 ⭐) — adStatusSnapshot.test.ts
+### ส่วนที่ 4 — รวม A+B ใน deepAdsSync (ดึงครั้งเดียว)
+- [x] เพิ่ม fetchAdStatuses ใน Promise.all (6 ตัว) + roll-up override cs.effective_status ก่อน reconcile (ทั้ง revive + normal upsert)
+- [x] B: upsertAdStatus + clearStaleAdStatus เข้า block เฉพาะเมื่อ decideAdStatusActions (ok===true) — fail → skip ทั้ง A+B
+### ส่วนที่ 5 — procedure + hasIssues
+- [x] append hasIssues ลงแถว (จริง + synthetic) จาก getCampaignIdsWithIssues
+- [x] getCampaignIssues procedure (nonContent + per-account guard + tenant isolation) + 6 tests — getCampaignIssues.procedure.test.ts
+### ส่วนที่ 6 — UI ไอคอน (i) + dialog
+- [x] ไอคอน (i) ต่อท้าย badge (hasIssues===true) ในคอลัมน์การแสดงโฆษณา (ทั้งแถวจริง+synthetic)
+- [x] IssuesDialog "เหตุผลที่โฆษณาถูกปฏิเสธ" — lazy query (enabled) + list ad + issues + loading/empty (reuse shadcn Dialog)
+### ส่วนที่ 7 — regression + ปิดงาน
+- [x] regression ผ่านหมด: 52 test files / 618 tests passed (รวมของเดิมไม่พัง)
+- [x] tsc clean (EXIT=0) + lsp no errors + checkpoint + รายงาน

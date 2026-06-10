@@ -72,6 +72,7 @@ import {
   Download,
   History,
   Image as ImageIcon,
+  Info,
   Loader2,
   RefreshCw,
   Search,
@@ -201,6 +202,11 @@ function AdAnalysisTab() {
   const [groupFilter, setGroupFilter] = useState<string>("all");
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
+  // Phase 3C (B): campaignId ที่เปิด dialog "เหตุผลที่โฆษณาถูกปฏิเสธ" (null = ปิด)
+  const [issuesCampaign, setIssuesCampaign] = useState<{
+    campaignId: string;
+    campaignName: string | null;
+  } | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   // Round 7.26: Preview click → popup zoom
@@ -1126,11 +1132,29 @@ function AdAnalysisTab() {
                                   return <span className="text-muted-foreground text-xs">—</span>;
                                 }
                                 return (
-                                  <span
-                                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${STATUS_TONE_CLASS[ds.tone]}`}
-                                    title={ds.known ? undefined : `สถานะดิบจาก Meta: ${ds.label}`}
-                                  >
-                                    {ds.label}
+                                  <span className="inline-flex items-center gap-1">
+                                    <span
+                                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${STATUS_TONE_CLASS[ds.tone]}`}
+                                      title={ds.known ? undefined : `สถานะดิบจาก Meta: ${ds.label}`}
+                                    >
+                                      {ds.label}
+                                    </span>
+                                    {/* Phase 3C (B): ไอคอน (i) — มีเหตุผลการปฏิเสธระดับ ad */}
+                                    {(r as any).hasIssues && r.campaignId ? (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setIssuesCampaign({
+                                            campaignId: String(r.campaignId),
+                                            campaignName: r.campaignName ?? null,
+                                          })
+                                        }
+                                        title="ดูเหตุผลที่โฆษณาถูกปฏิเสธ"
+                                        className="inline-flex h-4 w-4 items-center justify-center rounded-full text-rose-500 transition hover:bg-rose-100 hover:text-rose-700 dark:hover:bg-rose-950/40"
+                                      >
+                                        <Info className="h-3.5 w-3.5" />
+                                      </button>
+                                    ) : null}
                                   </span>
                                 );
                               })()}
@@ -1515,6 +1539,12 @@ function AdAnalysisTab() {
         </DialogContent>
       </Dialog>
 
+      {/* Phase 3C (B) — Dialog เหตุผลที่โฆษณาถูกปฏิเสธ (issues_info ระดับ ad) */}
+      <IssuesDialog
+        target={issuesCampaign}
+        onClose={() => setIssuesCampaign(null)}
+      />
+
       {/* Round 7.46 / 7.47 — Re-sync ย้อนหลัง (manual backfill) dialog */}
       <Dialog
         open={resyncOpen}
@@ -1691,6 +1721,90 @@ function AdAnalysisTab() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+/**
+ * Phase 3C (B): Dialog แสดงเหตุผลที่โฆษณาถูกปฏิเสธ (issues_info ระดับ ad)
+ * — ดึงข้อมูล lazy เฉพาะตอนเปิด (enabled ตาม target)
+ */
+function IssuesDialog({
+  target,
+  onClose,
+}: {
+  target: { campaignId: string; campaignName: string | null } | null;
+  onClose: () => void;
+}) {
+  const open = target != null;
+  const issuesQuery = trpc.deepAds.getCampaignIssues.useQuery(
+    { campaignId: target?.campaignId ?? "" },
+    { enabled: open },
+  );
+  const ads = issuesQuery.data?.ads ?? [];
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-rose-500" />
+            เหตุผลที่โฆษณาถูกปฏิเสธ
+          </DialogTitle>
+          <DialogDescription>
+            แคมเปญ: {target?.campaignName ?? target?.campaignId ?? "—"}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[60vh] space-y-3 overflow-y-auto">
+          {issuesQuery.isLoading ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : ads.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              ไม่พบรายละเอียดเหตุผล (อาจถูกแก้ไขแล้ว หรือรอ sync รอบถัดไป)
+            </p>
+          ) : (
+            ads.map((ad: any) => (
+              <div
+                key={ad.adId}
+                className="rounded-lg border border-border bg-muted/30 p-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-medium">
+                    {ad.adName || `Ad ${ad.adId}`}
+                  </p>
+                  <span className="shrink-0 rounded-full border border-rose-300 bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300">
+                    {ad.effectiveStatus}
+                  </span>
+                </div>
+                {Array.isArray(ad.issues) && ad.issues.length > 0 ? (
+                  <ul className="mt-2 space-y-1.5">
+                    {ad.issues.map((iss: any, idx: number) => (
+                      <li key={idx} className="text-xs text-muted-foreground">
+                        {iss.title ? (
+                          <span className="font-medium text-foreground">
+                            {iss.title}:{" "}
+                          </span>
+                        ) : null}
+                        {iss.description || iss.error_message || "—"}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    ไม่มีรายละเอียดเพิ่มเติม
+                  </p>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            ปิด
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
