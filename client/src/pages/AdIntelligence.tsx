@@ -66,7 +66,9 @@ import {
   AlertTriangle,
   ArrowDownAZ,
   ArrowUpAZ,
+  Banknote,
   CheckCircle2,
+  CreditCard,
   Download,
   History,
   Image as ImageIcon,
@@ -1002,9 +1004,13 @@ function AdAnalysisTab() {
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap border-t text-sm">
                             {(r as any).paymentType === "card" ? (
-                              <Badge variant="outline" className="text-[10px] h-5 border-blue-400 text-blue-600 dark:text-blue-400">ผูกบัตร</Badge>
+                              <Badge variant="outline" className="text-[10px] h-5 gap-1 text-foreground">
+                                <CreditCard className="h-3 w-3" />ผูกบัตร
+                              </Badge>
                             ) : (r as any).paymentType === "prepaid" ? (
-                              <Badge variant="outline" className="text-[10px] h-5 border-emerald-400 text-emerald-600 dark:text-emerald-400">เติมเงิน</Badge>
+                              <Badge variant="outline" className="text-[10px] h-5 gap-1 text-foreground">
+                                <Banknote className="h-3 w-3" />เติมเงิน
+                              </Badge>
                             ) : (
                               <span className="text-muted-foreground">—</span>
                             )}
@@ -1720,7 +1726,11 @@ export default function AdIntelligence() {
           {tab === "analysis" && <AdAnalysisTab />}
         </TabsContent>
         <TabsContent value="accounts" className="mt-4">
-          {tab === "accounts" && <AccountsTab />}
+          {tab === "accounts" && (
+            <div className="rounded-xl border border-primary/15 bg-primary/[0.06] p-4 sm:p-5">
+              <AccountsTab />
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

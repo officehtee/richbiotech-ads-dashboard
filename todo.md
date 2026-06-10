@@ -968,4 +968,9 @@
 - [x] regression ทั้ง suite: 598 tests passed (49 files)
 
 ### ส่วนที่ 7 — ปิดงาน
-- [ ] check_status + pnpm test ผ่าน + checkpoint + รายงาน
+- [x] check_status (tsc/lsp clean) + pnpm test ผ่าน 598/598 + checkpoint 51a29449 + รายงาน
+
+
+## UI Tweaks (10/06 รอบใหม่)
+- [x] คอลัมน์ "การชำระเงิน" (AdIntelligence): icon Banknote "เติมเงิน" / icon CreditCard "ผูกบัตร" + สีตัวอักษร text-foreground (ไม่เขียว)
+- [x] แท็บ "บัญชีของฉัน": ห่อด้วย wrapper bg-primary/[0.06] + border-primary/15 (ส้มอ่อนทึบกลืน bg แต่แยกชัด)
