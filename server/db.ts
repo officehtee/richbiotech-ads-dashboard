@@ -1473,6 +1473,46 @@ export async function updateCampaignQuality(
 }
 
 /**
+ * เฟส 3B (B): อัปเดตเฉพาะ requestReviewAt ของแคมเปญ (toggle ส่งคำขอโฆษณา)
+ * — helper แยกต่างหาก upsertCampaignStatus: set เฉพาะ requestReviewAt
+ *   ไม่แตะ effectiveStatus/approvedAt/rejectedAt ที่ sync จัดการ
+ * @param requested true = จดวันนี้ (ส่งคำขอ) / false = เคลียร์ (ยกเลิกส่ง)
+ * @returns true ถ้าอัปเดตสำเร็จ / false ถ้าหาแถว/accountId ต้นทางไม่ได้
+ */
+export async function markRequestReview(
+  userId: number,
+  campaignId: string,
+  requested: boolean,
+  today: string,
+): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const value = requested ? today : null;
+  // (D) หาแถวเดิมก่อน — ถ้ามีแล้ว update ตรง ๆ
+  const existing = await db
+    .select({ accountId: campaignStatus.accountId })
+    .from(campaignStatus)
+    .where(and(eq(campaignStatus.userId, userId), eq(campaignStatus.campaignId, campaignId)))
+    .limit(1);
+  if (existing.length > 0) {
+    await db
+      .update(campaignStatus)
+      .set({ requestReviewAt: value })
+      .where(and(eq(campaignStatus.userId, userId), eq(campaignStatus.campaignId, campaignId)));
+    return true;
+  }
+  // (D) ยังไม่มีแถว → สร้างจาก adInsightsDaily ก่อน (ได้ accountId จริง ไม่ใช้ placeholder 0)
+  // เพื่อให้ ownership guard ฝั่ง router ตรวจ accountId ได้ถูกต้อง
+  const ok = await ensureCampaignStatusRow(userId, campaignId);
+  if (!ok) return false;
+  await db
+    .update(campaignStatus)
+    .set({ requestReviewAt: value })
+    .where(and(eq(campaignStatus.userId, userId), eq(campaignStatus.campaignId, campaignId)));
+  return true;
+}
+
+/**
  * Round 7.48: คืน adId (distinct) ของบัญชีหนึ่งที่ pageName ยังเป็น NULL
  * ใช้ให้ sync ดึงชื่อเพจเฉพาะแอดที่ยังขาด (ไม่ผูกกับ preview freshness)
  */
@@ -1910,6 +1950,8 @@ export async function upsertCampaignStatus(
         approvedAt: row.approvedAt ?? null,
         rejectedAt: row.rejectedAt ?? null,
         rejectedExpired: row.rejectedExpired ?? false,
+        // เฟส 3B: sync เขียน requestReviewAt ตามผล reconcile (reset/revive → null, อื่น → คงค่าเดิมที่ caller ส่งมา)
+        requestReviewAt: row.requestReviewAt ?? null,
         syncedAt: new Date(),
         // Phase 5: ห้ามใส่ quality ใน set นี้ — sync ไม่ควรทับค่าคุณภาพที่ผู้ใช้ตั้งไว้
         // Phase 4: ห้ามใส่ trashedAt/trashedReason/restoredAt — sync ไม่ควรแตะสถานะถังขยะ (จัดการผ่าน helper เฉพาะ)

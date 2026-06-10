@@ -1,0 +1,1 @@
+ALTER TABLE `campaignStatus` ADD `requestReviewAt` varchar(10);

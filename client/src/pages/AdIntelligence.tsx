@@ -73,6 +73,7 @@ import {
   Loader2,
   RefreshCw,
   Search,
+  Send,
   Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -535,6 +536,35 @@ function AdAnalysisTab() {
         if (!old) return old;
         return old.map((row) =>
           row.adId === input.adId ? { ...row, postType: input.postType } : row,
+        );
+      });
+      return { prev };
+    },
+    onError: (e, _input, ctx) => {
+      if (ctx?.prev !== undefined) utils.deepAds.list.setData(queryInput, ctx.prev);
+      toast.error(`บันทึกล้มเหลว: ${e.message}`);
+    },
+    onSettled: () => {
+      utils.deepAds.list.invalidate();
+    },
+  });
+
+  // เฟส 3B: optimistic toggle — ส่งคำขอโฆษณา (ระดับแคมเปญ) → อัปเดตทุกแถวที่ campaignId เดียวกัน
+  const markRequestReview = trpc.deepAds.markRequestReview.useMutation({
+    onMutate: async (input) => {
+      await utils.deepAds.list.cancel();
+      const prev = utils.deepAds.list.getData(queryInput);
+      // ใช้วันที่ local เป็น placeholder ระหว่างรอ server ตอบค่าจริงกลับ
+      const todayLocal = new Date().toISOString().slice(0, 10);
+      utils.deepAds.list.setData(queryInput, (old) => {
+        if (!old) return old;
+        return old.map((row) =>
+          String(row.campaignId) === String(input.campaignId)
+            ? {
+                ...row,
+                requestReviewAt: input.requested ? todayLocal : null,
+              }
+            : row,
         );
       });
       return { prev };
@@ -1081,22 +1111,84 @@ function AdAnalysisTab() {
                               )}
                             </div>
                           </td>
-                          {/* Phase 3A: การแสดงโฆษณา (effective_status ดิบจาก Meta) — แสดงอย่างเดียว ไม่แก้ */}
+                          {/* Phase 3A + เฟส 3B: การแสดงโฆษณา (badge บน) + ปุ่ม/สถานะส่งคำขอ (ล่าง) — แนวตั้ง */}
                           <td className="px-4 py-4 border-t">
-                            {(() => {
-                              const ds = getDisplayStatus((r as any).effectiveStatus);
-                              if (ds.empty) {
-                                return <span className="text-muted-foreground text-xs">—</span>;
-                              }
-                              return (
-                                <span
-                                  className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${STATUS_TONE_CLASS[ds.tone]}`}
-                                  title={ds.known ? undefined : `สถานะดิบจาก Meta: ${ds.label}`}
-                                >
-                                  {ds.label}
-                                </span>
-                              );
-                            })()}
+                            <div className="flex flex-col items-start gap-1.5">
+                              {(() => {
+                                const ds = getDisplayStatus((r as any).effectiveStatus);
+                                if (ds.empty) {
+                                  return <span className="text-muted-foreground text-xs">—</span>;
+                                }
+                                return (
+                                  <span
+                                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${STATUS_TONE_CLASS[ds.tone]}`}
+                                    title={ds.known ? undefined : `สถานะดิบจาก Meta: ${ds.label}`}
+                                  >
+                                    {ds.label}
+                                  </span>
+                                );
+                              })()}
+                              {(() => {
+                                // เฟส 3B: derived state 4 แบบจาก isReject + requestReviewAt
+                                const reqAt = (r as any).requestReviewAt as string | null;
+                                const pending = markRequestReview.isPending;
+                                if (isReject) {
+                                  // ถูกปฏิเสธ
+                                  if (reqAt) {
+                                    // สถานะ 2: ส่งคำขอแล้ว → แสดงวันที่ + ปุ่มยกเลิก (toggle)
+                                    return (
+                                      <button
+                                        type="button"
+                                        disabled={pending}
+                                        onClick={() =>
+                                          markRequestReview.mutate({
+                                            campaignId: String(r.campaignId),
+                                            requested: false,
+                                          })
+                                        }
+                                        title="คลิกเพื่อยกเลิกการส่งคำขอ"
+                                        className="inline-flex items-center gap-1 rounded-md border border-sky-300 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700 transition hover:bg-sky-100 disabled:opacity-50 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300"
+                                      >
+                                        <CheckCircle2 className="h-3 w-3" />
+                                        ส่งคำขอแล้ว {formatDateNumeric(reqAt)}
+                                      </button>
+                                    );
+                                  }
+                                  // สถานะ 1: ยังไม่ส่งคำขอ → ปุ่มส่งคำขอรีวิว
+                                  return (
+                                    <button
+                                      type="button"
+                                      disabled={pending}
+                                      onClick={() =>
+                                        markRequestReview.mutate({
+                                          campaignId: String(r.campaignId),
+                                          requested: true,
+                                        })
+                                      }
+                                      title="จดบันทึกว่าได้แก้ไขและส่งคำขอให้ Meta รีวิวใหม่แล้ว"
+                                      className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 transition hover:bg-amber-100 disabled:opacity-50 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                                    >
+                                      <Send className="h-3 w-3" />
+                                      ส่งคำขอรีวิว
+                                    </button>
+                                  );
+                                }
+                                // สถานะ 3: ผ่านแล้ว (ไม่ reject) + เคยส่งคำขอ → "แก้แล้ว ✓"
+                                if (reqAt) {
+                                  return (
+                                    <span
+                                      className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                      title={`ส่งคำขอเมื่อ ${formatDateNumeric(reqAt)} → Meta อนุมัติแล้ว`}
+                                    >
+                                      <CheckCircle2 className="h-3 w-3" />
+                                      แก้แล้ว ✓
+                                    </span>
+                                  );
+                                }
+                                // สถานะ 4: อื่น ๆ → ไม่แสดงอะไรใต้ badge
+                                return null;
+                              })()}
+                            </div>
                           </td>
                           {/* Phase 5: คุณภาพ ads (ระดับแคมเปญ) — dropdown แก้ได้ทันที (optimistic) */}
                           <td className="px-3 py-4 border-t">

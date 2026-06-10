@@ -233,6 +233,136 @@ describe("reconcileStatus — auto date stamping", () => {
   });
 });
 
+// เฟส 3B: reconcileStatus — requestReviewAt (ปุ่มส่งคำขอโฆษณา)
+describe("เฟส 3B: reconcileStatus — requestReviewAt", () => {
+  it("reset ขั้น 4: ปฏิเสธรอบใหม่ (rejectedAt ยัง null) → เคลียร์ requestReviewAt", () => {
+    const r = reconcileStatus({
+      effectiveStatus: "DISAPPROVED",
+      approvedAt: null,
+      rejectedAt: null,
+      rejectedExpired: false,
+      requestReviewAt: "2026-06-01", // ค่าเก่าจากรอบก่อน
+      today: "2026-06-05",
+    });
+    expect(r.rejectedAt).toBe("2026-06-05");
+    expect(r.requestReviewAt).toBeNull();
+  });
+
+  it("reject ต่อเนื่องรอบเดิม (rejectedAt มีค่า) → คง requestReviewAt ไว้ (ไม่ reset)", () => {
+    const r = reconcileStatus({
+      effectiveStatus: "DISAPPROVED",
+      approvedAt: null,
+      rejectedAt: "2026-06-03",
+      rejectedExpired: false,
+      requestReviewAt: "2026-06-04",
+      today: "2026-06-05",
+    });
+    expect(r.rejectedAt).toBe("2026-06-03");
+    expect(r.requestReviewAt).toBe("2026-06-04");
+  });
+
+  it("(E) ACTIVE ต่อเนื่องหลายวัน → requestReviewAt ไม่หาย (แก้แล้ว ✓ คงค้าง)", () => {
+    const day1 = reconcileStatus({
+      effectiveStatus: "ACTIVE",
+      approvedAt: "2026-06-05",
+      rejectedAt: null,
+      rejectedExpired: false,
+      requestReviewAt: "2026-06-04",
+      today: "2026-06-06",
+    });
+    expect(day1.requestReviewAt).toBe("2026-06-04");
+    // อีกหลายวันถัดมาก็ยังคงอยู่
+    const day5 = reconcileStatus({
+      effectiveStatus: "ACTIVE",
+      approvedAt: "2026-06-05",
+      rejectedAt: null,
+      rejectedExpired: false,
+      requestReviewAt: day1.requestReviewAt,
+      today: "2026-06-10",
+    });
+    expect(day5.requestReviewAt).toBe("2026-06-04");
+  });
+
+  it("(C) revive จากถัง (trashed→active) → เคลียร์ requestReviewAt", () => {
+    const r = reconcileStatus({
+      effectiveStatus: "ACTIVE",
+      approvedAt: null,
+      rejectedAt: "2026-06-01",
+      rejectedExpired: false,
+      trashed: true,
+      requestReviewAt: "2026-06-02",
+      today: "2026-06-10",
+    });
+    expect(r.action).toBe("revive_from_trash");
+    expect(r.requestReviewAt).toBeNull();
+  });
+
+  it("(C) revive จาก expired (expired→active) → เคลียร์ requestReviewAt", () => {
+    const r = reconcileStatus({
+      effectiveStatus: "ACTIVE",
+      approvedAt: null,
+      rejectedAt: "2026-06-01",
+      rejectedExpired: true,
+      requestReviewAt: "2026-06-02",
+      today: "2026-06-10",
+    });
+    expect(r.action).toBe("revive");
+    expect(r.requestReviewAt).toBeNull();
+  });
+
+  it("(C) restored→active → เคลียร์ requestReviewAt", () => {
+    const r = reconcileStatus({
+      effectiveStatus: "ACTIVE",
+      approvedAt: null,
+      rejectedAt: "2026-06-01",
+      rejectedExpired: false,
+      restored: true,
+      requestReviewAt: "2026-06-02",
+      today: "2026-06-10",
+    });
+    expect(r.action).toBe("clear_restored");
+    expect(r.requestReviewAt).toBeNull();
+  });
+
+  it("(A) ยังอยู่ในถัง + ยัง reject → pass-through requestReviewAt", () => {
+    const r = reconcileStatus({
+      effectiveStatus: "DISAPPROVED",
+      approvedAt: null,
+      rejectedAt: "2026-06-01",
+      rejectedExpired: false,
+      trashed: true,
+      requestReviewAt: "2026-06-02",
+      today: "2026-06-10",
+    });
+    expect(r.action).toBe("none");
+    expect(r.requestReviewAt).toBe("2026-06-02");
+  });
+
+  it("closed (PAUSED) → pass-through requestReviewAt (ไม่แตะ)", () => {
+    const r = reconcileStatus({
+      effectiveStatus: "PAUSED",
+      approvedAt: "2026-06-01",
+      rejectedAt: null,
+      rejectedExpired: false,
+      requestReviewAt: "2026-06-02",
+      today: "2026-06-10",
+    });
+    expect(r.action).toBe("none");
+    expect(r.requestReviewAt).toBe("2026-06-02");
+  });
+
+  it("regression: ไม่ส่ง requestReviewAt (undefined) → default null ไม่ throw", () => {
+    const r = reconcileStatus({
+      effectiveStatus: "ACTIVE",
+      approvedAt: null,
+      rejectedAt: null,
+      rejectedExpired: false,
+      today: "2026-06-10",
+    });
+    expect(r.requestReviewAt).toBeNull();
+  });
+});
+
 // Phase 2: reconcile closed — ต้องไม่ clear rejectedAt/approvedAt + action none + ไม่กระทบ REJECT/NEW
 describe("Phase 2: reconcileStatus — closed เป็นสถานะอิสระ", () => {
   it("closed (PAUSED) → action none + ไม่ clear rejectedAt (จุดสำคัญ ⭐)", () => {

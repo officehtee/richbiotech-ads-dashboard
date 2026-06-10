@@ -933,3 +933,39 @@
 - [x] BE: moveToTrash auto-create campaignStatus row ถ้ายังไม่มี (ensureCampaignStatusRow จาก insights)
 - [x] BE: idempotent guard ปรับให้รองรับ existing อาจ null หลัง create
 - [x] รัน vitest 582/582 ผ่าน (regression) — ensureCampaignStatusRow เป็น DB I/O ล้วน ทดสอบจริงผ่าน UI
+
+
+## เฟส 3B: ปุ่ม "ส่งคำขอโฆษณา" (toggle, ไม่ลง CSV)
+### ส่วนที่ 1 — Migrate
+- [x] เพิ่ม field `requestReviewAt` varchar(10) nullable ใน `campaignStatus` (drizzle/schema.ts)
+- [x] generate migration + apply ผ่าน webdev_execute_sql
+- [x] ยืนยันคอลัมน์มีจริง (SHOW COLUMNS)
+
+### ส่วนที่ 2 — reconcileStatus
+- [x] เพิ่ม `requestReviewAt` ใน ReconcileInput + ReconcileOutput
+- [x] (A) pass-through `requestReviewAt` ทุก early-return (trashed / restored / rejectedExpired / final)
+- [x] reset ขั้น 4: reject รอบใหม่ (input.rejectedAt == null → จดใหม่) → เคลียร์ requestReviewAt = null
+- [x] (C) revive paths (trashed→active, restored→active, expired→active) → เคลียร์ requestReviewAt = null
+
+### ส่วนที่ 3 — DB layer
+- [x] (B) helper `markRequestReview` แยก (set เฉพาะ requestReviewAt — ไม่ผ่าน upsertCampaignStatus)
+- [x] (D) per-account guard: หา accountId ก่อน insert fallback (ใช้ ensureCampaignStatusRow)
+- [x] ใส่ `requestReviewAt` ใน set ของ upsertCampaignStatus
+- [x] deepAdsSync ส่ง `requestReviewAt: result.requestReviewAt` 2 จุด
+
+### ส่วนที่ 4 — Router mutation + สิทธิ์
+- [x] mutation `markRequestReview` (toggle) — nonContentProcedure + per-account ownership guard
+- [x] append `requestReviewAt` ลง synthetic row + แถวจริง
+
+### ส่วนที่ 5 — Frontend
+- [x] ขยาย cell คอลัมน์ "การแสดงโฆษณา" เป็นแนวตั้ง (badge บน + ปุ่ม/สถานะล่าง) — ไม่เพิ่มคอลัมน์
+- [x] derived state 4 แบบ + optimistic toggle
+- [x] ไม่ลง CSV (คงเดิม — ไม่แตะ export builder)
+
+### ส่วนที่ 6 — Unit tests
+- [x] reset logic ขั้น 4 + (C) revive เคลียร์ + (E) active ต่อเนื่องไม่หาย (campaignStatus.test.ts +9 tests)
+- [x] toggle on/off + ownership (staff/owner/supervisor/content) + NOT_FOUND (markRequestReview.procedure.test.ts +7 tests)
+- [x] regression ทั้ง suite: 598 tests passed (49 files)
+
+### ส่วนที่ 7 — ปิดงาน
+- [ ] check_status + pnpm test ผ่าน + checkpoint + รายงาน

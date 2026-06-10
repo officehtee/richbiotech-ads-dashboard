@@ -138,6 +138,7 @@ import {
   moveCampaignToTrash,
   getCampaignStatusOne,
   ensureCampaignStatusRow,
+  markRequestReview,
   listSyncLogs,
   insertSyncLog,
 } from "./db";
@@ -1367,6 +1368,8 @@ export const appRouter = router({
             effectiveStatus: cs?.effectiveStatus ?? null,
             approvedAt: cs?.approvedAt ?? null,
             rejectedAt: cs?.rejectedAt ?? null,
+            // เฟส 3B: สถานะคำขอโฆษณา (toggle) — แถวจริงก็มีได้ (ถ้าถูก reject)
+            requestReviewAt: cs?.requestReviewAt ?? null,
             // Phase 5: คุณภาพ ads ระดับแคมเปญ (จาก campaignStatus.quality)
             campaignQuality: cs?.quality ?? null,
             isNoSpendRow: false as const,
@@ -1484,6 +1487,8 @@ export const appRouter = router({
               effectiveStatus: cs.effectiveStatus ?? null,
               approvedAt: cs.approvedAt ?? null,
               rejectedAt: cs.rejectedAt ?? null,
+              // เฟส 3B: สถานะคำขอโฆษณา (toggle) — synthetic row มีปุ่มได้ (ส่วนใหญ่ reject/wait)
+              requestReviewAt: cs.requestReviewAt ?? null,
               // Phase 5: คุณภาพ ads ของแคมเปญ (จาก campaignStatus ตัวเดียวกับ synthetic row)
               campaignQuality: cs.quality ?? null,
               isNoSpendRow: true as any,
@@ -1540,6 +1545,50 @@ export const appRouter = router({
         const tid = await tenantId(ctx);
         await updateCampaignQuality(tid, input.campaignId, input.quality);
         return { ok: true };
+      }),
+    /**
+     * เฟส 3B: toggle "ส่งคำขอโฆษณา" ระดับแคมเปญ (staff แก้ได้ + tenant isolation)
+     * — ปุ่มจดบันทึกในระบบว่า "ได้กดส่งคำขอให้ Meta รีวิวแล้ว" (ไม่ยิง/ไม่ดึง Meta)
+     * requested=true → จดวันนี้, false → เคลียร์ (toggle ยกเลิก)
+     */
+    markRequestReview: nonContentProcedure
+      .input(
+        z.object({
+          campaignId: z.string().min(1),
+          requested: z.boolean(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tid = await tenantId(ctx);
+        // ownership guard: ตรวจว่าแคมเปญอยู่ใน tenant นี้จริง + (ถ้า staff) ต้องเป็นบัญชีของตนเอง
+        const cs = await getCampaignStatusOne(tid, input.campaignId);
+        if (cs && cs.accountId) {
+          const acc = await getAdAccountById(cs.accountId, tid);
+          if (
+            acc &&
+            !isOwnerRole(ctx.user.role) &&
+            acc.ownerUserId !== ctx.user.id
+          ) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "ไม่มีสิทธิ์แก้ไขแคมเปญนี้",
+            });
+          }
+        }
+        const today = todayString(new Date());
+        const ok = await markRequestReview(
+          tid,
+          input.campaignId,
+          input.requested,
+          today,
+        );
+        if (!ok) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "ไม่พบแคมเปญนี้",
+          });
+        }
+        return { ok: true, requestReviewAt: input.requested ? today : null };
       }),
     /**
      * Phase 5: ตั้งค่า "ประเภทโพส" ระดับแอด (staff แก้ได้ + tenant isolation)

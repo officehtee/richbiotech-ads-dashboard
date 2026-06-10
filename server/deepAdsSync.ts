@@ -132,6 +132,7 @@ export async function syncAdInsightsForAccount(
         approvedAt: prev?.approvedAt ?? null,
         rejectedAt: prev?.rejectedAt ?? null,
         rejectedExpired: prev?.rejectedExpired ?? false,
+        requestReviewAt: prev?.requestReviewAt ?? null,
         trashed: isTrashed,
         restored: isRestored,
         today,
@@ -156,6 +157,7 @@ export async function syncAdInsightsForAccount(
               approvedAt: result.approvedAt,
               rejectedAt: result.rejectedAt,
               rejectedExpired: result.rejectedExpired,
+              requestReviewAt: result.requestReviewAt,
             });
           } catch (e) {
             console.warn(
@@ -175,6 +177,7 @@ export async function syncAdInsightsForAccount(
         approvedAt: result.approvedAt,
         rejectedAt: result.rejectedAt,
         rejectedExpired: result.rejectedExpired,
+        requestReviewAt: result.requestReviewAt,
       });
       campaignsReconciled += 1;
       // Phase 4: REJECT ครบ 5 วัน → ย้ายเข้าถังขยะ (soft delete) แทนลบจริง

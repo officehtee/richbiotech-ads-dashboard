@@ -498,6 +498,8 @@ export const campaignStatus = mysqlTable("campaignStatus", {
   approvedAt: varchar("approvedAt", { length: 10 }), // YYYY-MM-DD
   rejectedAt: varchar("rejectedAt", { length: 10 }), // YYYY-MM-DD
   rejectedExpired: boolean("rejectedExpired").default(false).notNull(),
+  // เฟส 3B: วันที่กด "ส่งคำขอโฆษณา" (toggle, จดเอง ไม่ดึง Meta) — YYYY-MM-DD / null = ยังไม่กด
+  requestReviewAt: varchar("requestReviewAt", { length: 10 }),
   // Phase 5: คุณภาพ ads (ระดับแคมเปญ) — angel=นางฟ้า / rising=กำลังจะเป็นนางฟ้า / testing=กำลังเทส / tested=ผ่านการเทส. เก็บใน DB, ไม่ดึงจาก Meta
   quality: mysqlEnum("quality", ["angel", "rising", "testing", "tested"]),
   // Phase 4: ระบบถังขยะ (soft delete แทน hard delete) — guard เดียวแทน rejectedExpired (ทาง A)

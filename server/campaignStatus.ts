@@ -186,6 +186,8 @@ export type ReconcileInput = {
   approvedAt: string | null | undefined;
   rejectedAt: string | null | undefined;
   rejectedExpired: boolean;
+  /** เฟส 3B: วันที่พนักงานกด "ส่งคำขอโฆษณา" (YYYY-MM-DD) — null = ยังไม่กด */
+  requestReviewAt?: string | null;
   /** Phase 4: อยู่ในถังขยะแล้วหรือยัง (trashedAt IS NOT NULL) */
   trashed?: boolean;
   /** Phase 4 (A2): ถูกกู้คืนแล้วหรือยัง (restoredAt IS NOT NULL) — กันย้ายเข้าถังซ้ำจนกว่า status เปลี่ยน */
@@ -198,6 +200,8 @@ export type ReconcileOutput = {
   approvedAt: string | null;
   rejectedAt: string | null;
   rejectedExpired: boolean;
+  /** เฟส 3B: สถานะคำขอโฆษณา— reconcile จะเคลียร์เป็น null เมื่อ reject รอบใหม่ / revive */
+  requestReviewAt: string | null;
   /**
    * action ที่ต้องทำเพิ่ม
    * - move_to_trash: REJECT ครบ 5 วัน → ย้ายเข้าถังขยะ (soft delete) — Phase 4 แทน hard_delete
@@ -230,6 +234,8 @@ export function reconcileStatus(input: ReconcileInput): ReconcileOutput {
   let approvedAt = input.approvedAt ?? null;
   let rejectedAt = input.rejectedAt ?? null;
   let rejectedExpired = input.rejectedExpired;
+  // เฟส 3B: สถานะคำขอโฆษณา — โดยดีฟอลต์คงค่าเดิม (pass-through) จนกว่าจะ reset/revive
+  let requestReviewAt = input.requestReviewAt ?? null;
   let action: ReconcileOutput["action"] = "none";
 
   // Phase 4.1 กรณีอยู่ในถังขยะ (trashed):
@@ -241,14 +247,18 @@ export function reconcileStatus(input: ReconcileInput): ReconcileOutput {
       approvedAt = today;
       rejectedAt = null;
       rejectedExpired = false;
+      // (C) revive จากถัง → แคมเปญเริ่มใหม่เป็น NEW สถานะคำขอเก่าหมดความหมาย
+      requestReviewAt = null;
       return {
         approvedAt,
         rejectedAt,
         rejectedExpired,
+        requestReviewAt,
         action: "revive_from_trash",
       };
     }
-    return { approvedAt, rejectedAt, rejectedExpired, action: "none" };
+    // (A) ยังอยู่ในถัง → คงค่า requestReviewAt เดิมไว้
+    return { approvedAt, rejectedAt, rejectedExpired, requestReviewAt, action: "none" };
   }
 
   // Phase 4 (A2) กรณีถูกกู้คืน (restored): กันไม่ให้เด้งเข้าถังซ้ำ
@@ -257,11 +267,13 @@ export function reconcileStatus(input: ReconcileInput): ReconcileOutput {
       // status เปลี่ยนเป็น active → รีเซ็ตการกู้คืน + เริ่มนับ NEW ใหม่
       if (!approvedAt) approvedAt = today;
       if (rejectedAt) rejectedAt = null;
+      // (C) restored→active → เริ่มนับ NEW ใหม่ สถานะคำขอเก่าหมดความหมาย
+      requestReviewAt = null;
       action = "clear_restored";
-      return { approvedAt, rejectedAt, rejectedExpired, action };
+      return { approvedAt, rejectedAt, rejectedExpired, requestReviewAt, action };
     }
-    // ยัง reject/wait/other เหมือนตอนกู้ → คงอยู่ในตารางหลัก ไม่เด้งเข้าถัง (A2)
-    return { approvedAt, rejectedAt, rejectedExpired, action: "none" };
+    // (A) ยัง reject/wait/other เหมือนตอนกู้ → คงค่า requestReviewAt เดิมไว้
+    return { approvedAt, rejectedAt, rejectedExpired, requestReviewAt, action: "none" };
   }
 
   // กรณี 4 (เดิม): เคยถูกลบ (rejected_expired) — คง backward-compat สำหรับ row เก่าที่ยัง expired → active
@@ -271,11 +283,13 @@ export function reconcileStatus(input: ReconcileInput): ReconcileOutput {
       rejectedExpired = false;
       rejectedAt = null;
       approvedAt = today;
+      // (C) expired→active → เริ่มนับ NEW ใหม่ สถานะคำขอเก่าหมดความหมาย
+      requestReviewAt = null;
       action = "revive";
-      return { approvedAt, rejectedAt, rejectedExpired, action };
+      return { approvedAt, rejectedAt, rejectedExpired, requestReviewAt, action };
     }
-    // ยัง REJECT (หรือสถานะอื่น) → คงไว้ ไม่ดึงกลับ
-    return { approvedAt, rejectedAt, rejectedExpired, action: "none" };
+    // (A) ยัง REJECT (หรือสถานะอื่น) → คงค่า requestReviewAt เดิมไว้
+    return { approvedAt, rejectedAt, rejectedExpired, requestReviewAt, action: "none" };
   }
 
   // กรณี 1: ACTIVE → จด approvedAt ครั้งเดียว
@@ -287,7 +301,13 @@ export function reconcileStatus(input: ReconcileInput): ReconcileOutput {
 
   // กรณี 2: REJECT → จด rejectedAt ครั้งเดียว
   if (kind === "reject") {
-    if (!rejectedAt) rejectedAt = today;
+    // reset ขั้น 4: ปฏิเสธ "รอบใหม่" = rejectedAt เดิมยัง null (เพิ่งเจอ reject รอบนี้)
+    // → เคลียร์ requestReviewAt เพื่อให้ปุ่ม "ส่งคำขอ" กลับมาแสดงใหม่
+    // (ถ้า rejectedAt มีค่าอยู่แล้ว = reject ต่อเนื่องรอบเดิม → คง requestReviewAt ไว้)
+    if (!rejectedAt) {
+      rejectedAt = today;
+      requestReviewAt = null;
+    }
     // กรณี 5: ครบ 5 วัน → ย้ายเข้าถังขยะ (Phase 4: move_to_trash แทน hard_delete) — ไม่ set rejectedExpired อีกต่อไป
     const d = daysSince(rejectedAt, new Date(`${today}T00:00:00Z`));
     if (d != null && d >= 5) {
@@ -302,6 +322,7 @@ export function reconcileStatus(input: ReconcileInput): ReconcileOutput {
     if (rejectedAt) rejectedAt = null;
   }
   // Phase 2: kind === "closed" → action none, ไม่แตะ approvedAt/rejectedAt/trashedAt
+  // หมายเหตุ (E): kind active ต่อเนื่อง (กรณี 1) ไม่แตะ requestReviewAt → "แก้แล้ว ✓" คงค้างจนกว่า reject รอบใหม่
 
-  return { approvedAt, rejectedAt, rejectedExpired, action };
+  return { approvedAt, rejectedAt, rejectedExpired, requestReviewAt, action };
 }
