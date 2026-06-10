@@ -457,6 +457,17 @@ export const appRouter = router({
         if (input.groupId != null) {
           await ensureAccountGroupMember(input.groupId, id);
         }
+        // Auto-sync ทันทีหลังเพิ่มบัญชีใหม่ (ดึงข้อมูล 7 วันย้อนหลัง)
+        try {
+          const newAcct = await getAdAccountById(id, tid);
+          if (newAcct) {
+            const since = dateOffsetString(6);
+            const until = dateOffsetString(0);
+            await syncAdInsightsForAccounts([newAcct], since, until, tid);
+          }
+        } catch {
+          // ไม่ block การ return ถ้า sync fail — ข้อมูลจะมาในรอบ cron ถัดไป
+        }
         return { id };
       }),
     update: ownerProcedure
