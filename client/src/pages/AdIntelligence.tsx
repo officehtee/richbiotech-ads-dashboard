@@ -754,10 +754,10 @@ function AdAnalysisTab() {
               {/* Tier 1: column group headers */}
               <tr className="text-center text-[11px] uppercase tracking-wider text-muted-foreground">
                 <th
-                  colSpan={12}
+                  colSpan={13}
                   className="px-3 py-2 bg-muted/80 border-b border-r border-border font-semibold"
                 >
-                  มิติ (Dimensions)
+                  มิติ (DIMENSIONS)
                 </th>
                 <th
                   colSpan={11}
@@ -849,7 +849,7 @@ function AdAnalysisTab() {
               {listQuery.isLoading
                 ? Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i} className="border-t">
-                      <td colSpan={27} className="px-4 py-4">
+                      <td colSpan={28} className="px-4 py-4">
                         <Skeleton className="h-9 w-full" />
                       </td>
                     </tr>
@@ -858,7 +858,7 @@ function AdAnalysisTab() {
                   ? (
                     <tr>
                       <td
-                        colSpan={27}
+                        colSpan={28}
                         className="px-4 py-16 text-center text-sm text-muted-foreground"
                       >
                         ไม่มีข้อมูล — กดปุ่ม "Sync Now" เพื่อดึงจาก Meta หรือลองเลือกช่วงวันที่อื่น
@@ -1280,7 +1280,7 @@ function AdAnalysisTab() {
                 <tr className="border-t-2">
                   <td
                     className="px-4 py-3 sticky left-0 bg-muted/70 z-10 border-t-2"
-                    colSpan={12}
+                    colSpan={13}
                   >
                     รวม ({sorted.length}) — ตัวชี้วัดรวม
                   </td>
