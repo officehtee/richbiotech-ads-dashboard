@@ -155,6 +155,7 @@ import {
   computeBadge,
   classifyMetaStatus,
   shouldShowRejectRow,
+  shouldShowClosedRow,
   todayString,
 } from "./campaignStatus";
 import {
@@ -1397,7 +1398,9 @@ export const appRouter = router({
               cs.rejectedAt,
               todayObj,
             );
-            if (!isWait && !isReject) continue;
+            // Phase 2: closed (PAUSED/ARCHIVED) + ไม่อยู่ในถัง → synthetic row ค้างถาวร
+            const isClosed = shouldShowClosedRow(cs.effectiveStatus);
+            if (!isWait && !isReject && !isClosed) continue;
             // ถ้ามีแถว spend>0 ของแคมเปญนี้แล้วในช่วงวันที่ → ข้าม (เลี่ยงซ้ำ)
             if (realCampaignIds.has(String(cs.campaignId))) continue;
             // filter: account / group

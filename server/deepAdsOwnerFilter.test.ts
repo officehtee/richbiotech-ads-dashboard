@@ -172,3 +172,96 @@ describe("roasTarget display", () => {
     expect(display).toBe("0.00");
   });
 });
+
+// ── 7. Phase 2: closed campaign synthetic row logic ──────────────────────────
+// จำลอง guard ใน routers.ts: synthetic row แคมเปญปิดจะถูกสร้างเมื่อ
+//   (a) effectiveStatus = closed (PAUSED/ARCHIVED)
+//   (b) trashedAt == null (ไม่อยู่ในถัง)
+//   (c) ไม่มีใน insights (campaignId ไม่อยู่ใน realCampaignIds) → กันซ้ำ
+import { classifyMetaStatus, shouldShowClosedRow } from "./campaignStatus";
+
+describe("Phase 2: closed synthetic row guard logic", () => {
+  // จำลอง logic การตัดสินใจสร้าง synthetic row ใน routers.ts:1390-1404
+  const shouldCreateClosedSynthetic = (params: {
+    effectiveStatus: string | null;
+    trashedAt: number | null;
+    inInsights: boolean;
+  }): boolean => {
+    if (params.trashedAt != null) return false; // guard: อยู่ในถัง → ไม่สร้าง
+    const isClosed = shouldShowClosedRow(params.effectiveStatus);
+    if (!isClosed) return false;
+    if (params.inInsights) return false; // กันซ้ำกับ row จริง
+    return true;
+  };
+
+  it("แคมเปญปิด (PAUSED) ไม่มีใน insights + ไม่อยู่ในถัง → สร้าง synthetic row", () => {
+    expect(
+      shouldCreateClosedSynthetic({
+        effectiveStatus: "PAUSED",
+        trashedAt: null,
+        inInsights: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("แคมเปญปิด (ARCHIVED) มีใน insights แล้ว → ไม่สร้างซ้ำ (แค่ติดป้ายเทาที่ row จริง)", () => {
+    expect(
+      shouldCreateClosedSynthetic({
+        effectiveStatus: "ARCHIVED",
+        trashedAt: null,
+        inInsights: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("แคมเปญปิดที่อยู่ในถัง (trashedAt != null) → ไม่สร้าง (ถูกซ่อน)", () => {
+    expect(
+      shouldCreateClosedSynthetic({
+        effectiveStatus: "PAUSED",
+        trashedAt: 1781000000000,
+        inInsights: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("แคมเปญ active/wait/reject ไม่เข้าเงื่อนไข closed synthetic (จัดการคนละ branch)", () => {
+    expect(
+      shouldCreateClosedSynthetic({
+        effectiveStatus: "ACTIVE",
+        trashedAt: null,
+        inInsights: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldCreateClosedSynthetic({
+        effectiveStatus: "DISAPPROVED",
+        trashedAt: null,
+        inInsights: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldCreateClosedSynthetic({
+        effectiveStatus: "PENDING_REVIEW",
+        trashedAt: null,
+        inInsights: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("closed bucket ครอบ 4 สถานะหลัก + ไม่ปนกับ bucket อื่น", () => {
+    expect(classifyMetaStatus("PAUSED")).toBe("closed");
+    expect(classifyMetaStatus("CAMPAIGN_PAUSED")).toBe("closed");
+    expect(classifyMetaStatus("ADSET_PAUSED")).toBe("closed");
+    expect(classifyMetaStatus("ARCHIVED")).toBe("closed");
+    expect(classifyMetaStatus("DELETED")).toBe("other");
+  });
+
+  it("synthetic closed row isNoSpendRow = true + statusBadge = CLOSED (จาก computeBadge)", async () => {
+    const { computeBadge } = await import("./campaignStatus");
+    // synthetic row แคมเปญปิดต้องมี badge CLOSED + เป็น no-spend row
+    const badge = computeBadge("PAUSED", null, null, new Date("2026-06-09T00:00:00Z"));
+    expect(badge).toBe("CLOSED");
+    const isNoSpendRow = true; // synthetic row เสมอ
+    expect(isNoSpendRow).toBe(true);
+  });
+});

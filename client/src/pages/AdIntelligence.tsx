@@ -101,7 +101,8 @@ type QuickFilter =
   | "no-orders"
   | "new"
   | "wait"
-  | "reject";
+  | "reject"
+  | "closed";
 
 /**
  * "NEW" if the campaign's first-ever ad run is within the last 3 days
@@ -326,6 +327,7 @@ function AdAnalysisTab() {
         );
       if (quickFilter === "wait") return (r as any).statusBadge === "WAIT";
       if (quickFilter === "reject") return (r as any).statusBadge === "REJECT";
+      if (quickFilter === "closed") return (r as any).statusBadge === "CLOSED";
       return true;
     });
     return [...filtered].sort((a, b) => {
@@ -723,6 +725,7 @@ function AdAnalysisTab() {
               { k: "new", label: "NEW (แคมเปญใหม่ไม่เกิน 3 วัน)" },
               { k: "wait", label: "WAIT (รออนุมัติ)" },
               { k: "reject", label: "REJECT (ถูกปฏิเสธ)" },
+              { k: "closed", label: "ปิดแล้ว" },
             ] as { k: QuickFilter; label: string }[]
           ).map((f) => (
             <Button
@@ -879,15 +882,18 @@ function AdAnalysisTab() {
                         | "WAIT"
                         | "NEW"
                         | "REJECT"
+                        | "CLOSED"
                         | "NORMAL"
                         | undefined;
-                      const statusKind: "WAIT" | "NEW" | "REJECT" | "NORMAL" =
+                      const statusKind: "WAIT" | "NEW" | "REJECT" | "CLOSED" | "NORMAL" =
                         backendBadge && backendBadge !== "NORMAL"
                           ? backendBadge
                           : newBadgeLegacy
                             ? "NEW"
                             : "NORMAL";
                       const isReject = statusKind === "REJECT";
+                      // Phase 2: closed → ไฮไลต์ชื่อแคมเปญสีเทา
+                      const isClosed = statusKind === "CLOSED";
                       const isNoSpend = (r as any).isNoSpendRow === true;
                       return (
                         <tr
@@ -992,9 +998,11 @@ function AdAnalysisTab() {
                                   className={`text-left leading-snug flex-1 min-w-0 font-medium ${
                                     isReject
                                       ? "text-red-600 dark:text-red-400 font-semibold"
-                                      : (r as any).campaignQuality
-                                        ? QUALITY_TEXT_CLASS[(r as any).campaignQuality as QualityKey]
-                                        : ""
+                                      : isClosed
+                                        ? "text-muted-foreground"
+                                        : (r as any).campaignQuality
+                                          ? QUALITY_TEXT_CLASS[(r as any).campaignQuality as QualityKey]
+                                          : ""
                                   }`}
                                 >
                                   {r.campaignName ?? "—"}
@@ -1038,6 +1046,15 @@ function AdAnalysisTab() {
                                   title="ถูก Meta ปฏิเสธ — จะย้ายเข้าถังอัตโนมัติหลัง 5 วัน"
                                 >
                                   REJECT
+                                </span>
+                              )}
+                              {/* Phase 2: ป้ายเทา "ปิดแล้ว" — แคมเปญถูกหยุด/เก็บถาวร (ค้างถาวร) */}
+                              {statusKind === "CLOSED" && (
+                                <span
+                                  className="inline-flex items-center rounded px-1.5 text-[10px] font-bold leading-4 tracking-wider shrink-0 mt-0.5 bg-muted text-muted-foreground border border-border"
+                                  title="แคมเปญถูกปิด/เก็บถาวร (PAUSED/ARCHIVED) — แสดงค้างไว้ดูย้อนหลัง"
+                                >
+                                  ปิดแล้ว
                                 </span>
                               )}
                               {/* Phase 4.1: ปุ่มย้ายเข้าถังเอง (manual) — โผล่ตอน hover, ทุก role ยกเว้น content */}

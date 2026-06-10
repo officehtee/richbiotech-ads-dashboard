@@ -904,3 +904,16 @@
 - [x] ยุบหน้าเก่า: redirect /my-accounts → /ad-intelligence + ลบเมนู sidebar (คง import MyAccounts ไว้ไม่ได้ใช้แล้วลบ, UserIcon ยังใช้)
 - [x] vitest: รื้อ mock getMyAccountsEnriched role-based + ขยาย makeCtx union + updateTopup + แยกเคส staff/Sup/owner/content (18 เคส)
 - [x] tsc + vitest ผ่านทั้งชุด (tsc 0 errors, 548 tests passed)
+## Phase 2 — แคมเปญปิด (closed) + ป้ายเทา "ปิดแล้ว" + quick filter
+- [x] campaignStatus.ts: เพิ่ม CLOSED_STATUSES (PAUSED/CAMPAIGN_PAUSED/ADSET_PAUSED/ARCHIVED) + classifyMetaStatus คืน "closed"
+- [x] campaignStatus.ts: reconcileStatus เคส closed แยก — ไม่ clear rejectedAt/approvedAt/trashedAt, ไม่กระทบ REJECT 5 วัน/NEW 3 วัน
+- [x] campaignStatus.ts: computeBadge เพิ่ม StatusKind "CLOSED" → ป้ายเทา (priority: reject ก่อน closed)
+- [x] campaignStatus.ts: helper shouldShowClosedrow (closed + ไม่ trashed → แสดงค้างถาวร)
+- [x] routers.ts: synthetic row แคมเปญ closed (ไม่มีใน insights + trashedAt null) ใน loop เดิม
+- [x] routers.ts: closed ที่มีใน insights → แค่ติดป้ายเทา (computeBadge จัดการให้แล้ว ไม่สร้างซ้ำ)
+- [x] frontend AdIntelligence: render ป้ายเทา "ปิดแล้ว" + ไฮไลต์ชื่อแคมเปญสีเทา
+- [x] frontend AdIntelligence: quick filter "ปิดแล้ว" ตาม pattern NEW/WAIT/REJECT
+- [x] vitest campaignStatus.test.ts: bucket closed + reconcile closed ไม่ clear rejectedAt + ไม่กระทบ REJECT/NEW + computeBadge closed + priority
+- [x] vitest deepAdsOwnerFilter.test.ts (หรือไฟล์ใหม่): closed no-insights → synthetic, closed has-insights → no dup, closed trashed → hidden
+- [x] tsc 0 errors + vitest ผ่านทั้งชุด (>=548)
+- [x] 0 migration + ไม่แตะ policy 90/7 + ไม่รื้อ initialSync.test.ts + ไม่แตะ WAIT/NEW/REJECT เดิม

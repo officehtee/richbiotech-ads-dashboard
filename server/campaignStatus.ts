@@ -14,7 +14,7 @@
  *   REJECT: today - rejected_at ≥ 5 → ลบจริง (แสดงวันถูกปฏิเสธ + 4 วัน = 5 วัน)
  */
 
-export type StatusKind = "WAIT" | "NEW" | "REJECT" | "NORMAL";
+export type StatusKind = "WAIT" | "NEW" | "REJECT" | "CLOSED" | "NORMAL";
 
 /** สถานะ Meta ที่ถือว่า "รออนุมัติ" */
 export const WAIT_STATUSES = new Set([
@@ -34,15 +34,30 @@ export const REJECT_STATUSES = new Set([
 /** สถานะ Meta ที่ถือว่า "อนุมัติ/ทำงานอยู่" */
 export const ACTIVE_STATUSES = new Set(["ACTIVE"]);
 
+/**
+ * Phase 2: สถานะ Meta ที่ถือว่า "แคมเปญปิด" (closed)
+ * = หยุดชั่วคราว/เก็บถาวร โดยไม่ใช่การถูกปฏิเสธ (reject)
+ * ⚠️ ค่าจริงต่าง level (campaign/adset/ad) รอ verify กับ Meta หลังปลดบล็อก
+ */
+export const CLOSED_STATUSES = new Set([
+  "PAUSED",
+  "CAMPAIGN_PAUSED",
+  "ADSET_PAUSED",
+  "ARCHIVED",
+]);
+
 /** แปลง effective_status → กลุ่มหยาบ (เพื่อใช้ใน reconcile) */
 export function classifyMetaStatus(
   effectiveStatus: string | null | undefined,
-): "wait" | "active" | "reject" | "other" {
+): "wait" | "active" | "reject" | "closed" | "other" {
   if (!effectiveStatus) return "other";
   const s = effectiveStatus.toUpperCase();
   if (WAIT_STATUSES.has(s)) return "wait";
   if (REJECT_STATUSES.has(s)) return "reject";
   if (ACTIVE_STATUSES.has(s)) return "active";
+  // Phase 2: closed มาก่อน other เพื่อแยก PAUSED/ARCHIVED ออกจากกลุ่ม other
+  // (สำคัญ: other จะ clear rejectedAt ใน reconcile แต่ closed ต้องไม่ clear)
+  if (CLOSED_STATUSES.has(s)) return "closed";
   return "other";
 }
 
@@ -113,9 +128,12 @@ export function computeBadge(
   const kind = classifyMetaStatus(effectiveStatus);
   if (kind === "reject") {
     // ยังอยู่ในช่วง 5 วัน → REJECT, เกินก็ยัง REJECT (จะถูกลบโดย shouldHardDelete)
+    // priority: reject มาก่อน closed (ถ้า Meta คืน reject = แดงก่อน)
     return "REJECT";
   }
   if (kind === "wait") return "WAIT";
+  // Phase 2: closed → ป้ายเทา "ปิดแล้ว" (อยู่หลัง reject/wait ตาม priority)
+  if (kind === "closed") return "CLOSED";
   if (kind === "active" && isNewBadge(effectiveStatus, approvedAt, today)) {
     return "NEW";
   }
@@ -149,6 +167,16 @@ export function shouldShowRejectRow(
   // ถ้ายังไม่ได้จด rejectedAt (เพิ่งเจอรอบนี้) → แสดง (d อาจเป็น 0)
   if (d == null) return true;
   return d < 5;
+}
+
+/**
+ * Phase 2: closed (PAUSED/ARCHIVED) + ไม่ได้อยู่ในถัง → ควรแสดงในตาราง (ค้างถาวร C1)
+ * ต่างจาก REJECT (5 วันแล้วหาย) / NEW (3 วัน) — closed ค้างไม่มีหมดอายุ
+ */
+export function shouldShowClosedRow(
+  effectiveStatus: string | null | undefined,
+): boolean {
+  return classifyMetaStatus(effectiveStatus) === "closed";
 }
 
 export type ReconcileInput = {
@@ -268,9 +296,12 @@ export function reconcileStatus(input: ReconcileInput): ReconcileOutput {
   }
 
   // กรณี 3: สถานะ wait/other (ไม่ใช่ reject) → เคลียร์ rejectedAt ถ้ามีค้าง
+  // Phase 2 ⭐: จงใจไม่รวม "closed" ในเงื่อนไขนี้ — closed เป็นสถานะอิสระ
+  // ต้องไม่ clear rejectedAt/approvedAt (ถ้าแคมเปญเคย reject แล้วถูกปิด → คง rejectedAt ไว้)
   if (kind === "wait" || kind === "other") {
     if (rejectedAt) rejectedAt = null;
   }
+  // Phase 2: kind === "closed" → action none, ไม่แตะ approvedAt/rejectedAt/trashedAt
 
   return { approvedAt, rejectedAt, rejectedExpired, action };
 }
