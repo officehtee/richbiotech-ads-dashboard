@@ -903,7 +903,7 @@ function AdAnalysisTab() {
                       return (
                         <tr
                           key={r.id}
-                          className="border-t hover:bg-muted/40 transition-colors"
+                          className="group/row border-t hover:bg-muted/40 transition-colors"
                         >
                           <td className="px-4 py-4 sticky left-0 bg-background z-10 whitespace-nowrap border-t">
                             <span className="font-medium tabular-nums">
@@ -997,7 +997,7 @@ function AdAnalysisTab() {
                             {r.pageName ?? "—"}
                           </td>
                           <td className="px-4 py-4 border-t">
-                            <div className="group flex items-start gap-2">
+                            <div className="flex items-start gap-2">
                               <Tooltip>
                                 <TooltipTrigger
                                   className={`text-left leading-snug flex-1 min-w-0 font-medium ${
@@ -1073,7 +1073,7 @@ function AdAnalysisTab() {
                                       campaignName: r.campaignName ?? null,
                                     })
                                   }
-                                  className="shrink-0 mt-0.5 p-0.5 rounded text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                                  className="shrink-0 mt-0.5 p-0.5 rounded text-muted-foreground hover:text-red-500 opacity-0 group-hover/row:opacity-100 focus:opacity-100 transition-opacity"
                                   title="ย้ายแคมเปญเข้าถังขยะ"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
