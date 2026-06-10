@@ -917,3 +917,13 @@
 - [x] vitest deepAdsOwnerFilter.test.ts (หรือไฟล์ใหม่): closed no-insights → synthetic, closed has-insights → no dup, closed trashed → hidden
 - [x] tsc 0 errors + vitest ผ่านทั้งชุด (>=548)
 - [x] 0 migration + ไม่แตะ policy 90/7 + ไม่รื้อ initialSync.test.ts + ไม่แตะ WAIT/NEW/REJECT เดิม
+
+## Phase 3A — คอลัมน์ "การแสดงโฆษณา" (effective_status ดิบ)
+- [x] สร้าง statusLabels.ts: mapping effective_status → ไทย + สี
+- [x] fallback ค่าไม่รู้จัก → แสดงค่าดิบ + สีเทากลาง
+- [x] null → "—"
+- [x] เพิ่ม <th> "การแสดงโฆษณา" ถัดจาก Campaign ในตาราง
+- [x] เพิ่ม <td> แสดง badge สี (ใช้ effectiveStatus ที่มีในแถว)
+- [x] เพิ่มใน CSV (header + value) ถัดจาก Campaign
+- [x] unit test mapping (pure)
+- [x] tsc + vitest ผ่าน, save checkpoint

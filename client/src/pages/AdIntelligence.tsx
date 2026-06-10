@@ -60,6 +60,7 @@ import {
   presetToDateRange,
 } from "@/lib/format";
 import { trpc } from "@/lib/trpc";
+import { getDisplayStatus, getStatusCsvText, STATUS_TONE_CLASS } from "@/lib/statusLabels";
 import type { DateRangeInput } from "@shared/types";
 import {
   AlertTriangle,
@@ -389,6 +390,7 @@ function AdAnalysisTab() {
         "ROAS เป้า",
         "Page",
         "Campaign",
+        "การแสดงโฆษณา",
         "คุณภาพ ads",
         "Ad",
         "ประเภทโพส",
@@ -424,6 +426,7 @@ function AdAnalysisTab() {
           (r as any).roasTarget ?? "",
           r.pageName ?? "",
           r.campaignName ?? "",
+          getStatusCsvText((r as any).effectiveStatus),
           QUALITY_LABEL[(r as any).campaignQuality as QualityKey] ?? "",
           r.adName ?? "",
           POSTTYPE_LABEL[(r as any).postType as PostTypeKey] ?? "",
@@ -790,6 +793,8 @@ function AdAnalysisTab() {
                 <th className="px-4 py-3 text-right whitespace-nowrap min-w-[100px]">ROAS เป้า</th>
                 <th className="px-4 py-3 whitespace-nowrap min-w-[140px]">Page</th>
                 <th className="px-4 py-3 whitespace-nowrap min-w-[320px]">Campaign</th>
+                {/* Phase 3A: การแสดงโฆษณา (effective_status ดิบจาก Meta) */}
+                <th className="px-4 py-3 whitespace-nowrap min-w-[140px]">การแสดงโฆษณา</th>
                 {/* Phase 5: คุณภาพ ads (ระดับแคมเปญ) + ประเภทโพส (ระดับแอด) */}
                 <th className="px-4 py-3 whitespace-nowrap min-w-[150px]">คุณภาพ ads</th>
                 <th className="px-4 py-3 whitespace-nowrap min-w-[110px] border-r border-border">ประเภทโพส</th>
@@ -1074,6 +1079,23 @@ function AdAnalysisTab() {
                                 </button>
                               )}
                             </div>
+                          </td>
+                          {/* Phase 3A: การแสดงโฆษณา (effective_status ดิบจาก Meta) — แสดงอย่างเดียว ไม่แก้ */}
+                          <td className="px-4 py-4 border-t">
+                            {(() => {
+                              const ds = getDisplayStatus((r as any).effectiveStatus);
+                              if (ds.empty) {
+                                return <span className="text-muted-foreground text-xs">—</span>;
+                              }
+                              return (
+                                <span
+                                  className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${STATUS_TONE_CLASS[ds.tone]}`}
+                                  title={ds.known ? undefined : `สถานะดิบจาก Meta: ${ds.label}`}
+                                >
+                                  {ds.label}
+                                </span>
+                              );
+                            })()}
                           </td>
                           {/* Phase 5: คุณภาพ ads (ระดับแคมเปญ) — dropdown แก้ได้ทันที (optimistic) */}
                           <td className="px-3 py-4 border-t">
