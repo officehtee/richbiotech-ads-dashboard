@@ -445,6 +445,21 @@ export async function validateToken(adAccountId: string, accessToken: string): P
 }
 
 /**
+ * Fetch ad account name from Meta Graph API.
+ * Returns { id, name } on success, or null if token is invalid / account not found.
+ * Used for auto-populating account name in the add-standalone-account dialog.
+ */
+export async function fetchAdAccountName(
+  adAccountId: string,
+  accessToken: string,
+): Promise<{ id: string; name: string } | null> {
+  const url = `${META_BASE}/${adAccountId}?fields=id,name`;
+  const res = await metaFetch<{ id: string; name: string }>(url, accessToken);
+  if (!res || !res.id || !res.name) return null;
+  return { id: res.id, name: res.name };
+}
+
+/**
  * Fetch token expiry date from Meta /debug_token endpoint.
  * Returns Date object if token has expiry, or null for non-expiring (system user) tokens.
  * Graceful: returns undefined on network/API error (caller should skip storing).

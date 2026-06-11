@@ -48,7 +48,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 // ───────────────────────────────────────────────────────────────
@@ -116,6 +116,42 @@ export default function AccountsSettings() {
     limitAmount: "" as string,
   };
   const [form, setForm] = useState(emptyForm);
+
+  // ── Auto-fetch account name (debounced) ────────────────────
+  // เก็บค่า debounced ของ adAccountId + accessToken สำหรับ query
+  const [debouncedId, setDebouncedId] = useState("");
+  const [debouncedToken, setDebouncedToken] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // เมื่อ form.adAccountId หรือ form.accessToken เปลี่ยน → debounce 700ms
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const id = form.adAccountId.trim();
+    const token = form.accessToken.trim();
+    if (id.length >= 5 && token.length >= 20) {
+      debounceRef.current = setTimeout(() => {
+        setDebouncedId(id);
+        setDebouncedToken(token);
+      }, 700);
+    } else {
+      setDebouncedId("");
+      setDebouncedToken("");
+    }
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [form.adAccountId, form.accessToken]);
+
+  // reset debounced values เมื่อปิด dialog
+  useEffect(() => {
+    if (!open) {
+      setDebouncedId("");
+      setDebouncedToken("");
+    }
+  }, [open]);
+
+  const fetchNameQuery = trpc.accounts.fetchAccountName.useQuery(
+    { adAccountId: debouncedId, accessToken: debouncedToken },
+    { enabled: debouncedId.length >= 5 && debouncedToken.length >= 20 },
+  );
 
   const create = trpc.accounts.create.useMutation({
     onSuccess: async () => {
@@ -459,6 +495,28 @@ export default function AccountsSettings() {
                 onChange={(e) => setForm({ ...form, accessToken: e.target.value })}
               />
             </div>
+            {/* ── Auto-fetch ชื่อบัญชี ── */}
+            {(fetchNameQuery.isFetching || fetchNameQuery.data !== undefined) && (
+              <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm">
+                {fetchNameQuery.isFetching ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground shrink-0" />
+                    <span className="text-muted-foreground">กำลังดึงชื่อบัญชีจาก Meta…</span>
+                  </>
+                ) : fetchNameQuery.data?.name ? (
+                  <>
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                    <span className="text-foreground font-medium">{fetchNameQuery.data.name}</span>
+                    <span className="ml-auto text-xs text-muted-foreground">ชื่อบัญชี</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                    <span className="text-muted-foreground">ไม่พบชื่อบัญชี — Token อาจไม่ถูกต้องหรือไม่มีสิทธิ์</span>
+                  </>
+                )}
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>กลุ่มสินค้า</Label>

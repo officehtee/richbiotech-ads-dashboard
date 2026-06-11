@@ -152,6 +152,7 @@ import {
   fetchTokenExpiresAt,
   testBMConnection,
   discoverBMAccounts,
+  fetchAdAccountName,
 } from "./metaApi";
 import { encrypt as encryptToken, decrypt as decryptToken, maskToken, previewTokenPrefix } from "./encryption";
 import { syncOneBusinessManager } from "./bmSync";
@@ -630,6 +631,22 @@ export const appRouter = router({
           limitAmount: input.limitAmount ?? null,
         });
         return { ok: true };
+      }),
+    /**
+     * Auto-fetch ชื่อบัญชีโฆษณาจาก Meta Graph API
+     * ใช้ใน dialog เพิ่มบัญชีเดี่ยว — ไม่ต้องล็อกอิน (publicProcedure)
+     * คืน { name } เมื่อสำเร็จ หรือ { name: null } เมื่อ token ผิด/ไม่พบบัญชี
+     */
+    fetchAccountName: publicProcedure
+      .input(
+        z.object({
+          adAccountId: z.string().min(1),
+          accessToken: z.string().min(1),
+        }),
+      )
+      .query(async ({ input }) => {
+        const result = await fetchAdAccountName(input.adAccountId, input.accessToken);
+        return { name: result?.name ?? null };
       }),
     /**
      * เฟส 6: อัปเดตข้อมูลเติมเงิน (topup) — กรอกมือ 4 ค่า

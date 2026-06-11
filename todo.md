@@ -1034,3 +1034,9 @@
 - [x] Frontend: toast แจ้งเมื่อ sync เสร็จแล้วมี merge/reactivate
 - [x] Tests: shouldAutoReactivate 6 เคส — suite เขียวทั้งหมด (630 tests)
 - [x] Checkpoint + รายงานผล
+
+## Round — Auto-fetch ชื่อบัญชีเมื่อเพิ่มบัญชีเดี่ยว
+- [x] Backend: tRPC query `accounts.fetchAccountName` รับ accountId+token ดึงชื่อจาก Meta API `/act_{id}?fields=name`
+- [x] Frontend: debounce auto-fetch เมื่อกรอก ID+Token ครบ แสดง preview ชื่อใน dialog
+- [x] Frontend: แสดง loading spinner ระหว่างดึงชื่อ + error state ถ้า token ไม่ถูกต้อง
+- [x] Tests + Checkpoint
