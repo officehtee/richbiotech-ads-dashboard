@@ -1040,3 +1040,9 @@
 - [x] Frontend: debounce auto-fetch เมื่อกรอก ID+Token ครบ แสดง preview ชื่อใน dialog
 - [x] Frontend: แสดง loading spinner ระหว่างดึงชื่อ + error state ถ้า token ไม่ถูกต้อง
 - [x] Tests + Checkpoint
+
+## Round — Auto re-validate + sync เมื่อเปลี่ยน Token (บัญชีเดี่ยว)
+- [x] Backend: accounts.update — เมื่อมี accessToken ใหม่ (บัญชีเดี่ยว) ให้ validate กับ Meta + อัปเดต tokenStatus + refresh tokenExpiresAt
+- [x] Backend: หลังอัปเดต Token สำเร็จ → trigger syncAdInsightsForAccounts (7 วันย้อนหลัง) ทันที เหมือนตอนเพิ่มบัญชีใหม่
+- [x] Frontend: toast แจ้งผลเมื่อ Token ใหม่ทำงานได้ (sync แล้ว) หรือเตือนถ้า Token ใหม่ยังใช้ไม่ได้
+- [x] Tests + Checkpoint (630 ผ่าน, tsc 0 errors)

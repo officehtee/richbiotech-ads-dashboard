@@ -168,8 +168,17 @@ export default function AccountsSettings() {
   const [editToken, setEditToken] = useState("");
 
   const update = trpc.accounts.update.useMutation({
-    onSuccess: async () => {
-      toast.success("อัปเดตสำเร็จ");
+    onSuccess: async (res) => {
+      // ถ้ามีการเปลี่ยน Token ใหม่ → แจ้งผลการ sync ด้วย
+      if (res?.tokenChanged) {
+        if (res.synced) {
+          toast.success("อัปเดต Token ใหม่ + ซิงค์ข้อมูลโฆษณาเรียบร้อยแล้ว");
+        } else {
+          toast.warning("บันทึก Token ใหม่แล้ว แต่ยังซิงค์ข้อมูลไม่สำเร็จ — ตรวจสอบว่า Token ถูกต้องหรือรอรอบอัตโนมัติ");
+        }
+      } else {
+        toast.success("อัปเดตสำเร็จ");
+      }
       await utils.accounts.list.invalidate();
       setEdit(null);
       setEditToken("");

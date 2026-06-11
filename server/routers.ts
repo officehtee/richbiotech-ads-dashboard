@@ -502,12 +502,49 @@ export const appRouter = router({
             throw new TRPCError({ code: "BAD_REQUEST", message: "เจ้าของบัญชีไม่ถูกต้อง" });
           }
         }
+
+        // ── เปลี่ยน Token ใหม่ (บัญชีเดี่ยว) → re-validate + refresh expiry + auto-sync ──
+        // ตรวจว่ามี accessToken ใหม่ส่งมาจริง (ไม่ว่าง) และบัญชีนี้เป็นบัญชีเดี่ยว (bmId == null)
+        const newToken = typeof patch.accessToken === "string" ? patch.accessToken.trim() : "";
+        const existing = await getAdAccountById(id, tid);
+        const isSingle = existing != null && existing.bmId == null;
+        const tokenChanged = newToken.length > 0 && isSingle;
+
+        if (tokenChanged) {
+          // ตรวจ Token ใหม่กับ Meta — อัปเดต tokenStatus + refresh tokenExpiresAt
+          const result = await testAdAccountToken(existing!.adAccountId, newToken);
+          const mapped = mapCategoryToTokenStatus(result.category);
+          // transient error (rate_limit/network/unknown) → mapped = null → คงสถานะเดิม
+          if (mapped !== null) (patch as Record<string, unknown>).tokenStatus = mapped;
+          if (result.ok) {
+            const exp = await fetchTokenExpiresAt(newToken);
+            if (exp !== undefined) (patch as Record<string, unknown>).tokenExpiresAt = exp;
+          }
+        }
+
         await updateAdAccount(id, tid, patch);
         // ย้ายกลุ่มสินค้า (ถ้าส่ง groupId มา — รวมถึง null = ถอดออกทุกกลุ่ม)
         if (groupId !== undefined) {
           await reassignAccountGroup(tid, id, groupId ?? null);
         }
-        return { ok: true };
+
+        // หลังเปลี่ยน Token ใหม่สำเร็จ → sync ข้อมูลโฆษณา 7 วันย้อนหลังทันที (เหมือนตอนเพิ่มบัญชีใหม่)
+        let synced = false;
+        if (tokenChanged) {
+          try {
+            const updated = await getAdAccountById(id, tid);
+            if (updated) {
+              const since = dateOffsetString(6);
+              const until = dateOffsetString(0);
+              await syncAdInsightsForAccounts([updated], since, until, tid);
+              synced = true;
+            }
+          } catch {
+            // ไม่ block การ return ถ้า sync fail — ข้อมูลจะมาในรอบ cron ถัดไป
+          }
+        }
+
+        return { ok: true, tokenChanged, synced };
       }),
     remove: ownerProcedure
       .input(z.object({ id: z.number() }))
