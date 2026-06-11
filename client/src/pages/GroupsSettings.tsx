@@ -20,7 +20,20 @@ type GroupForm = {
   memberAccountIds: number[];
 };
 
-const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#14b8a6"];
+const COLORS = [
+  // Blues
+  "#3b82f6", "#60a5fa", "#1d4ed8", "#0ea5e9", "#06b6d4",
+  // Greens
+  "#10b981", "#14b8a6", "#22c55e", "#84cc16", "#a3e635",
+  // Yellows / Oranges
+  "#f59e0b", "#fbbf24", "#f97316", "#fb923c", "#fde047",
+  // Reds / Pinks
+  "#ef4444", "#f87171", "#ec4899", "#f472b6", "#e11d48",
+  // Purples
+  "#8b5cf6", "#a78bfa", "#7c3aed", "#c084fc", "#d946ef",
+  // Neutrals
+  "#64748b", "#94a3b8", "#6b7280", "#374151", "#1e293b",
+];
 
 export default function GroupsSettings() {
   const groupsQuery = trpc.groups.list.useQuery();
@@ -156,18 +169,54 @@ export default function GroupsSettings() {
               <Label>ชื่อกลุ่ม *</Label>
               <Input value={form.groupName} onChange={(e) => setForm({ ...form, groupName: e.target.value })} />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label>สี</Label>
-              <div className="flex flex-wrap gap-2">
+              {/* Preset swatches */}
+              <div className="flex flex-wrap gap-1.5">
                 {COLORS.map((c) => (
                   <button
                     key={c}
                     type="button"
                     onClick={() => setForm({ ...form, color: c })}
-                    className={`h-7 w-7 rounded-md transition-transform ${form.color === c ? "ring-2 ring-offset-2 ring-foreground scale-110" : "hover:scale-105"}`}
+                    title={c}
+                    className={`h-6 w-6 rounded transition-transform ${
+                      form.color === c
+                        ? "ring-2 ring-offset-1 ring-foreground scale-110"
+                        : "hover:scale-110"
+                    }`}
                     style={{ background: c }}
                   />
                 ))}
+              </div>
+              {/* Custom color picker */}
+              <div className="flex items-center gap-2 mt-1">
+                <label className="text-xs text-muted-foreground whitespace-nowrap">กำหนดเอง:</label>
+                <div className="relative flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={form.color}
+                    onChange={(e) => setForm({ ...form, color: e.target.value })}
+                    className="h-7 w-10 cursor-pointer rounded border border-border bg-transparent p-0.5"
+                    title="เลือกสีเอง"
+                  />
+                  <Input
+                    value={form.color}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (/^#[0-9a-fA-F]{0,6}$/.test(v)) setForm({ ...form, color: v });
+                    }}
+                    onBlur={(e) => {
+                      if (!/^#[0-9a-fA-F]{6}$/.test(e.target.value))
+                        setForm({ ...form, color: COLORS[0] });
+                    }}
+                    className="h-7 w-28 font-mono text-xs"
+                    placeholder="#rrggbb"
+                  />
+                  <span
+                    className="h-6 w-6 rounded border border-border flex-shrink-0"
+                    style={{ background: /^#[0-9a-fA-F]{6}$/.test(form.color) ? form.color : "transparent" }}
+                  />
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2">
