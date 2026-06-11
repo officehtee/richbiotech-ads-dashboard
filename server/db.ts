@@ -2412,3 +2412,42 @@ export async function clearStaleAdStatus(
   const res: any = await db.delete(adStatus).where(cond);
   return Number(res?.[0]?.affectedRows ?? 0);
 }
+
+/* ============================================================
+ * Auto-Merge: บัญชีเดี่ยวชนกับบัญชีย่อย BM (ตัวเลือก C)
+ * ============================================================
+ * เมื่อ BM กลับมา sync ได้ แล้วเจอ adAccountId ที่มีอยู่แล้วเป็น "บัญชีเดี่ยว"
+ * (bmId=null) → แปลงแถวเดิมให้ผูกกับ BM แทนที่จะปล่อยทิ้ง
+ *
+ * ข้อมูล insights/campaignStatus/adStatus ผูกกับ accountId (PK) เดิมอยู่แล้ว
+ * จึง "ไม่ต้องย้าย" — แค่เปลี่ยน metadata ของแถว adAccounts:
+ *   - set bmId = BM ที่ค้นพบ
+ *   - อัปเดต accessToken เป็น token ของ BM (แหล่งหลักใหม่)
+ *   - tokenStatus = active, tokenExpiresAt = null (ใช้ token ของ BM ไม่หมดอายุรายบัญชี)
+ *   - discoveredAt = now ถ้ายังไม่เคยตั้ง
+ *
+ * เก็บข้อมูลครบ ไม่ลบอะไร — Dashboard แสดงแถวเดียวอยู่แล้ว (accountId เดิม)
+ */
+export async function convertStandaloneToBm(
+  accountDbId: number,
+  tenantId: number,
+  bmDbId: number,
+  bmToken: string,
+  alreadyDiscovered: boolean,
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const patch: Partial<InsertAdAccount> = {
+    bmId: bmDbId,
+    accessToken: bmToken,
+    tokenStatus: "active",
+    tokenExpiresAt: null,
+  };
+  if (!alreadyDiscovered) {
+    patch.discoveredAt = new Date();
+  }
+  await db
+    .update(adAccounts)
+    .set(patch)
+    .where(and(eq(adAccounts.id, accountDbId), eq(adAccounts.userId, tenantId)));
+}

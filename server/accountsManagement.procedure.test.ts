@@ -119,6 +119,7 @@ vi.mock("./metaApi", async () => ({
   discoverBMAccounts: vi.fn(async () => []),
   fetchAdsForAdset: vi.fn(async () => []),
   fetchAdsetDailyInsights: vi.fn(async () => []),
+  fetchTokenExpiresAt: vi.fn(async () => null),
 }));
 
 vi.mock("./encryption", async () => ({

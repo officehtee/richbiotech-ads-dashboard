@@ -16,6 +16,7 @@
 import {
   createAdAccount,
   updateAdAccount,
+  convertStandaloneToBm,
   ensureAccountGroupMember,
   findAdAccountByMetaId,
   insertBmDiscoveryLog,
@@ -25,6 +26,7 @@ import {
   updateBmLinkLastSeen,
   updateBusinessManager,
 } from "./db";
+import { decideAccountMerge } from "./accountMerge";
 import { decrypt as decryptToken } from "./encryption";
 import type { BusinessManager } from "../drizzle/schema";
 import { discoverBMAccounts } from "./metaApi";
@@ -37,6 +39,7 @@ export type SyncOutcome =
       bmId: number;
       newCount: number;
       existingCount: number;
+      mergedCount: number;
       removedCount: number;
       totalFound: number;
     }
@@ -91,13 +94,18 @@ export async function syncOneBusinessManager(
   const seen = new Set<string>();
   let newCount = 0;
   let existingCount = 0;
+  let mergedCount = 0;
 
   const linkByAdAcct = new Map<number, (typeof existingLinks)[number]>();
   for (const l of existingLinks) linkByAdAcct.set(l.adAccountId, l);
 
   for (const acc of [...result.ownedAccounts, ...result.clientAccounts]) {
     let dbAcct = await findAdAccountByMetaId(tenantId, acc.bmAdAccountId);
-    if (!dbAcct) {
+    const action = decideAccountMerge(
+      dbAcct ? { id: (dbAcct as any).id, bmId: (dbAcct as any).bmId ?? null } : null,
+      bm.id,
+    );
+    if (action === "create") {
       const acctId = await createAdAccount({
         userId: tenantId,
         adAccountId: acc.bmAdAccountId,
@@ -114,8 +122,22 @@ export async function syncOneBusinessManager(
       } as any);
       dbAcct = { id: acctId } as any;
       newCount += 1;
+    } else if (action === "convert") {
+      // ⭐ Auto-Merge (ตัวเลือก C): แถวเดิมเป็นบัญชีเดี่ยว (bmId=null)
+      // → แปลงให้ผูก BM นี้ + ใช้ token ของ BM เป็นแหล่งหลัก
+      // ข้อมูล insights/campaignStatus/adStatus ผูกกับ accountId เดิมอยู่แล้ว → ไม่ต้องย้าย
+      const acctDbId = (dbAcct as any).id as number;
+      const alreadyDiscovered = (dbAcct as any).discoveredAt != null;
+      await convertStandaloneToBm(acctDbId, tenantId, bm.id, token, alreadyDiscovered);
+      await updateAdAccount(acctDbId, tenantId, {
+        ownerUserId: bm.defaultOwnerUserId ?? null,
+      });
+      mergedCount += 1;
+    } else if (action === "conflict") {
+      // แถวนี้ผูกกับ BM อื่นอยู่ → ไม่แย่งมา (ข้ามไป)
+      continue;
     } else {
-      // Prompt E (ตัวเลือก A): บัญชีเดิมก็ทับเจ้าของตาม default owner ของ BM
+      // noop: แถวนี้ผูก BM นี้อยู่แล้ว — ทับเจ้าของตาม default owner
       await updateAdAccount((dbAcct as any).id, tenantId, {
         ownerUserId: bm.defaultOwnerUserId ?? null,
       });
@@ -171,6 +193,7 @@ export async function syncOneBusinessManager(
     bmId: bm.id,
     newCount,
     existingCount,
+    mergedCount,
     removedCount,
     totalFound: result.totalCount,
   };
@@ -182,7 +205,7 @@ export async function syncOneBusinessManager(
  */
 export function shouldNotifyOwner(outcome: SyncOutcome): boolean {
   if (!outcome.ok) return true; // error = แจ้งเสมอ
-  return outcome.newCount > 0 || outcome.removedCount > 0;
+  return outcome.newCount > 0 || outcome.removedCount > 0 || outcome.mergedCount > 0;
 }
 
 export function summarizeOutcome(bm: BusinessManager, outcome: SyncOutcome): { title: string; content: string } {
@@ -196,6 +219,10 @@ export function summarizeOutcome(bm: BusinessManager, outcome: SyncOutcome): { t
     `Business Manager "${bm.name}" (${bm.bmId}) มีการเปลี่ยนแปลง:`,
   ];
   if (outcome.newCount > 0) lines.push(`• พบบัญชีใหม่ ${outcome.newCount} บัญชี`);
+  if (outcome.mergedCount > 0)
+    lines.push(
+      `• รวมบัญชีเดี่ยวกลับเข้า BM อัตโนมัติ ${outcome.mergedCount} บัญชี (ใช้ token ของ BM เป็นหลัก ข้อมูลเดิมคงอยู่ครบ)`,
+    );
   if (outcome.removedCount > 0) lines.push(`• ถอดบัญชี ${outcome.removedCount} บัญชี (หายจาก BM)`);
   lines.push(`• รวมบัญชีใน BM ตอนนี้: ${outcome.totalFound}`);
   return {

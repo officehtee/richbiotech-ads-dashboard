@@ -1012,3 +1012,12 @@
 - [x] BM table: เพิ่มคอลัมน์ "อายุ Token" ก่อน "สถานะ" + colSpan 9→10 (BMSection.tsx)
 - [x] Standalone table: เพิ่มคอลัมน์ "อายุ Token" ก่อน "สถานะ" (isSingle ? TokenAgeCell : "—") (AccountsSettings.tsx)
 - [x] tsc 0 errors, checkpoint saved
+
+
+## Round — Auto-Merge บัญชีเดี่ยวกลับเข้า BM (ตัวเลือก C)
+- [x] เพิ่ม pure function `decideAccountMerge` (create/convert/noop/conflict) ใน server/accountMerge.ts
+- [x] เพิ่ม db helper `convertStandaloneToBm` (set bmId + token BM + clear tokenExpiresAt)
+- [x] integrate ใน bmSync.ts: แปลงบัญชีเดี่ยว→BM อัตโนมัติเมื่อ adAccountId ชน, กัน conflict กับ BM อื่น
+- [x] เพิ่ม mergedCount ใน SyncOutcome + แจ้งเตือน owner + return ของ bm.sync / syncAllNow
+- [x] unit tests decideAccountMerge 6 เคส (accountMerge.test.ts)
+- [x] แก้ mock ./metaApi เพิ่ม fetchTokenExpiresAt — suite เขียวทั้งหมด (624 tests)

@@ -910,6 +910,7 @@ export const appRouter = router({
           ok: true as const,
           newCount: outcome.newCount,
           existingCount: outcome.existingCount,
+          mergedCount: outcome.mergedCount,
           removedCount: outcome.removedCount,
           totalFound: outcome.totalFound,
         };
@@ -927,6 +928,7 @@ export const appRouter = router({
       const startedAt = Date.now();
       let totalNew = 0;
       let totalRemoved = 0;
+      let totalMerged = 0;
       let failed = 0;
       for (const bm of bms) {
         try {
@@ -936,6 +938,7 @@ export const appRouter = router({
           } else {
             totalNew += outcome.newCount;
             totalRemoved += outcome.removedCount;
+            totalMerged += outcome.mergedCount;
           }
         } catch {
           failed += 1;
@@ -967,6 +970,7 @@ export const appRouter = router({
         bmTotal: bms.length,
         newAccounts: totalNew,
         removedAccounts: totalRemoved,
+        mergedAccounts: totalMerged,
         failed,
       };
     }),
