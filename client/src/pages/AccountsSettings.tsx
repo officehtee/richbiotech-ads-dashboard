@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BMSection, TokenAgeCell } from "@/components/BMSection";
+import { BMSection, TokenAgeCell, MergeBadge } from "@/components/BMSection";
 import { AutoSyncSection } from "@/components/AutoSyncSection";
 import { SyncLogSection } from "@/components/SyncLogSection";
 import {
@@ -74,6 +74,8 @@ type Account = {
   effectiveStatus: "active" | "token_expired" | "blocked" | "revoked";
   statusSource: "single" | "bm";
   tokenExpiresAt?: Date | string | null;
+  mergedAt?: Date | string | null;
+  autoReactivatedAt?: Date | string | null;
 };
 
 const PAYMENT_LABEL: Record<string, string> = {
@@ -783,7 +785,10 @@ function AccountRow({
 
       {/* สถานะ */}
       <TableCell>
-        <Badge variant="outline" className={status.className}>{status.label}</Badge>
+        <div className="flex items-center">
+          <Badge variant="outline" className={status.className}>{status.label}</Badge>
+          <MergeBadge mergedAt={a.mergedAt} autoReactivatedAt={a.autoReactivatedAt} />
+        </div>
       </TableCell>
 
       {/* ปุ่ม */}

@@ -1021,3 +1021,16 @@
 - [x] เพิ่ม mergedCount ใน SyncOutcome + แจ้งเตือน owner + return ของ bm.sync / syncAllNow
 - [x] unit tests decideAccountMerge 6 เคส (accountMerge.test.ts)
 - [x] แก้ mock ./metaApi เพิ่ม fetchTokenExpiresAt — suite เขียวทั้งหมด (624 tests)
+
+
+## Round — Auto-Reactivate + Badge "Merged" (เสร็จ)
+- [x] DB: เพิ่ม field `mergedAt` + `standaloneAccessToken` + `autoReactivatedAt` ใน adAccounts + `syncFailStreak` ใน businessManagers (migration 0018)
+- [x] Backend: ตรวจ BM sync fail streak — เมื่อ BM sync ล้มเหลว เพิ่ม fail count
+- [x] Backend: Auto-Reactivate — เมื่อ BM fail ถึง threshold พลิกบัญชี merged กลับเป็นบัญชีเดี่ยว (ใช้ token เดิม)
+- [x] Backend: db helper reactivateMergedAccountsForBm + reset fail streak เมื่อ sync สำเร็จ
+- [x] Backend: อัปเดต convertStandaloneToBm ให้บันทึก mergedAt + standaloneAccessToken
+- [x] Backend: pure function shouldAutoReactivate (ทดสอบได้)
+- [x] Frontend: MergeBadge "Merged"/"เปิดกลับอัตโนมัติ" ในคอลัมน์สถานะตารางบัญชีเดี่ยว
+- [x] Frontend: toast แจ้งเมื่อ sync เสร็จแล้วมี merge/reactivate
+- [x] Tests: shouldAutoReactivate 6 เคส — suite เขียวทั้งหมด (630 tests)
+- [x] Checkpoint + รายงานผล

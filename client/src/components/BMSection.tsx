@@ -165,6 +165,51 @@ export function TokenAgeCell({ expiresAt }: { expiresAt: Date | string | null | 
 }
 
 // ─────────────────────────────────────────────────────────────────
+// MergeBadge — แสดงสถานะการ merge / auto-reactivate ของบัญชี
+//   • autoReactivatedAt != null → "เปิดกลับอัตโนมัติ" (ฟ้า) — BM บล็อคซ้ำ ระบบพลิกกลับ token เดี่ยว
+//   • mergedAt != null (และยังผูก BM) → "Merged" (เขียว) — เคยเป็นบัญชีเดี่ยว ถูกรวมกลับเข้า BM
+//   • อื่น ๆ → ไม่แสดงอะไร
+// ─────────────────────────────────────────────────────────────────
+function fmtMergeDate(t: Date | string | null | undefined): string {
+  if (!t) return "";
+  const ts = t instanceof Date ? t.getTime() : Date.parse(t as string);
+  if (!Number.isFinite(ts)) return "";
+  return new Date(ts).toLocaleDateString("th-TH", { dateStyle: "short" });
+}
+
+export function MergeBadge({
+  mergedAt,
+  autoReactivatedAt,
+}: {
+  mergedAt?: Date | string | null;
+  autoReactivatedAt?: Date | string | null;
+}) {
+  if (autoReactivatedAt) {
+    return (
+      <Badge
+        variant="outline"
+        className="ml-1 bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30 text-[10px] px-1.5 py-0"
+        title={`ระบบเปิดบัญชีเดี่ยวกลับมาอัตโนมัติเมื่อ BM ถูกบล็อคซ้ำ: ${fmtMergeDate(autoReactivatedAt)}`}
+      >
+        เปิดกลับอัตโนมัติ
+      </Badge>
+    );
+  }
+  if (mergedAt) {
+    return (
+      <Badge
+        variant="outline"
+        className="ml-1 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] px-1.5 py-0"
+        title={`บัญชีเดี่ยวถูกรวมกลับเข้า BM อัตโนมัติเมื่อ BM กลับมาใช้งานได้: ${fmtMergeDate(mergedAt)}`}
+      >
+        Merged
+      </Badge>
+    );
+  }
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────
 // Wizard Dialog
 // ─────────────────────────────────────────────────────────────────
 
@@ -633,10 +678,20 @@ export function BMSection({ owners, groups }: { owners: OwnerOption[]; groups: G
     onSuccess: async (data: any) => {
       if (data?.ok === false && data?.error) {
         toast.error(`Sync ไม่สำเร็จ: ${data.error.title ?? "ไม่ทราบสาเหตุ"}`);
+        if (data?.reactivatedCount > 0) {
+          toast.info(
+            `ระบบเปิดบัญชีเดี่ยวกลับมาอัตโนมัติ ${data.reactivatedCount} บัญชี เนื่องจาก BM ถูกบล็อค`,
+          );
+        }
       } else {
         toast.success(
           `Sync สำเร็จ — ใหม่ ${data.newCount} • มีอยู่ ${data.existingCount} • ถอด ${data.removedCount}`,
         );
+        if (data?.mergedCount > 0) {
+          toast.success(
+            `รวมบัญชีเดี่ยวกลับเข้า BM อัตโนมัติ ${data.mergedCount} บัญชี`,
+          );
+        }
       }
       await utils.bm.list.invalidate();
       await utils.accounts.list.invalidate();

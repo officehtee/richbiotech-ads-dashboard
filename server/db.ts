@@ -2434,6 +2434,7 @@ export async function convertStandaloneToBm(
   bmDbId: number,
   bmToken: string,
   alreadyDiscovered: boolean,
+  prevStandaloneToken?: string | null,
 ): Promise<void> {
   const db = await getDb();
   if (!db) return;
@@ -2442,7 +2443,13 @@ export async function convertStandaloneToBm(
     accessToken: bmToken,
     tokenStatus: "active",
     tokenExpiresAt: null,
+    mergedAt: new Date(), // บันทึกวันที่ merge — ใช้แสดง badge "Merged"
+    autoReactivatedAt: null, // เคลียร์สถานะ reactivate เดิม (ถ้ามี) — ตอนนี้กลับมาอยู่ BM แล้ว
   };
+  // เก็บ token เดี่ยวเดิมไว้ (ถ้าส่งมา) — ใช้ตอน auto-reactivate หาก BM บล็อคซ้ำ
+  if (prevStandaloneToken && prevStandaloneToken !== bmToken) {
+    patch.standaloneAccessToken = prevStandaloneToken;
+  }
   if (!alreadyDiscovered) {
     patch.discoveredAt = new Date();
   }
@@ -2450,4 +2457,51 @@ export async function convertStandaloneToBm(
     .update(adAccounts)
     .set(patch)
     .where(and(eq(adAccounts.id, accountDbId), eq(adAccounts.userId, tenantId)));
+}
+
+/* ============================================================
+ * Auto-Reactivate: เมื่อ BM บล็อคซ้ำ → เปิดบัญชีที่เคย merge กลับมา
+ * ============================================================
+ * เมื่อ BM sync ล้มเหลวติดต่อกันถึง threshold → บัญชีที่เคยถูก merge
+ * (mergedAt != null + มี standaloneAccessToken เก็บไว้) → พลิกกลับมาใช้ token เดี่ยว:
+ *   - accessToken = standaloneAccessToken (token ส่วนตัวเดิม)
+ *   - bmId = null (กลับไปเป็นบัญชีเดี่ยว)
+ *   - autoReactivatedAt = now (แสดง badge)
+ * ข้อมูลยังอยู่ครบ (accountId เดิม) — sync ต่อผ่าน token เดี่ยวได้ทันที
+ *
+ * คืนจำนวนบัญชีที่ reactivate
+ */
+export async function reactivateMergedAccountsForBm(
+  bmDbId: number,
+  tenantId: number,
+): Promise<{ accountDbId: number; nickname: string | null }[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .select()
+    .from(adAccounts)
+    .where(
+      and(
+        eq(adAccounts.userId, tenantId),
+        eq(adAccounts.bmId, bmDbId),
+        isNotNull(adAccounts.mergedAt),
+        isNotNull(adAccounts.standaloneAccessToken),
+      ),
+    );
+  const reactivated: { accountDbId: number; nickname: string | null }[] = [];
+  for (const r of rows as any[]) {
+    const standaloneToken = r.standaloneAccessToken as string | null;
+    if (!standaloneToken) continue;
+    await db
+      .update(adAccounts)
+      .set({
+        bmId: null,
+        accessToken: standaloneToken,
+        tokenStatus: "active",
+        autoReactivatedAt: new Date(),
+      })
+      .where(and(eq(adAccounts.id, r.id), eq(adAccounts.userId, tenantId)));
+    reactivated.push({ accountDbId: r.id as number, nickname: r.nickname ?? null });
+  }
+  return reactivated;
 }

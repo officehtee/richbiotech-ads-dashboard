@@ -78,6 +78,10 @@ export const adAccounts = mysqlTable("adAccounts", {
   // ── เฟส 6: ข้อมูลเติมเงิน (topup) สำหรับบัญชี prepaid — 1 ชุดต่อบัญชี ──
   // ผลลัพธ์ "ต้องเติม" ไม่เก็บใน DB → คำนวณ on-the-fly ตอนแสดง
   tokenExpiresAt: timestamp("tokenExpiresAt"), // null = system user (ไม่หมดอายุ) | วันหมดอายุ token บัญชีเดี่ยว
+  // ── Auto-Merge / Auto-Reactivate metadata ──
+  mergedAt: timestamp("mergedAt"), // วันที่บัญชีเดี่ยวถูก merge กลับเข้า BM อัตโนมัติ (null = ไม่เคย merge)
+  standaloneAccessToken: text("standaloneAccessToken"), // เก็บ token เดี่ยวเดิมไว้ใช้ตอน auto-reactivate (null = ไม่มี)
+  autoReactivatedAt: timestamp("autoReactivatedAt"), // วันที่ระบบเปิดบัญชีเดี่ยวกลับมาอัตโนมัติเมื่อ BM บล็อคซ้ำ
   topupLastDate: timestamp("topupLastDate"), // วันที่เติมล่าสุด (เก็บ UTC timestamp, แสดง local-date)
   topupDailySpend: int("topupDailySpend"), // ยอดยิงต่อวัน (บาท)
   topupUsed: int("topupUsed"), // ใช้ไป (บาท)
@@ -356,6 +360,7 @@ export const businessManagers = mysqlTable("businessManagers", {
   accessTokenEncrypted: text("accessTokenEncrypted").notNull(),
   tokenExpiresAt: timestamp("tokenExpiresAt"), // null = system user (ไม่หมดอายุ)
   lastSyncAt: timestamp("lastSyncAt"),
+  syncFailStreak: int("syncFailStreak").default(0).notNull(), // จำนวนครั้งที่ sync ล้มเหลวติดต่อกัน (reset เมื่อสำเร็จ) — ใช้ trigger auto-reactivate
   status: mysqlEnum("status", ["active", "token_expired", "blocked", "revoked"])
     .default("active")
     .notNull(),

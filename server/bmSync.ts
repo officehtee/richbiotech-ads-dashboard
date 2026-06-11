@@ -17,6 +17,7 @@ import {
   createAdAccount,
   updateAdAccount,
   convertStandaloneToBm,
+  reactivateMergedAccountsForBm,
   ensureAccountGroupMember,
   findAdAccountByMetaId,
   insertBmDiscoveryLog,
@@ -26,12 +27,18 @@ import {
   updateBmLinkLastSeen,
   updateBusinessManager,
 } from "./db";
-import { decideAccountMerge } from "./accountMerge";
+import { decideAccountMerge, shouldAutoReactivate } from "./accountMerge";
 import { decrypt as decryptToken } from "./encryption";
 import type { BusinessManager } from "../drizzle/schema";
 import { discoverBMAccounts } from "./metaApi";
 
 export type SyncTrigger = "manual" | "auto";
+
+/**
+ * จำนวนครั้งที่ BM sync ล้มเหลวติดต่อกัน ก่อนจะ trigger auto-reactivate
+ * (บล็อค 1 ครั้งก็ reactivate ทันที — ไม่รอหลายรอบ เพื่อให้ข้อมูลไหลต่อได้เร็วที่สุด)
+ */
+export const AUTO_REACTIVATE_FAIL_THRESHOLD = 1;
 
 export type SyncOutcome =
   | {
@@ -46,6 +53,7 @@ export type SyncOutcome =
   | {
       ok: false;
       bmId: number;
+      reactivatedCount: number;
       error: { category: string; title?: string; message: string };
     };
 
@@ -63,6 +71,14 @@ export async function syncOneBusinessManager(
   const result = await discoverBMAccounts(bm.bmId, token);
 
   if (!result.ok) {
+    // ⭐ Auto-Reactivate: BM sync ล้มเหลว → เพิ่ม fail streak
+    const newStreak = (bm.syncFailStreak ?? 0) + 1;
+    let reactivatedCount = 0;
+    // ถึง threshold → พลิกบัญชีที่เคย merge กลับมาเป็นบัญชีเดี่ยว (ใช้ token เดิม)
+    if (shouldAutoReactivate(bm.syncFailStreak ?? 0, AUTO_REACTIVATE_FAIL_THRESHOLD)) {
+      const reactivated = await reactivateMergedAccountsForBm(bm.id, tenantId);
+      reactivatedCount = reactivated.length;
+    }
     await insertBmDiscoveryLog({
       bmId: bm.id,
       userId: tenantId,
@@ -78,10 +94,12 @@ export async function syncOneBusinessManager(
     await updateBusinessManager(bm.id, {
       status: result.category === "token_expired" ? "token_expired" : "blocked",
       lastSyncAt: new Date(),
+      syncFailStreak: newStreak,
     });
     return {
       ok: false,
       bmId: bm.id,
+      reactivatedCount,
       error: {
         category: result.category,
         title: (result as any).title,
@@ -128,7 +146,15 @@ export async function syncOneBusinessManager(
       // ข้อมูล insights/campaignStatus/adStatus ผูกกับ accountId เดิมอยู่แล้ว → ไม่ต้องย้าย
       const acctDbId = (dbAcct as any).id as number;
       const alreadyDiscovered = (dbAcct as any).discoveredAt != null;
-      await convertStandaloneToBm(acctDbId, tenantId, bm.id, token, alreadyDiscovered);
+      const prevStandaloneToken = (dbAcct as any).accessToken as string | null;
+      await convertStandaloneToBm(
+        acctDbId,
+        tenantId,
+        bm.id,
+        token,
+        alreadyDiscovered,
+        prevStandaloneToken,
+      );
       await updateAdAccount(acctDbId, tenantId, {
         ownerUserId: bm.defaultOwnerUserId ?? null,
       });
@@ -186,6 +212,7 @@ export async function syncOneBusinessManager(
   await updateBusinessManager(bm.id, {
     status: "active",
     lastSyncAt: new Date(),
+    syncFailStreak: 0, // ⭐ sync สำเร็จ → reset fail streak
   });
 
   return {
@@ -210,9 +237,13 @@ export function shouldNotifyOwner(outcome: SyncOutcome): boolean {
 
 export function summarizeOutcome(bm: BusinessManager, outcome: SyncOutcome): { title: string; content: string } {
   if (!outcome.ok) {
+    const reactivateNote =
+      outcome.reactivatedCount > 0
+        ? `\n\n✅ ระบบเปิดบัญชีเดี่ยวกลับมาอัตโนมัติ ${outcome.reactivatedCount} บัญชี (ใช้ token ส่วนตัวเดิม) เพื่อให้ข้อมูลไหลต่อระหว่าง BM ถูกบล็อค`
+        : "";
     return {
       title: `BM Sync ล้มเหลว: ${bm.name}`,
-      content: `Business Manager "${bm.name}" (${bm.bmId}) sync ไม่สำเร็จ\n\nสาเหตุ: ${outcome.error.title ?? outcome.error.category}\nรายละเอียด: ${outcome.error.message}`,
+      content: `Business Manager "${bm.name}" (${bm.bmId}) sync ไม่สำเร็จ\n\nสาเหตุ: ${outcome.error.title ?? outcome.error.category}\nรายละเอียด: ${outcome.error.message}${reactivateNote}`,
     };
   }
   const lines: string[] = [

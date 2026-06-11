@@ -905,7 +905,12 @@ export const appRouter = router({
         const bm = await getBusinessManagerById(input.id, tid);
         if (!bm) throw new TRPCError({ code: "NOT_FOUND" });
         const outcome = await syncOneBusinessManager(bm, tid, "manual");
-        if (!outcome.ok) return { ok: false as const, error: outcome.error };
+        if (!outcome.ok)
+          return {
+            ok: false as const,
+            error: outcome.error,
+            reactivatedCount: outcome.reactivatedCount,
+          };
         return {
           ok: true as const,
           newCount: outcome.newCount,
@@ -929,12 +934,14 @@ export const appRouter = router({
       let totalNew = 0;
       let totalRemoved = 0;
       let totalMerged = 0;
+      let totalReactivated = 0;
       let failed = 0;
       for (const bm of bms) {
         try {
           const outcome = await syncOneBusinessManager(bm, tid, "manual");
           if (!outcome.ok) {
             failed += 1;
+            totalReactivated += outcome.reactivatedCount;
           } else {
             totalNew += outcome.newCount;
             totalRemoved += outcome.removedCount;
@@ -971,6 +978,7 @@ export const appRouter = router({
         newAccounts: totalNew,
         removedAccounts: totalRemoved,
         mergedAccounts: totalMerged,
+        reactivatedAccounts: totalReactivated,
         failed,
       };
     }),

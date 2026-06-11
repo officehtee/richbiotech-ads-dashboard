@@ -28,3 +28,22 @@ export function decideAccountMerge(
   if (existing.bmId === bmDbId) return "noop";
   return "conflict";
 }
+
+/**
+ * Auto-Reactivate decision (pure) — ใช้ตอน BM sync "ล้มเหลว"
+ *
+ * เมื่อ BM sync ล้มเหลว ระบบจะนับ fail streak สะสม เมื่อถึง threshold
+ * → ควรพลิกบัญชีที่เคยถูก merge กลับเป็นบัญชีเดี่ยว (ใช้ token ส่วนตัวเดิม)
+ * เพื่อให้ข้อมูลไหลต่อระหว่าง BM ถูกบล็อค
+ *
+ * @param prevFailStreak  fail streak เดิมก่อนรอบนี้ (0 = เพิ่งสำเร็จล่าสุด)
+ * @param threshold       จำนวนครั้งล้มเหลวติดต่อกันก่อน trigger (ดีฟอลต์ 1)
+ * @returns               true ถ้ารอบนี้ควร trigger auto-reactivate
+ */
+export function shouldAutoReactivate(
+  prevFailStreak: number,
+  threshold: number,
+): boolean {
+  const newStreak = (prevFailStreak ?? 0) + 1;
+  return newStreak >= threshold;
+}
