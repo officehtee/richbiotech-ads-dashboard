@@ -1075,6 +1075,95 @@ export async function findRecentEventByDedupe(
   return rows[0];
 }
 
+/* ---------- Notification Preferences (per-user) ---------- */
+
+import {
+  notificationPrefs,
+  type NotificationPref,
+  type InsertNotificationPref,
+} from "../drizzle/schema";
+
+/** โครงค่า pref ที่ frontend/gate ใช้ (ทุก field เป็น boolean) */
+export type NotificationPrefValues = {
+  masterEnabled: boolean;
+  syncSuccess: boolean;
+  syncFailed: boolean;
+  tokenIssue: boolean;
+  alertCritical: boolean;
+  alertWarning: boolean;
+  alertInfo: boolean;
+};
+
+/** ค่า default เมื่อผู้ใช้ยังไม่เคยตั้งค่า — ปิด master เพื่อไม่รบกวน */
+export const DEFAULT_NOTIFICATION_PREF: NotificationPrefValues = {
+  masterEnabled: false,
+  syncSuccess: false,
+  syncFailed: true,
+  tokenIssue: true,
+  alertCritical: true,
+  alertWarning: true,
+  alertInfo: false,
+};
+
+/** ดึง pref ของผู้ใช้ 1 คน — ถ้ายังไม่มี row คืน default (master ปิด) */
+export async function getNotificationPref(
+  userId: number,
+): Promise<NotificationPrefValues & { userId: number }> {
+  const db = await getDb();
+  if (!db) return { userId, ...DEFAULT_NOTIFICATION_PREF };
+  const rows = await db
+    .select()
+    .from(notificationPrefs)
+    .where(eq(notificationPrefs.userId, userId))
+    .limit(1);
+  if (!rows.length) return { userId, ...DEFAULT_NOTIFICATION_PREF };
+  const r = rows[0];
+  return {
+    userId,
+    masterEnabled: r.masterEnabled,
+    syncSuccess: r.syncSuccess,
+    syncFailed: r.syncFailed,
+    tokenIssue: r.tokenIssue,
+    alertCritical: r.alertCritical,
+    alertWarning: r.alertWarning,
+    alertInfo: r.alertInfo,
+  };
+}
+
+/** upsert pref ของผู้ใช้ */
+export async function upsertNotificationPref(
+  userId: number,
+  patch: Partial<Omit<InsertNotificationPref, "id" | "userId" | "createdAt" | "updatedAt">>,
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const existing = await db
+    .select()
+    .from(notificationPrefs)
+    .where(eq(notificationPrefs.userId, userId))
+    .limit(1);
+  if (existing.length) {
+    await db
+      .update(notificationPrefs)
+      .set(patch)
+      .where(eq(notificationPrefs.userId, userId));
+  } else {
+    await db.insert(notificationPrefs).values({
+      userId,
+      ...DEFAULT_NOTIFICATION_PREF,
+      ...patch,
+    });
+  }
+}
+
+/** ดึงรายชื่อ userId ทั้งหมดในระบบ (ทุก role) — ใช้ fan-out แจ้งเตือนรายคน */
+export async function listAllUserIds(): Promise<number[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select().from(users);
+  return rows.map((u) => u.id);
+}
+
 /** List all workspace tenant IDs (owners only) — used by the heartbeat job. */
 export async function listAllWorkspaceTenantIds(): Promise<number[]> {
   const db = await getDb();

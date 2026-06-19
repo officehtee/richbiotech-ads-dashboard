@@ -134,6 +134,13 @@
       "when": 1781138288000,
       "tag": "0018_free_blob",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1781857745668,
+      "tag": "0019_amazing_wiccan",
+      "breakpoints": true
     }
   ]
 }

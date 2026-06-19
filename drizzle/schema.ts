@@ -578,3 +578,37 @@ export const adStatus = mysqlTable("adStatus", {
 
 export type AdStatus = typeof adStatus.$inferSelect;
 export type InsertAdStatus = typeof adStatus.$inferInsert;
+
+/**
+ * Notification Preferences — การตั้งค่าแจ้งเตือนส่วนตัวรายผู้ใช้ (per-user)
+ *
+ * นโยบายสำคัญ: ค่าเริ่มต้นต้อง "ปิด" ทุกอย่าง (masterEnabled = false)
+ * ระบบจะไม่ส่งแจ้งเตือน push/manus ส่วนตัวไปหาผู้ใช้คนใด เว้นแต่ผู้ใช้คนนั้น
+ * จะเปิด masterEnabled ด้วยตัวเองก่อน — เพื่อไม่ให้รบกวนพนักงานโดยไม่ตั้งใจ
+ *
+ * ระดับการกรอง 2 ชั้น:
+ *  1) masterEnabled — สวิตช์หลัก ปิด = ไม่รับแจ้งเตือนส่วนตัวเลย
+ *  2) toggles รายประเภท (เปิดได้ต่อเมื่อ master เปิด):
+ *     - syncSuccess: สรุป sync สำเร็จ (รายชั่วโมง)
+ *     - syncFailed: sync ล้มเหลว / ดึงข้อมูลไม่ได้
+ *     - tokenIssue: token หมดอายุ / ถูกบล็อก
+ *     - alertCritical / alertWarning / alertInfo: เหตุการณ์จาก Alert Engine ตามความรุนแรง
+ *
+ * หมายเหตุ: "Web" (กระดิ่งในแอป) ยังบันทึก event ตามปกติเสมอ การตั้งค่านี้
+ * ควบคุมเฉพาะการ "ดัน" แจ้งเตือนออกนอกแอป (manus_owner / push ส่วนตัว) เท่านั้น
+ */
+export const notificationPrefs = mysqlTable("notificationPrefs", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  masterEnabled: boolean("masterEnabled").default(false).notNull(),
+  syncSuccess: boolean("syncSuccess").default(false).notNull(),
+  syncFailed: boolean("syncFailed").default(true).notNull(),
+  tokenIssue: boolean("tokenIssue").default(true).notNull(),
+  alertCritical: boolean("alertCritical").default(true).notNull(),
+  alertWarning: boolean("alertWarning").default(true).notNull(),
+  alertInfo: boolean("alertInfo").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type NotificationPref = typeof notificationPrefs.$inferSelect;
+export type InsertNotificationPref = typeof notificationPrefs.$inferInsert;

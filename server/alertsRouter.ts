@@ -14,6 +14,8 @@ import {
   markAllAlertEventsRead,
   updateAlertChannel,
   updateAlertRule,
+  getNotificationPref,
+  upsertNotificationPref,
 } from "./db";
 import { DEFAULT_RULES, runAlertCheckForTenant } from "./alertEngine";
 
@@ -212,4 +214,29 @@ export const alertsRouter = router({
     const t = await tid(ctx);
     return runAlertCheckForTenant(t);
   }),
+
+  // ---- Notification Preferences (per-user, พนักงานทุกคนตั้งของตัวเองได้) ----
+  // ใช้ ctx.user.id (ไม่ใช่ tenant) — แต่ละคนมีค่าของตัวเอง
+  /** อ่าน preference การแจ้งเตือนของผู้ใช้ปัจจุบัน */
+  getNotificationPrefs: protectedProcedure.query(async ({ ctx }) => {
+    return getNotificationPref(ctx.user.id);
+  }),
+
+  /** บันทึก preference — ส่งเฉพาะ field ที่ต้องการเปลี่ยน (partial update) */
+  updateNotificationPrefs: protectedProcedure
+    .input(
+      z.object({
+        masterEnabled: z.boolean().optional(),
+        syncSuccess: z.boolean().optional(),
+        syncFailed: z.boolean().optional(),
+        tokenIssue: z.boolean().optional(),
+        alertCritical: z.boolean().optional(),
+        alertWarning: z.boolean().optional(),
+        alertInfo: z.boolean().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await upsertNotificationPref(ctx.user.id, input);
+      return getNotificationPref(ctx.user.id);
+    }),
 });

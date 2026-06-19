@@ -1046,3 +1046,14 @@
 - [x] Backend: หลังอัปเดต Token สำเร็จ → trigger syncAdInsightsForAccounts (7 วันย้อนหลัง) ทันที เหมือนตอนเพิ่มบัญชีใหม่
 - [x] Frontend: toast แจ้งผลเมื่อ Token ใหม่ทำงานได้ (sync แล้ว) หรือเตือนถ้า Token ใหม่ยังใช้ไม่ได้
 - [x] Tests + Checkpoint (630 ผ่าน, tsc 0 errors)
+
+## Round — ตั้งค่าการแจ้งเตือนส่วนตัว (per-user notification preferences)
+- [x] Schema: ตาราง notificationPrefs (userId, masterEnabled default false, sync/token/alert toggles)
+- [x] Migration + apply SQL (0019_amazing_wiccan.sql)
+- [x] db.ts: getNotificationPref(userId) + upsertNotificationPref + DEFAULT_NOTIFICATION_PREF (master ปิด)
+- [x] notifyGate.ts: shouldPushToOwner + notifyOwnerGated — ค่าเริ่มต้นปิด = ไม่ push หาใคร
+- [x] Backend gate: dispatchToChannels (manus_owner ตาม severity) + scheduled BM sync (syncSuccess/syncFailed)
+- [x] routers: alerts.getNotificationPrefs + alerts.updateNotificationPrefs (protected, ใช้ ctx.user.id รายคน)
+- [x] Frontend: แท็บ "ตั้งค่าการแจ้งเตือน" — master toggle เด่น + รายตัวเลือกแบ่งกลุ่ม sync/alert, จางลงเมื่อ master ปิด, optimistic update
+- [x] อัปเดต subtitle หน้าแจ้งเตือนให้สื่อว่าค่าเริ่มต้นปิด
+- [x] Tests + Checkpoint (638 ผ่าน รวม notifyGate 8 ใหม่, tsc 0 errors)

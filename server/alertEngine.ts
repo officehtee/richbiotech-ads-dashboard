@@ -211,8 +211,15 @@ export async function dispatchToChannels(
       } else if (ch.channelType === "webhook" && cfg.url) {
         if (await sendWebhook(cfg, { ...payload })) webhookOk++;
       } else if (ch.channelType === "manus_owner") {
-        const { notifyOwner } = await import("./_core/notification");
-        manus = (await notifyOwner({ title: payload.title, content: payload.message })) || manus;
+        // Gate: เคารพ preference ส่วนตัวของเจ้าของ — master ปิด = ไม่ push
+        const { shouldPushToOwner } = await import("./notifyGate");
+        const sev = (payload.severity || "").toLowerCase();
+        const evType =
+          sev === "critical" ? "alertCritical" : sev === "warning" ? "alertWarning" : "alertInfo";
+        if (await shouldPushToOwner(evType)) {
+          const { notifyOwner } = await import("./_core/notification");
+          manus = (await notifyOwner({ title: payload.title, content: payload.message })) || manus;
+        }
       }
       // email: skipped — not configured in this template
       // web: stored as alertEvent row (handled by caller)

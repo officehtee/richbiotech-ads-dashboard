@@ -82,8 +82,10 @@ async function startServer() {
           }
           if (shouldNotifyOwner(outcome)) {
             const msg = summarizeOutcome(bm, outcome);
-            const sent = await notifyOwner(msg).catch(() => false);
-            notifyResults.push({ bmId: bm.id, sent });
+            // Gate: สำเร็จ→syncSuccess, ล้มเหลว→syncFailed — master ปิด = ไม่ push
+            const { notifyOwnerGated } = await import("../notifyGate");
+            const result = await notifyOwnerGated(outcome.ok ? "syncSuccess" : "syncFailed", msg);
+            notifyResults.push({ bmId: bm.id, sent: result === "sent" });
           }
         } catch (err) {
           console.error(`[syncBM] bmId=${bm.id} failed`, err);

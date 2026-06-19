@@ -29,6 +29,7 @@ import {
 import { trpc } from "@/lib/trpc";
 import {
   Bell,
+  BellOff,
   CheckCircle2,
   Globe,
   Mail,
@@ -37,6 +38,7 @@ import {
   Plus,
   Send,
   Settings,
+  SlidersHorizontal,
   Trash2,
   Webhook,
 } from "lucide-react";
@@ -100,6 +102,22 @@ export default function Alerts() {
 
   const [channelOpen, setChannelOpen] = useState(false);
 
+  // ---- Notification Preferences (per-user) ----
+  const prefs = trpc.alerts.getNotificationPrefs.useQuery();
+  const updatePrefs = trpc.alerts.updateNotificationPrefs.useMutation({
+    onMutate: async (patch) => {
+      await utils.alerts.getNotificationPrefs.cancel();
+      const prev = utils.alerts.getNotificationPrefs.getData();
+      if (prev) utils.alerts.getNotificationPrefs.setData(undefined, { ...prev, ...patch });
+      return { prev };
+    },
+    onError: (e, _patch, ctx) => {
+      if (ctx?.prev) utils.alerts.getNotificationPrefs.setData(undefined, ctx.prev);
+      toast.error("บันทึกไม่สำเร็จ: " + e.message);
+    },
+    onSettled: () => utils.alerts.getNotificationPrefs.invalidate(),
+  });
+
   return (
     <div className="space-y-6">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
@@ -109,7 +127,7 @@ export default function Alerts() {
             แจ้งเตือน
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            ระบบตรวจสอบทุก 3 ชั่วโมง — ส่งหา ทุกคนใน workspace ผ่าน Web / LINE / Webhook
+            ระบบตรวจสอบทุก 3 ชั่วโมง · การแจ้งเตือนเข้ามือถือ/ส่วนตัว <span className="font-medium text-foreground">ปิดเป็นค่าเริ่มต้น</span> — เปิดได้ที่แท็บ "ตั้งค่าการแจ้งเตือน"
           </p>
         </div>
         {isOwner && (
@@ -140,6 +158,10 @@ export default function Alerts() {
           <TabsTrigger value="events">เหตุการณ์</TabsTrigger>
           <TabsTrigger value="rules">กฎ ({rules.data?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="channels">ช่องทาง ({channels.data?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="prefs">
+            <SlidersHorizontal className="h-3.5 w-3.5 mr-1" />
+            ตั้งค่าการแจ้งเตือน
+          </TabsTrigger>
         </TabsList>
 
         {/* ---- Events ---- */}
@@ -265,6 +287,14 @@ export default function Alerts() {
               );
             })
           )}
+        </TabsContent>
+        {/* ---- Notification Preferences ---- */}
+        <TabsContent value="prefs" className="mt-4">
+          <NotificationPrefsPanel
+            prefs={prefs.data}
+            isLoading={prefs.isLoading}
+            onChange={(patch: Record<string, boolean>) => updatePrefs.mutate(patch)}
+          />
         </TabsContent>
       </Tabs>
 
@@ -393,5 +423,174 @@ function AddChannelDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+type PrefShape = {
+  masterEnabled: boolean;
+  syncSuccess: boolean;
+  syncFailed: boolean;
+  tokenIssue: boolean;
+  alertCritical: boolean;
+  alertWarning: boolean;
+  alertInfo: boolean;
+};
+
+const PREF_ITEMS: {
+  key: keyof Omit<PrefShape, "masterEnabled">;
+  label: string;
+  desc: string;
+  group: "sync" | "alert";
+}[] = [
+  {
+    key: "syncFailed",
+    label: "ซิงก์ข้อมูลล้มเหลว",
+    desc: "เมื่อระบบดึงข้อมูลจาก Meta ไม่สำเร็จ (เช่น Token หมดอายุ/บัญชีถูกบล็อก)",
+    group: "sync",
+  },
+  {
+    key: "syncSuccess",
+    label: "ซิงก์ข้อมูลสำเร็จ (ทุกชั่วโมง)",
+    desc: "สรุปผลทุกครั้งที่ซิงก์เสร็จ — เปิดเฉพาะถ้าต้องการติดตามแบบละเอียด อาจถี่",
+    group: "sync",
+  },
+  {
+    key: "tokenIssue",
+    label: "Token มีปัญหา / ใกล้หมดอายุ",
+    desc: "เตือนเมื่อ Access Token ของบัญชีถูกบล็อกหรือใกล้หมดอายุ",
+    group: "sync",
+  },
+  {
+    key: "alertCritical",
+    label: "แจ้งเตือนระดับวิกฤต (Critical)",
+    desc: "เหตุการณ์รุนแรงจากกฎที่ตั้งไว้ เช่น ROAS ต่ำมาก หรือใช้งบโดยไม่มียอดขาย",
+    group: "alert",
+  },
+  {
+    key: "alertWarning",
+    label: "แจ้งเตือนระดับเตือน (Warning)",
+    desc: "เหตุการณ์ที่ควรจับตา เช่น CTR ลดลง หรือต้นทุนต่อข้อความสูงขึ้น",
+    group: "alert",
+  },
+  {
+    key: "alertInfo",
+    label: "แจ้งเตือนระดับข้อมูล (Info)",
+    desc: "ข้อมูลทั่วไปที่ไม่เร่งด่วน — มักถี่ แนะนำเปิดเฉพาะเมื่อจำเป็น",
+    group: "alert",
+  },
+];
+
+function NotificationPrefsPanel({
+  prefs,
+  isLoading,
+  onChange,
+}: {
+  prefs: PrefShape | undefined;
+  isLoading: boolean;
+  onChange: (patch: Record<string, boolean>) => void;
+}) {
+  if (isLoading || !prefs) {
+    return (
+      <Card className="p-8 text-center text-sm text-muted-foreground">กำลังโหลดการตั้งค่า…</Card>
+    );
+  }
+
+  const master = prefs.masterEnabled;
+  const syncItems = PREF_ITEMS.filter((i) => i.group === "sync");
+  const alertItems = PREF_ITEMS.filter((i) => i.group === "alert");
+
+  return (
+    <div className="space-y-4 max-w-3xl">
+      {/* Master switch — การ์ดเด่นด้านบน */}
+      <Card
+        className={`p-5 border-2 transition-colors ${
+          master ? "border-primary/40 bg-primary/5" : "border-border bg-muted/30"
+        }`}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3 min-w-0">
+            <div
+              className={`h-11 w-11 rounded-xl flex items-center justify-center shrink-0 ${
+                master ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {master ? <Bell className="h-5 w-5" /> : <BellOff className="h-5 w-5" />}
+            </div>
+            <div className="min-w-0">
+              <div className="font-semibold text-base">รับการแจ้งเตือนส่วนตัว</div>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                สวิตช์หลัก — ถ้า<span className="font-medium text-foreground">ปิด</span> ระบบจะ
+                <span className="font-medium text-foreground">ไม่ส่งการแจ้งเตือนเข้าตัวคุณเลย</span>{" "}
+                ไม่ว่าจะตั้งหัวข้อด้านล่างไว้อย่างไร (ค่าเริ่มต้น: ปิด) — รายงานยังดูย้อนหลังได้ในแท็บ "เหตุการณ์"
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={master}
+            onCheckedChange={(v) => onChange({ masterEnabled: v })}
+            className="mt-1"
+          />
+        </div>
+      </Card>
+
+      {/* รายการประเภท — จางลงเมื่อ master ปิด */}
+      <div className={master ? "" : "opacity-50 pointer-events-none select-none"}>
+        <PrefGroup
+          title="การซิงก์ข้อมูล"
+          items={syncItems}
+          prefs={prefs}
+          onChange={onChange}
+        />
+        <div className="h-4" />
+        <PrefGroup
+          title="การแจ้งเตือนจากกฎ (Alert Rules)"
+          items={alertItems}
+          prefs={prefs}
+          onChange={onChange}
+        />
+      </div>
+
+      {!master && (
+        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+          <BellOff className="h-3.5 w-3.5" />
+          เปิดสวิตช์หลักด้านบนก่อน จึงจะเลือกประเภทการแจ้งเตือนได้
+        </p>
+      )}
+    </div>
+  );
+}
+
+function PrefGroup({
+  title,
+  items,
+  prefs,
+  onChange,
+}: {
+  title: string;
+  items: typeof PREF_ITEMS;
+  prefs: PrefShape;
+  onChange: (patch: Record<string, boolean>) => void;
+}) {
+  return (
+    <div>
+      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 px-1">
+        {title}
+      </div>
+      <Card className="divide-y overflow-hidden">
+        {items.map((item) => (
+          <div key={item.key} className="p-4 flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="font-medium text-sm">{item.label}</div>
+              <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
+            </div>
+            <Switch
+              checked={prefs[item.key]}
+              onCheckedChange={(v) => onChange({ [item.key]: v })}
+              className="mt-0.5 shrink-0"
+            />
+          </div>
+        ))}
+      </Card>
+    </div>
   );
 }
