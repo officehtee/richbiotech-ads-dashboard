@@ -74,7 +74,6 @@ const menuSections: SidebarSection[] = [
       { icon: Brain, label: "AI แนะนำ", path: "/ai-advisor", roles: ALL_ROLES },
       { icon: Sparkles, label: "วิเคราะห์แอดเชิงลึก", path: "/ad-intelligence", roles: ALL_ROLES },
       { icon: Target, label: "Benchmark มาตรวัดแอด", path: "/ad-metric-benchmark", roles: ALL_ROLES },
-      { icon: Bell, label: "การแจ้งเตือน", path: "/alerts", roles: ALL_ROLES },
       { icon: Grid3x3, label: "วิเคราะห์ Cohort", path: "/cohort", roles: ALL_ROLES },
     ],
   },
@@ -97,6 +96,7 @@ const menuSections: SidebarSection[] = [
   {
     label: "ตั้งค่าระบบ",
     items: [
+      { icon: Bell, label: "การแจ้งเตือน", path: "/alerts", roles: ALL_ROLES },
       { icon: Building2, label: "จัดการบัญชี", path: "/accounts", roles: OWNER_ROLES },
       { icon: Folder, label: "กลุ่มสินค้า", path: "/groups", roles: OWNER_ROLES },
       { icon: Users, label: "จัดการผู้ใช้", path: "/users", roles: OWNER_ROLES },
